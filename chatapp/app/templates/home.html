@@ -1,0 +1,1647 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_title if app_title is defined else 'Digital Thread' }} — Control Panel{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = is_admin %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% include "components/header.html" %}
+
+    <main class="home-main">
+        <!-- LEFT: Agent Chat (full height) -->
+        <section class="home-panel home-chat">
+            <div class="home-panel-header" style="flex-wrap: wrap; gap: 0.4rem;">
+                <div class="home-panel-title">
+                    <svg class="w-4 h-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                    Data Explorer Agent
+                </div>
+                <div class="flex items-center gap-2 ml-auto">
+                    <select id="home-model-select"
+                            style="background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace;">
+                    </select>
+                    <button type="button" onclick="newHomeChat()"
+                            style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 0.3rem;"
+                            onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'"
+                            title="Start new chat">
+                        <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        New
+                    </button>
+                    <!-- <a href="/chat" class="home-panel-link">Full Chat →</a> -->
+                </div>
+            </div>
+            <div class="home-panel-body home-chat-body">
+                <div id="home-chat-messages" class="home-chat-messages">
+                    <div id="home-chat-welcome" class="home-chat-welcome">
+                        <p style="color: var(--accent); font-size: 1.25rem; font-weight: 600; font-family: 'Outfit', sans-serif;">What can I help you explore?</p>
+                        <div id="home-shortcut-cards" class="home-shortcut-grid">
+                            <div class="home-loading" style="height: auto; padding: 1rem;">Loading suggestions...</div>
+                        </div>
+                    </div>
+                </div>
+                <form id="home-chat-form" onsubmit="sendHomeChat(event)" class="home-chat-input" style="position:relative;">
+                    <button type="button" id="home-templates-btn" onclick="toggleHomeTemplates()" title="Prompt templates"
+                            style="display:none;padding:0.4rem;border-radius:6px;background:none;border:1px solid var(--border);cursor:pointer;color:var(--amber,#d29922);transition:all 0.15s;flex-shrink:0;"
+                            onmouseover="this.style.borderColor='var(--amber,#d29922)';this.style.background='rgba(210,153,34,0.08)'"
+                            onmouseout="this.style.borderColor='var(--border)';this.style.background='none'">
+                        <svg style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                        </svg>
+                    </button>
+                    <!-- Templates popover -->
+                    <div id="home-templates-popover" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:0.5rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-height:320px;overflow-y:auto;z-index:50;">
+                        <div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--amber,#d29922);font-family:'IBM Plex Mono',monospace;">⚡ Prompt Templates</span>
+                            <button onclick="toggleHomeTemplates()" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;">
+                                <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div id="home-templates-list" style="padding:0.35rem;"></div>
+                    </div>
+                    <input type="text" id="home-chat-input" placeholder="Ask the agent..." autocomplete="off"
+                           style="flex: 1; padding: 0.5rem 0.75rem; font-size: 0.85rem; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); outline: none; font-family: 'Outfit', sans-serif;"
+                           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+                    <button type="submit" style="padding: 0.5rem 1rem; border-radius: 6px; background: var(--accent); color: var(--bg); border: none; cursor: pointer; font-weight: 500; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Send</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Resize handle between chat and right panels -->
+        <div id="home-resize-handle" class="home-resize-handle" title="Drag to resize"></div>
+
+        <!-- RIGHT column: Tabbed panel -->
+        <div class="home-right">
+            <section class="home-panel" style="flex: 1;">
+                <!-- Tab bar with scroll -->
+                <div class="home-tab-bar">
+                    <button class="home-tab" data-tab="systems" onclick="switchHomeTab('systems')">
+                        <svg style="width:14px;height:14px;color:var(--green);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                        </svg>
+                        Systems
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('systems')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('systems')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+
+                    <button class="home-tab" data-tab="graph" onclick="switchHomeTab('graph')">
+                        <svg style="width:14px;height:14px;color:#a371f7;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6.7 7.5L10.5 16M17.3 7.5L13.5 16M7 6h10"/>
+                        </svg>
+                        Graph
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('graph')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('graph')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+                    <button class="home-tab" data-tab="vocab" onclick="switchHomeTab('vocab')">
+                        <svg style="width:14px;height:14px;color:var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                        </svg>
+                        Concepts
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('vocab')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('vocab')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+
+                    <button class="home-tab" data-tab="trace" onclick="switchHomeTab('trace')">
+                        <svg style="width:14px;height:14px;color:var(--amber);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
+                        </svg>
+                        Trace
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('trace')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('trace')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+
+                    <button class="home-tab" data-tab="memory" onclick="switchHomeTab('memory')">
+                        <svg style="width:14px;height:14px;color:#58a6ff;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                        </svg>
+                        </svg>
+                        Memory
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('memory')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('memory')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+
+                    <button class="home-tab active" data-tab="workflows" onclick="switchHomeTab('workflows')">
+                        <svg style="width:14px;height:14px;color:var(--green,#2ea043);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.656v4.992" />
+                        </svg>
+                        Workflows
+                        <span class="home-tab-popout" onclick="event.stopPropagation(); popOutTab('workflows')" title="Split to bottom">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m0 0l-4-4m4 4l4-4"/>
+                            </svg>
+                        </span>
+                        <span class="home-tab-popout-right" onclick="event.stopPropagation(); popOutTabRight('workflows')" title="Split to right">
+                            <svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-4-4m4 4l-4 4"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+                <div id="home-tab-systems" class="home-tab-content" style="display: none; flex: 1; overflow-y: auto; min-height: 0;">
+                    <div class="home-tab-content-header">
+                        <button id="refresh-systems-btn" onclick="refreshHomeSystems()" title="Refresh systems"
+                                style="background:none;border:1px solid var(--border);color:var(--muted);padding:0.2rem 0.4rem;border-radius:4px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:0.3rem;font-size:0.65rem;font-family:'IBM Plex Mono',monospace;margin-left:0.5rem;"
+                                onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                                onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+                            <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.656v4.992"/></svg>
+                            <span class="hidden sm:inline">Refresh</span>
+                        </button>
+                    </div>
+                    <div id="home-systems-content" style="padding: 0 0.75rem 0.75rem; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+                        <!-- Systems list -->
+                        <div id="home-systems-list-wrap" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+                            <div class="se-systems-list" id="home-systems-list" style="flex: 1; overflow-y: auto;">
+                                <div class="se-loading">Loading systems…</div>
+                            </div>
+                        </div>
+                        <!-- Detail drill-in (hidden by default) -->
+                        <div class="se-detail" id="home-sys-detail" style="display:none;">
+                            <button class="se-detail-back" onclick="homeExplorer.closeDetail()">
+                                <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                                Back to systems
+                            </button>
+                            <div id="home-sys-detail-header"></div>
+                            <div class="se-detail-tabs">
+                                <button class="se-tab active" data-tab="tables" onclick="homeExplorer.switchTab('tables')">Tables</button>
+                                <button class="se-tab" data-tab="concepts" onclick="homeExplorer.switchTab('concepts')">Concepts</button>
+                                <button class="se-tab" data-tab="equivalences" onclick="homeExplorer.switchTab('equivalences')">Equivalences</button>
+                            </div>
+                            <div class="se-detail-body" id="home-sys-detail-body"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Vocabulary -->
+                <div id="home-tab-vocab" class="home-tab-content" style="display: none; flex: 1; overflow-y: auto; min-height: 0;">
+                    <div class="home-vocab-body" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding-top: 0.5rem;">
+                        <div class="home-vocab-search" style="display:flex;align-items:center;gap:0.5rem;">
+                            <div style="position:relative;flex:1;">
+                                <svg style="width:14px;height:14px;color:var(--muted);position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input id="home-vocab-filter" type="text" placeholder="Search concepts..."
+                                       oninput="filterHomeVocab(this.value)"
+                                       style="width: 100%; padding: 0.4rem 0.5rem 0.4rem 2rem; font-size: 0.82rem; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); outline: none; font-family: 'IBM Plex Mono', monospace;"
+                                       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+                            </div>
+                            <button id="refresh-vocab-btn" onclick="refreshHomeVocab()" title="Refresh concepts"
+                                    style="background:none;border:1px solid var(--border);color:var(--muted);padding:0.35rem;border-radius:4px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;flex-shrink:0;"
+                                    onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                                    onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+                                <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.656v4.992"/></svg>
+                            </button>
+                        </div>
+                        <div id="home-vocab-content" class="home-vocab-scroll">
+                            <div class="home-loading">Loading vocabulary...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Graph -->
+                <div id="home-tab-graph" class="home-tab-content" style="display: none; flex: 1; overflow-y: auto; min-height: 0; padding: 0; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; z-index: 2; padding: 0.35rem 0.75rem; background: var(--surface); border-radius: 0 0 6px 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+                        <a href="javascript:void(0)" onclick="toggleGraphLegend()" class="home-panel-link" id="home-graph-legend-toggle">Hide Legend</a>
+                    </div>
+                    <div style="position: absolute; top: 0; right: 0; z-index: 2; padding: 0.35rem 0.75rem; background: var(--surface); border-radius: 0 0 0 6px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+                        <a href="/admin/data-graph" class="home-panel-link">Full View →</a>
+                    </div>
+                    <div id="home-graph" style="width: 100%; height: 100%;"></div>
+                </div>
+
+                <!-- Tab: Trace -->
+                <div id="home-tab-trace" class="home-tab-content" style="display: none; flex: 1; overflow-y: auto; min-height: 0;">
+                    <div id="home-trace-entries" style="padding: 0.5rem 0.75rem;">
+                        <div id="home-trace-empty" class="home-trace-empty">
+                            <svg style="width:28px;height:28px;color:var(--muted);opacity:0.4;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                            </svg>
+                            <div style="font-size:0.82rem;color:var(--text2);font-weight:500;">Investigation Trace</div>
+                            <div style="font-size:0.75rem;color:var(--muted);">Ask the agent a question to see the investigation steps here</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Memory -->
+                <div id="home-tab-memory" class="home-tab-content" style="display: none; flex: 1; overflow-y: auto; min-height: 0;">
+                    <div style="padding: 0;">
+                        <!-- Memory sub-tabs -->
+                        <div class="home-memory-tabs" style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
+                            <button class="home-mem-tab active" data-memtab="events" onclick="switchHomeMemoryTab('events')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);cursor:pointer;">Events</button>
+                            <button class="home-mem-tab" data-memtab="episodes" onclick="switchHomeMemoryTab('episodes')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;">Episodes</button>
+                            <button class="home-mem-tab" data-memtab="facts" onclick="switchHomeMemoryTab('facts')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;">Facts</button>
+                            <button class="home-mem-tab" data-memtab="summaries" onclick="switchHomeMemoryTab('summaries')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;">Summaries</button>
+                            <button class="home-mem-tab" data-memtab="preferences" onclick="switchHomeMemoryTab('preferences')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;">Prefs</button>
+                        </div>
+                        <!-- Memory sub-tab content -->
+                        <div style="padding:0.75rem;overflow-y:auto;flex:1;">
+                            <div id="home-mem-events" class="home-mem-content"><p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem;">Click refresh or switch to this tab to load memory</p></div>
+                            <div id="home-mem-episodes" class="home-mem-content" style="display:none;"></div>
+                            <div id="home-mem-facts" class="home-mem-content" style="display:none;"></div>
+                            <div id="home-mem-summaries" class="home-mem-content" style="display:none;"></div>
+                            <div id="home-mem-preferences" class="home-mem-content" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Workflows -->
+                <div id="home-tab-workflows" class="home-tab-content" style="flex: 1; overflow-y: auto; min-height: 0;">
+                    <!-- Workflows sub-tabs -->
+                    <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;margin-bottom: 0.75rem;">
+                        <button class="home-wf-subtab active" data-wfsub="list" onclick="switchWfSubtab('list')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);cursor:pointer;">Scheduled</button>
+                        <button class="home-wf-subtab" data-wfsub="results" onclick="switchWfSubtab('results')" style="flex:1;padding:0.4rem 0.5rem;font-size:0.72rem;font-weight:600;font-family:'IBM Plex Mono',monospace;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;">Recent Runs</button>
+                        <button onclick="loadHomeWorkflows(true);loadHomeRecentResults(true);" title="Refresh"
+                                style="background:none;border:none;color:var(--muted);padding:0.4rem 0.5rem;cursor:pointer;transition:color 0.15s;flex-shrink:0;"
+                                onmouseover="this.style.color='var(--accent)'"
+                                onmouseout="this.style.color='var(--muted)'">
+                            <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.656v4.992"/></svg>
+                        </button>
+                        <button onclick="showWorkflowModal('', '')" title="New workflow"
+                                style="background:none;border:none;color:var(--muted);padding:0.4rem 0.5rem;cursor:pointer;transition:color 0.15s;flex-shrink:0;"
+                                onmouseover="this.style.color='var(--accent)'"
+                                onmouseout="this.style.color='var(--muted)'">
+                            <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        </button>
+                        <a href="/workflows" title="Open full workflows view" style="color:var(--muted);padding:0.4rem 0.5rem;font-size:0.65rem;font-family:'IBM Plex Mono',monospace;text-decoration:none;display:flex;align-items:center;flex-shrink:0;transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+                            <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                        </a>
+                    </div>
+                    <div id="home-wf-sub-list" style="padding: 0 0.75rem 0.75rem; flex:1; overflow-y:auto;">
+                        <div id="home-workflows-content">
+                            <div class="home-loading"><span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>
+                        </div>
+                    </div>
+                    <div id="home-wf-sub-results" style="display:none; padding: 0 0.75rem 0.75rem; flex:1; overflow-y:auto;">
+                        <div id="home-recent-results-content">
+                            <div class="home-loading"><span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div id="home-right-resize" title="Drag to resize"></div>
+
+        <!-- Right-split panel (full height, for tabs popped out to the right) -->
+        <div id="home-right-split"></div>
+    </main>
+</div>
+
+<style>
+    .home-main {
+        padding: 1rem 1.5rem 1.5rem;
+        margin: 0 auto;
+        height: calc(100vh - 64px);
+        display: flex;
+        gap: 0.35rem;
+        overflow: hidden;
+    }
+
+    /* Left: Chat takes full height, uses flex ratio */
+    .home-chat {
+        flex: 1;
+        min-width: 400px;
+    }
+
+    /* Right column: fills remaining space */
+    .home-right {
+        flex: 1.2;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+    }
+
+    /* Tab bar */
+    .home-tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(var(--primary-rgb, 0, 216, 255), 0.03) 100%);
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        scroll-behavior: smooth;
+        position: relative;
+    }
+    .home-tab-bar::-webkit-scrollbar { display: none; }
+    .home-tab {
+        padding: 0.75rem 0.75rem;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .home-tab:hover { color: var(--text); }
+    .home-tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+    /* Tab order: workflows, memory, trace, systems, graph, concepts */
+    .home-tab[data-tab="workflows"] { order: 1; }
+    .home-tab[data-tab="memory"]    { order: 2; }
+    .home-tab[data-tab="trace"]     { order: 3; }
+    .home-tab[data-tab="systems"]   { order: 4; }
+    .home-tab[data-tab="graph"]     { order: 5; }
+    .home-tab[data-tab="vocab"]     { order: 6; }
+
+    /* Tab content areas */
+    .home-tab-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .home-tab-content-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0.35rem 0.75rem;
+        flex-shrink: 0;
+        min-height: 1.5rem;
+    }
+    .home-panel {
+        border-radius: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--accent);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+        position: relative;
+        transition: opacity 0.3s ease, min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease, background 0.2s ease;
+    }
+    .home-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 1rem;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, transparent 0%, rgba(var(--primary-rgb, 0, 216, 255), 0.03) 100%);
+        flex-shrink: 0;
+    }
+    .home-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .home-panel-link {
+        font-size: 0.78rem;
+        font-family: 'IBM Plex Mono', monospace;
+        color: var(--accent);
+        text-decoration: none;
+        transition: opacity 0.15s;
+    }
+    .home-panel-link:hover { opacity: 0.7; }
+
+    .home-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.75rem;
+        min-height: 0;
+    }
+    .home-stat-badge {
+        font-size: 0.78rem;
+        font-family: 'IBM Plex Mono', monospace;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(0, 216, 255, 0.12);
+        color: var(--accent);
+    }
+    .home-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Systems cards */
+    .home-sys-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.5rem;
+    }
+    .home-sys-card {
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--green);
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+    .home-sys-card:hover {
+        border-color: var(--green);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+    }
+    .home-sys-name {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .home-sys-meta {
+        font-size: 0.75rem;
+        color: var(--muted);
+        font-family: 'IBM Plex Mono', monospace;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.75rem;
+    }
+    .home-sys-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        padding: 0.1rem 0.35rem;
+        border-radius: 3px;
+        background: var(--surface3);
+        color: var(--text2);
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Vocabulary */
+    .home-vocab-body { padding: 0; display: flex; flex-direction: column; }
+    .home-vocab-search { position: relative; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .home-vocab-scroll { flex: 1; overflow-y: auto; padding: 0.4rem 0.75rem; }
+    .home-vocab-group {
+        margin-bottom: 0;
+        border-radius: 0;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        overflow: hidden;
+        transition: background 0.15s;
+    }
+    .home-vocab-group:last-child {
+        border-bottom: none;
+    }
+    .home-vocab-group:hover {
+        background: rgba(var(--primary-rgb, 0, 216, 255), 0.03);
+    }
+    .home-vocab-group-btn {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: left;
+        transition: background 0.1s;
+    }
+    .home-vocab-group-btn:hover { background: rgba(var(--primary-rgb, 0, 216, 255), 0.05); }
+    .home-vocab-items { padding: 0.25rem 0.65rem 0.5rem; }
+    .home-vocab-item {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0.2rem 0;
+    }
+    .home-vocab-item code {
+        font-size: 0.75rem;
+        padding: 0.1rem 0.35rem;
+        border-radius: 3px;
+        background: rgba(0, 216, 255, 0.1);
+        color: var(--accent);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .home-vocab-item span {
+        font-size: 0.75rem;
+        color: var(--muted);
+    }
+
+    /* Chat */
+    .home-chat-body { padding: 0; display: flex; flex-direction: column; }
+    .home-chat-messages { flex: 1; overflow-y: auto; padding: 0.75rem; }
+    .home-chat-welcome {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 0.75rem;
+        text-align: center;
+        padding: 2rem;
+    }
+    .home-chat-avatar { width: 48px; height: 48px; border-radius: 12px; opacity: 0.7; }
+
+    /* Shortcut cards grid */
+    .home-shortcut-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    .home-shortcut-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent) 2%, var(--surface) 98%);
+        border: 1px solid color-mix(in srgb, var(--accent) 6%, var(--border) 94%);
+        border-left: 3px solid color-mix(in srgb, var(--accent) 25%, var(--border) 75%);
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s, background 0.15s;
+        text-align: left;
+    }
+    .home-shortcut-card:hover {
+        background: color-mix(in srgb, var(--accent) 5%, var(--surface) 95%);
+        border-color: var(--accent);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        transform: translateY(-1px);
+    }
+    .home-shortcut-card .sc-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        margin-top: 1px;
+        color: var(--accent);
+    }
+    .home-shortcut-card .sc-body { flex: 1; min-width: 0; }
+    .home-shortcut-card .sc-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .home-shortcut-card .sc-desc {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 0.2rem;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .home-shortcut-card .sc-arrow {
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        color: var(--muted);
+        margin-top: 2px;
+        transition: color 0.15s;
+    }
+    .home-shortcut-card:hover .sc-arrow { color: var(--accent); }
+    .home-chat-input {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.65rem 0.75rem;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+    .home-chat-msg {
+        margin-bottom: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        line-height: 1.5;
+        max-width: 90%;
+    }
+    .home-chat-msg.user {
+        background: var(--accent);
+        color: var(--bg);
+        margin-left: auto;
+        border-bottom-right-radius: 2px;
+    }
+    .home-chat-msg.assistant {
+        background: var(--surface2);
+        color: var(--text);
+        border-bottom-left-radius: 2px;
+        border-left: 3px solid var(--accent);
+    }
+    .home-agent-label {
+        font-size: 0.58rem;
+        font-weight: 700;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.2rem;
+    }
+    .home-chat-msg.assistant ul { list-style-type: disc; padding-left: 1.4rem; margin: 0.5rem 0; }
+    .home-chat-msg.assistant ol { list-style-type: decimal; padding-left: 1.4rem; margin: 0.5rem 0; }
+    .home-chat-msg.assistant li { margin-bottom: 0.25rem; line-height: 1.6; }
+    .home-chat-msg.assistant li::marker { color: var(--accent); }
+    .home-chat-msg.assistant p { margin: 0.5rem 0; line-height: 1.7; }
+    .home-chat-msg.assistant p:first-child { margin-top: 0; }
+    .home-chat-msg.assistant p:last-child { margin-bottom: 0; }
+    .home-chat-msg.assistant code { font-size: 0.75rem; padding: 0.12rem 0.3rem; border-radius: 3px; background: rgba(0,216,255,0.1); font-family: 'IBM Plex Mono', monospace; }
+    .home-chat-msg.assistant pre { margin: 0.5rem 0; padding: 0.5rem 0.6rem; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); overflow-x: auto; }
+    .home-chat-msg.assistant pre code { padding: 0; background: none; font-size: 0.72rem; }
+    .home-chat-msg.assistant strong { color: var(--accent); font-weight: 700; }
+    .home-chat-msg.assistant em { color: var(--text); }
+    .home-chat-msg.assistant h1, .home-chat-msg.assistant h2,
+    .home-chat-msg.assistant h3, .home-chat-msg.assistant h4 {
+        font-weight: 700; margin: 0.8rem 0 0.3rem; line-height: 1.3; color: var(--text);
+    }
+    .home-chat-msg.assistant h1:first-child, .home-chat-msg.assistant h2:first-child,
+    .home-chat-msg.assistant h3:first-child, .home-chat-msg.assistant h4:first-child { margin-top: 0; }
+    .home-chat-msg.assistant h2 { font-size: 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+    .home-chat-msg.assistant h3 { font-size: 0.85rem; }
+    .home-chat-msg.assistant h4 { font-size: 0.82rem; color: var(--accent); }
+    .home-chat-msg.assistant hr { border: none; border-top: 1px solid var(--border); margin: 0.6rem 0; }
+    .home-chat-msg.assistant blockquote {
+        border-left: 3px solid var(--accent); margin: 0.5rem 0; padding: 0.3rem 0.6rem;
+        background: rgba(0,216,255,0.04); color: var(--text2); font-style: italic;
+    }
+    .home-chat-msg.assistant blockquote p:last-child { margin-bottom: 0; }
+    .home-chat-msg.assistant table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.72rem; }
+    .home-chat-msg.assistant th, .home-chat-msg.assistant td { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: left; }
+    .home-chat-msg.assistant th { background: var(--surface3); font-weight: 700; color: var(--text); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .home-chat-msg.assistant td { color: var(--text2); }
+    .home-chat-msg.assistant td code { font-size: 0.68rem; }
+    .home-chat-streaming {
+        display: inline-block;
+        width: 6px;
+        height: 1em;
+        background: var(--accent);
+        animation: blink 1s step-end infinite;
+        vertical-align: text-bottom;
+        margin-left: 2px;
+    }
+
+    /* Tool cards */
+    .home-tools-wrap { display: flex; flex-direction: column; gap: 0.4rem; max-width: 90%; margin-bottom: 0.2rem; }
+    .home-tool-card {
+        border: 1px solid rgba(0,216,255,0.15); border-radius: 8px; overflow: hidden;
+        background: rgba(0,216,255,0.04); font-size: 0.75rem; transition: all 0.15s;
+    }
+    .home-tool-card.done { background: rgba(0,160,255,0.04); border-color: rgba(0,160,255,0.15); }
+    .home-tool-header {
+        display: flex; align-items: center; gap: 0.35rem; width: 100%;
+        padding: 0.35rem 0.55rem; background: none; border: none; cursor: pointer;
+        font-family: inherit; color: var(--text2); transition: background 0.15s;
+    }
+    .home-tool-header:hover { background: rgba(255,255,255,0.04); }
+    .home-tool-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+    .home-tool-card.done .home-tool-dot { background: var(--green); }
+    .home-tool-label { font-size: 0.62rem; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+    .home-tool-name { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-tool-status { font-size: 0.62rem; font-weight: 600; color: var(--accent); margin-left: auto; flex-shrink: 0; }
+    .home-tool-card.done .home-tool-status { color: var(--green); }
+    .home-tool-chevron { width: 12px; height: 12px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; }
+    .home-tool-card.open .home-tool-chevron { transform: rotate(180deg); }
+    .home-tool-details { display: none; border-top: 1px solid var(--border); }
+    .home-tool-card.open .home-tool-details { display: block; }
+    .home-tool-section { padding: 0.4rem 0.55rem; }
+    .home-tool-result-section { padding: 0.4rem 0.55rem; border-top: 1px solid var(--border); }
+    .home-tool-section-hdr { font-size: 0.62rem; font-weight: 700; color: var(--muted); margin-bottom: 0.25rem; }
+    .home-tool-pre {
+        background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+        padding: 0.3rem 0.45rem; overflow-x: auto; max-height: 200px; overflow-y: auto;
+        font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--text2);
+        white-space: pre-wrap; word-break: break-word; margin: 0;
+    }
+    .home-tools-more {
+        background: none; border: 1px solid var(--border); border-radius: 6px;
+        color: var(--accent); font-size: 0.7rem; padding: 0.25rem 0.5rem;
+        cursor: pointer; font-family: 'IBM Plex Mono', monospace; transition: all 0.15s;
+        margin-top: 0.15rem;
+    }
+    .home-tools-more:hover { border-color: var(--accent); background: rgba(0,216,255,0.06); }
+
+    /* Template popover items */
+    .home-tpl-item {
+        display: flex; align-items: center; gap: 0.5rem; width: 100%;
+        padding: 0.5rem 0.65rem; border-radius: 6px; background: none;
+        border: none; cursor: pointer; text-align: left; transition: background 0.12s;
+        font-family: 'Outfit', sans-serif;
+    }
+    .home-tpl-item:hover { background: rgba(var(--primary-rgb, 0, 216, 255), 0.06); }
+    .home-tpl-item:not(:last-child) { border-bottom: 1px solid var(--border); border-radius: 0; }
+    .home-tpl-item:first-child { border-radius: 6px 6px 0 0; }
+    .home-tpl-item:last-child { border-radius: 0 0 6px 6px; }
+    .home-tpl-item:only-child { border-radius: 6px; }
+
+    /* Collapsible reasoning details */
+    .home-reasoning-details {
+        margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface2); padding: 0.3rem 0.5rem; display: none;
+    }
+    .home-reasoning-details.has-tools { display: block; }
+    .home-reasoning-summary {
+        font-size: 0.72rem; color: var(--text2); cursor: pointer;
+        font-family: 'IBM Plex Mono', monospace; user-select: none; list-style: none;
+    }
+    .home-reasoning-summary::-webkit-details-marker { display: none; }
+    .home-reasoning-summary::before { content: '▶ '; font-size: 0.6rem; }
+    .home-reasoning-details[open] .home-reasoning-summary::before { content: '▼ '; }
+    .home-reasoning-details[open] { padding-bottom: 0.5rem; }
+    .home-reasoning-body { padding: 0.4rem 0.2rem 0; }
+
+    /* Response content inside the bubble */
+    .home-response-content { margin-top: 0.5rem; }
+    .home-response-content:empty { margin-top: 0; }
+
+    /* Tool pills inside reasoning — velocity-factory style */
+    .home-tool-pill {
+        display: block; background: var(--surface); border: 1px solid var(--border);
+        border-left: 3px solid var(--amber); color: var(--amber);
+        padding: 0.3rem 0.6rem; border-radius: 6px; margin: 0.2rem 0;
+        font-size: 0.72rem; font-family: 'IBM Plex Mono', monospace;
+        cursor: pointer; user-select: none; list-style: none;
+    }
+    .home-tool-pill.done { border-left-color: var(--green); color: var(--green); }
+
+    /* Tool trace (query + result) */
+    .home-tool-trace {
+        display: none; background: var(--surface); border-left: 2px solid var(--border);
+        padding: 0.4rem 0.6rem; margin: 0.15rem 0 0.4rem 0.5rem;
+        font-size: 0.72rem; font-family: 'IBM Plex Mono', monospace;
+        color: var(--text2); white-space: pre-wrap; word-break: break-word;
+        line-height: 1.5; border-radius: 0 4px 4px 0;
+    }
+    .home-tool-trace.visible { display: block; }
+    .home-trace-input {
+        font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--accent);
+        word-break: break-word; margin-bottom: 0.2rem;
+    }
+    .home-trace-result { color: var(--muted); font-size: 0.68rem; }
+
+    /* Citation badges */
+    .home-cite-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 1.1em; height: 1.1em; font-size: 0.65em; font-weight: 700;
+        border: 1px solid var(--accent); border-radius: 3px; color: var(--accent);
+        vertical-align: super; margin: 0 1px; cursor: default;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Sources footer */
+    .home-sources {
+        margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid var(--border);
+        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+        font-size: 0.7rem; color: var(--muted);
+    }
+    .home-source-badge {
+        color: var(--accent); padding: 0.1rem 0.35rem; border: 1px solid var(--accent);
+        border-radius: 3px; font-size: 0.65rem; font-weight: 600;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Follow-up chips */
+    .home-followup-chips {
+        display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem;
+        padding-top: 0.75rem; border-top: 1px solid var(--border);
+        padding-bottom: 0.75rem;
+    }
+    .home-followup-heading {
+        width: 100%; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.1rem;
+        margin-top: 0.3rem;
+    }
+    .home-followup-heading:first-child { margin-top: 0; }
+    .home-action-heading { color: var(--amber); }
+    .home-suggestion-chip {
+        padding: 0.35rem 0.65rem; border-radius: 8px; font-size: 0.78rem;
+        background: rgba(var(--primary-rgb, 0, 216, 255), 0.08);
+        border: 1px solid rgba(var(--primary-rgb, 0, 216, 255), 0.2);
+        color: var(--text2); cursor: pointer; transition: all 0.15s; line-height: 1.3;
+    }
+    .home-suggestion-chip:hover {
+        background: rgba(var(--primary-rgb, 0, 216, 255), 0.15);
+        border-color: var(--accent); color: var(--text);
+    }
+    .home-action-chip {
+        border-color: var(--amber); color: var(--amber);
+        background: rgba(210, 153, 34, 0.08);
+    }
+    .home-action-chip:hover {
+        background: rgba(210, 153, 34, 0.15); border-color: var(--amber);
+    }
+
+    /* Workflow section in chat */
+    .home-workflow-section {
+        margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
+        background: rgba(46, 160, 67, 0.06); border: 1px solid rgba(46, 160, 67, 0.2);
+        padding-bottom: 1rem; margin-bottom: 0.75rem;
+    }
+    .home-workflow-heading {
+        color: var(--green, #2ea043) !important; margin-bottom: 0.15rem !important;
+    }
+    .home-workflow-desc {
+        font-size: 0.72rem; color: var(--muted); margin-bottom: 0.5rem;
+    }
+    .home-workflow-suggestion {
+        padding: 0.45rem 0.65rem; border-radius: 6px; margin-bottom: 0.35rem;
+        background: var(--surface2); border: 1px solid var(--border);
+        border-left: 3px solid var(--green, #2ea043); cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .home-workflow-suggestion:hover {
+        border-color: var(--green, #2ea043); background: rgba(46, 160, 67, 0.08);
+    }
+    .home-wf-sug-title {
+        font-size: 0.78rem; color: var(--text); line-height: 1.4;
+    }
+    .home-wf-sug-meta {
+        font-size: 0.65rem; color: var(--muted); margin-top: 0.1rem;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Workflow cards in tab — flat row style */
+    .home-wf-row {
+        padding: 0.35rem 0; border-bottom: 1px solid var(--border);
+        transition: background 0.12s;
+    }
+    .home-wf-row:last-child { border-bottom: none; }
+    .home-wf-row:hover { background: rgba(var(--primary-rgb, 0, 216, 255), 0.02); }
+    .home-wf-row-top {
+        display: flex; align-items: baseline; gap: 0.4rem;
+    }
+    .home-wf-row-title {
+        font-size: 0.75rem; font-weight: 600; color: var(--text);
+        font-family: 'IBM Plex Mono', monospace;
+        flex-shrink: 0;
+    }
+    .home-wf-row-meta {
+        font-size: 0.62rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
+    }
+    .home-wf-row-prompt {
+        font-size: 0.68rem; color: var(--muted); line-height: 1.3;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        flex: 1; min-width: 0;
+    }
+    .home-wf-row-foot {
+        display: flex; align-items: center; gap: 0.4rem; margin-top: 0.1rem;
+    }
+    .home-wf-row-tag {
+        font-size: 0.58rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        display: inline-flex; align-items: center; gap: 0.2rem;
+    }
+    .home-wf-row-actions {
+        margin-left: auto; display: flex; gap: 0.15rem;
+    }
+    .home-wf-action-btn {
+        background: none; border: none; border-radius: 3px;
+        padding: 0.15rem 0.3rem; cursor: pointer; font-size: 0.65rem;
+        transition: all 0.12s; color: var(--muted); opacity: 0.5;
+    }
+    .home-wf-row:hover .home-wf-action-btn { opacity: 1; }
+    .home-wf-action-btn:hover {
+        color: var(--accent); background: rgba(0, 216, 255, 0.08);
+    }
+    .home-wf-delete-btn:hover {
+        color: var(--red, #f85149); background: rgba(248, 81, 73, 0.06);
+    }
+
+    /* Recent run rows */
+    .home-rr-row {
+        padding: 0.5rem 0 0.5rem 0.6rem; border-bottom: 1px solid var(--border);
+        border-left: 2px solid var(--border);
+    }
+    .home-rr-row:last-child { border-bottom: none; }
+    .home-rr-row[data-priority="urgent"] { border-left-color: var(--red, #f85149); }
+    .home-rr-row[data-priority="normal"] { border-left-color: var(--accent); }
+    .home-rr-row[data-priority="low"] { border-left-color: var(--muted); }
+    .home-rr-row-head {
+        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    }
+    .home-rr-row-head::-webkit-details-marker { display: none; }
+    .home-rr-exp[open] > .home-rr-row-head .rr-chev { transform: rotate(90deg); }
+    .home-wf-res-exp[open] > .home-rr-row-head .wf-result-chevron { transform: rotate(90deg); }
+    .home-rr-row-title {
+        font-size: 0.72rem; font-weight: 600; color: var(--text);
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .home-rr-priority {
+        font-size: 0.58rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        text-transform: lowercase; letter-spacing: 0.02em;
+    }
+    .home-rr-priority[data-p="urgent"] { color: var(--red, #f85149); }
+    .home-rr-ts {
+        font-size: 0.6rem; color: var(--muted); margin-left: auto;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .home-rr-toggle {
+        cursor: pointer; font-size: 0.68rem; color: var(--accent);
+        font-family: 'IBM Plex Mono', monospace; user-select: none;
+        list-style: none; display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.1rem 0;
+    }
+    .home-rr-toggle::-webkit-details-marker { display: none; }
+    .home-rr-response {
+        font-size: 0.8rem; color: var(--text2); line-height: 1.65;
+        padding: 0.5rem 0 0.25rem; border-left: 2px solid var(--border);
+        padding-left: 0.75rem; margin: 0.25rem 0 0;
+    }
+    .home-rr-response h2 { font-size: 0.95rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.2rem; margin: 0.6rem 0 0.3rem; }
+    .home-rr-response h3 { font-size: 0.88rem; font-weight: 700; color: var(--text); margin: 0.5rem 0 0.2rem; }
+    .home-rr-response h4 { font-size: 0.82rem; font-weight: 700; color: var(--accent); margin: 0.4rem 0 0.15rem; }
+    .home-rr-response p { margin: 0.3rem 0; }
+    .home-rr-response ul, .home-rr-response ol { padding-left: 1.3rem; margin: 0.3rem 0; }
+    .home-rr-response li { margin-bottom: 0.15rem; }
+    .home-rr-response li::marker { color: var(--accent); }
+    .home-rr-response strong { color: var(--text); }
+    .home-rr-response code { font-size: 0.75rem; padding: 0.1rem 0.25rem; border-radius: 3px; background: rgba(0,216,255,0.08); font-family: 'IBM Plex Mono', monospace; }
+    .home-rr-response pre { margin: 0.4rem 0; padding: 0.4rem; border-radius: 5px; background: var(--bg); border: 1px solid var(--border); overflow-x: auto; }
+    .home-rr-response pre code { padding: 0; background: none; font-size: 0.72rem; }
+    .home-rr-response table { border-collapse: collapse; width: 100%; margin: 0.4rem 0; font-size: 0.75rem; }
+    .home-rr-response th, .home-rr-response td { border: 1px solid var(--border); padding: 0.25rem 0.4rem; text-align: left; }
+    .home-rr-response th { background: var(--surface2); font-weight: 700; color: var(--text); }
+    .home-rr-response blockquote { border-left: 3px solid var(--accent); margin: 0.4rem 0; padding: 0.2rem 0.5rem; background: rgba(0,216,255,0.03); }
+    .home-rr-stats {
+        font-size: 0.6rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        display: flex; gap: 0.4rem; padding-top: 0.2rem;
+    }
+
+    /* Trace tab */
+    .home-trace-empty {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 100%; gap: 0.5rem; text-align: center; padding: 3rem 2rem;
+    }
+    .home-trace-entry {
+        position: relative; padding: 0.6rem 0.75rem 0.6rem 1.5rem;
+        border-bottom: 1px solid var(--border); font-size: 0.78rem; line-height: 1.5;
+        color: var(--text2); animation: fadeIn 0.25s ease-out;
+    }
+    .home-trace-entry::before {
+        content: ''; position: absolute; left: 0.4rem; top: 0.85rem;
+        width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+    }
+    .home-trace-entry.decision { color: var(--text); }
+    .home-trace-entry.decision::before { background: var(--accent2, var(--accent)); box-shadow: 0 0 6px rgba(88,166,255,0.4); }
+    .home-trace-entry.discovery::before { background: var(--amber); box-shadow: 0 0 6px rgba(210,153,34,0.4); }
+    .home-trace-entry .home-trace-step-label {
+        font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; margin-bottom: 0.15rem;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .home-trace-entry.decision .home-trace-step-label { color: var(--accent2, var(--accent)); }
+    .home-trace-entry.discovery .home-trace-step-label { color: var(--amber); }
+
+    /* Resize handle between chat and right panels */
+    .home-resize-handle {
+        width: 5px;
+        cursor: col-resize;
+        flex-shrink: 0;
+        background: transparent;
+        transition: background 0.15s;
+        border-radius: 3px;
+    }
+    .home-resize-handle:hover,
+    .home-resize-handle.active {
+        background: var(--accent);
+        opacity: 0.5;
+    }
+
+    /* Pop-out button on tabs */
+    .home-tab-popout {
+        display: none;
+        transition: opacity 0.15s;
+        cursor: pointer;
+        padding: 1px;
+        border-radius: 3px;
+        color: var(--muted);
+        align-items: center;
+    }
+    .home-tab-popout svg, .home-tab-popout-right svg { width: 10px !important; height: 10px !important; stroke-width: 3 !important; }
+    .home-tab:hover .home-tab-popout { display: flex; opacity: 0.8; color: var(--accent); }
+    .home-tab-popout:hover { opacity: 1 !important; color: var(--accent); background: rgba(0,216,255,0.15); }
+
+    /* Split layout */
+    .home-right.split {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .home-right.split > .home-panel { flex: 1; min-height: 0; }
+    .home-split-panel {
+        flex: 1;
+        min-height: 0;
+        border-radius: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--accent);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .home-split-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.4rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, transparent 0%, rgba(var(--primary-rgb, 0, 216, 255), 0.03) 100%);
+        flex-shrink: 0;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--accent);
+    }
+    .home-split-collapse {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 2px 6px;
+        font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .home-split-collapse:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Pin button in split headers */
+    .home-split-pin {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 2px 6px;
+        font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .home-split-pin:hover { color: var(--accent); border-color: var(--accent); }
+    .home-split-pin.pinned { color: var(--accent); border-color: var(--accent); background: rgba(var(--primary-rgb, 0, 216, 255), 0.08); }
+
+    /* Right-split layout */
+    .home-main.has-right-split { }
+    #home-right-resize {
+        width: 5px;
+        cursor: col-resize;
+        flex-shrink: 0;
+        background: transparent;
+        transition: background 0.15s;
+        border-radius: 3px;
+        display: none;
+    }
+    #home-right-resize:hover,
+    #home-right-resize.active {
+        background: var(--accent);
+        opacity: 0.5;
+    }
+    #home-right-split {
+        display: none;
+        min-width: 0;
+        border-radius: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--accent);
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #home-right-split.active {
+        display: flex;
+    }
+    #home-right-resize.active-split {
+        display: block;
+    }
+
+    /* Right-split popout icon */
+    .home-tab-popout-right {
+        display: none;
+        transition: opacity 0.15s;
+        cursor: pointer;
+        padding: 1px;
+        border-radius: 3px;
+        color: var(--muted);
+        align-items: center;
+    }
+    .home-tab:hover .home-tab-popout-right { display: flex; opacity: 0.8; color: var(--accent); }
+    .home-tab-popout-right:hover { opacity: 1 !important; color: var(--accent); background: rgba(0,216,255,0.15); }
+</style>
+
+<script src="https://unpkg.com/d3-quadtree@3"></script>
+<script src="https://unpkg.com/d3-force@3"></script>
+<script src="https://unpkg.com/force-graph"></script>
+<script>
+    // Pass available agents from server (same as chat.html)
+    window.homeAvailableAgents = {{ available_agents|tojson if available_agents is defined else '[]' }};
+</script>
+{% include "components/system_explorer.html" %}
+<script src="/static/js/home.js"></script>
+
+<!-- nosemgrep: insecure-document-method -->
+<script>
+// Home chat resize handle
+(function() {
+    var MIN = 300, MAX = 900, STORAGE_KEY = 'home-chat-width';
+    var handle = document.getElementById('home-resize-handle');
+    var chat = document.querySelector('.home-chat');
+    if (!handle || !chat) return;
+
+    // Restore saved width
+    var saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    if (saved >= MIN && saved <= MAX) {
+        chat.style.flex = 'none';
+        chat.style.width = saved + 'px';
+    }
+
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var startX = e.clientX;
+        var startW = chat.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.classList.add('sidebar-resizing');
+
+        function onMove(e) {
+            var w = Math.min(MAX, Math.max(MIN, startW + (e.clientX - startX)));
+            chat.style.flex = 'none';
+            chat.style.width = w + 'px';
+        }
+        function onUp() {
+            handle.classList.remove('active');
+            document.body.classList.remove('sidebar-resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            localStorage.setItem(STORAGE_KEY, Math.round(chat.getBoundingClientRect().width));
+            // Re-render graph if graph tab is visible
+            if (typeof homeGraph !== 'undefined' && homeGraph) {
+                var graphTab = document.getElementById('home-tab-graph');
+                if (graphTab && graphTab.style.display !== 'none') {
+                    var rect = document.getElementById('home-graph').getBoundingClientRect();
+                    homeGraph.width(rect.width).height(rect.height);
+                }
+            }
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+})();
+
+// Tab switching for right panel
+function switchHomeTab(tabId) {
+    // If the tab is currently in a split panel, just make sure it's visible there — don't touch the main panel
+    if (_splitTabId === tabId || _rightSplitTabId === tabId) {
+        var tabEl = document.getElementById('home-tab-' + tabId);
+        if (tabEl) tabEl.style.display = '';
+        // Still trigger data loading for tabs that need it
+        if (tabId === 'workflows' && typeof loadHomeWorkflows === 'function') loadHomeWorkflows();
+        if (tabId === 'memory' && typeof loadHomeMemoryTab === 'function') loadHomeMemoryTab(homeMemoryTab || 'events');
+        if (tabId === 'graph') {
+            setTimeout(function() {
+                if (typeof homeGraph !== 'undefined' && homeGraph) {
+                    var el = document.getElementById('home-graph');
+                    if (el) { var rect = el.getBoundingClientRect(); homeGraph.width(rect.width).height(rect.height); homeGraph.zoomToFit(300, 20); }
+                }
+            }, 200);
+        }
+        return;
+    }
+
+    // Hide all tab contents that are inside the main panel (not in split)
+    var mainPanel = document.querySelector('.home-right > .home-panel');
+    if (mainPanel) {
+        mainPanel.querySelectorAll('.home-tab-content').forEach(function(el) { el.style.display = 'none'; });
+    }
+    // Deactivate all tabs
+    document.querySelectorAll('.home-tab').forEach(function(el) { el.classList.remove('active'); });
+    // Show selected tab content
+    var tabEl = document.getElementById('home-tab-' + tabId);
+    if (tabEl) tabEl.style.display = '';
+    // Activate selected tab button
+    var tabBtn = document.querySelector('.home-tab[data-tab="' + tabId + '"]');
+    if (tabBtn) tabBtn.classList.add('active');
+    // Re-render graph if switching to graph tab
+    if (tabId === 'graph') {
+        setTimeout(function() {
+            if (typeof homeGraph !== 'undefined' && homeGraph) {
+                var el = document.getElementById('home-graph');
+                if (el) {
+                    var rect = el.getBoundingClientRect();
+                    homeGraph.width(rect.width).height(rect.height);
+                    homeGraph.zoomToFit(300, 20);
+                }
+            }
+        }, 100);
+    }
+    // Load memory when switching to memory tab
+    if (tabId === 'memory' && typeof loadHomeMemoryTab === 'function') {
+        loadHomeMemoryTab(homeMemoryTab || 'events');
+    }
+    // Load workflows when switching to workflows tab
+    if (tabId === 'workflows' && typeof loadHomeWorkflows === 'function') {
+        loadHomeWorkflows();
+    }
+    // Persist selection
+    localStorage.setItem('home-active-tab', tabId);
+}
+
+// Pop-out / split tab functionality
+var _splitTabId = null;
+var _rightSplitTabId = null;
+var SPLIT_PIN_KEY = 'home-split-pinned';
+
+function _pinIcon(filled) {
+    return '<svg style="width:10px;height:10px;" fill="' + (filled ? 'currentColor' : 'none') + '" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>';
+}
+
+function _savePinnedLayout() {
+    var layout = {};
+    if (_splitTabId) layout.bottom = _splitTabId;
+    if (_rightSplitTabId) layout.right = _rightSplitTabId;
+    if (layout.bottom || layout.right) {
+        localStorage.setItem(SPLIT_PIN_KEY, JSON.stringify(layout));
+    } else {
+        localStorage.removeItem(SPLIT_PIN_KEY);
+    }
+}
+
+function _getPinnedLayout() {
+    try {
+        var raw = localStorage.getItem(SPLIT_PIN_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch(_) { return null; }
+}
+
+function popOutTab(tabId) {
+    if (_splitTabId) collapseTab(true); // collapse existing split first (skip unpin)
+
+    _splitTabId = tabId;
+    var homeRight = document.querySelector('.home-right');
+    var tabContent = document.getElementById('home-tab-' + tabId);
+    var tabBtn = document.querySelector('.home-tab[data-tab="' + tabId + '"]');
+
+    // Get tab label text
+    var tabLabel = tabBtn ? tabBtn.textContent.trim() : tabId;
+
+    // Hide the tab button (it's now in the split)
+    if (tabBtn) tabBtn.style.display = 'none';
+
+    // If the popped tab was the active one, switch to another tab
+    if (tabBtn && tabBtn.classList.contains('active')) {
+        var otherTab = document.querySelector('.home-tab:not([style*="display: none"])');
+        if (otherTab) switchHomeTab(otherTab.dataset.tab);
+    }
+
+    // Check if pinned
+    var pinned = _getPinnedLayout();
+    var isPinned = pinned && pinned.bottom === tabId;
+
+    // Create the split panel
+    var splitPanel = document.createElement('div');
+    splitPanel.className = 'home-split-panel';
+    splitPanel.id = 'home-split-panel';
+    splitPanel.innerHTML = '<div class="home-split-header">' // nosemgrep: insecure-innerhtml, insecure-document-method
+        + '<span>' + tabLabel.replace(/[0-9—–]/g, '').trim() + '</span>'
+        + '<div style="display:flex;align-items:center;gap:0.35rem;">'
+        + '<button class="home-split-pin' + (isPinned ? ' pinned' : '') + '" onclick="togglePinBottom()" title="Pin this layout">'
+        + _pinIcon(isPinned) + ' Pin</button>'
+        + '<button class="home-split-collapse" onclick="collapseTab()" title="Collapse back to tabs">'
+        + '<svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 15v4.5m0-4.5h4.5m-4.5 0l5.25 5.25"/></svg>'
+        + ' Collapse</button></div></div>';
+
+    // Move the tab content into the split panel
+    tabContent.style.display = '';
+    splitPanel.appendChild(tabContent);
+
+    // Add split class and append panel
+    homeRight.classList.add('split');
+    homeRight.appendChild(splitPanel);
+
+    // Re-render graph if it was popped out
+    if (tabId === 'graph') {
+        setTimeout(function() {
+            if (typeof homeGraph !== 'undefined' && homeGraph) {
+                var el = document.getElementById('home-graph');
+                if (el) {
+                    var rect = el.getBoundingClientRect();
+                    homeGraph.width(rect.width).height(rect.height);
+                    homeGraph.zoomToFit(300, 20);
+                }
+            }
+        }, 200);
+    }
+
+    // Trigger data loading for tabs that need it
+    if (tabId === 'workflows' && typeof loadHomeWorkflows === 'function') loadHomeWorkflows();
+    if (tabId === 'memory' && typeof loadHomeMemoryTab === 'function') loadHomeMemoryTab(homeMemoryTab || 'events');
+}
+
+function collapseTab(skipUnpin) {
+    if (!_splitTabId) return;
+
+    var homeRight = document.querySelector('.home-right');
+    var splitPanel = document.getElementById('home-split-panel');
+    var tabContent = document.getElementById('home-tab-' + _splitTabId);
+    var tabBtn = document.querySelector('.home-tab[data-tab="' + _splitTabId + '"]');
+    var mainPanel = homeRight.querySelector('.home-panel');
+
+    // Move tab content back into the main panel
+    if (tabContent && mainPanel) {
+        tabContent.style.display = 'none';
+        mainPanel.appendChild(tabContent);
+    }
+
+    // Show the tab button again
+    if (tabBtn) tabBtn.style.display = '';
+
+    // Remove split panel and class
+    if (splitPanel) splitPanel.remove();
+    homeRight.classList.remove('split');
+
+    // Switch to the collapsed tab
+    var oldTab = _splitTabId;
+    _splitTabId = null;
+    switchHomeTab(oldTab);
+
+    // Update pinned layout
+    if (!skipUnpin) {
+        var pinned = _getPinnedLayout() || {};
+        if (pinned.bottom === oldTab) {
+            delete pinned.bottom;
+            if (pinned.right) localStorage.setItem(SPLIT_PIN_KEY, JSON.stringify(pinned));
+            else localStorage.removeItem(SPLIT_PIN_KEY);
+        }
+    }
+}
+
+function togglePinBottom() {
+    var pinned = _getPinnedLayout() || {};
+    var btn = document.querySelector('#home-split-panel .home-split-pin');
+    if (pinned.bottom === _splitTabId) {
+        delete pinned.bottom;
+        if (btn) { btn.classList.remove('pinned'); btn.innerHTML = _pinIcon(false) + ' Pin'; } // nosemgrep: insecure-innerhtml, insecure-document-method
+    } else {
+        pinned.bottom = _splitTabId;
+        if (btn) { btn.classList.add('pinned'); btn.innerHTML = _pinIcon(true) + ' Pin'; } // nosemgrep: insecure-innerhtml, insecure-document-method
+    }
+    if (pinned.bottom || pinned.right) localStorage.setItem(SPLIT_PIN_KEY, JSON.stringify(pinned));
+    else localStorage.removeItem(SPLIT_PIN_KEY);
+}
+
+// ── Right-split functionality ──
+
+function popOutTabRight(tabId) {
+    if (_rightSplitTabId) collapseRightTab(true); // collapse existing right split
+
+    _rightSplitTabId = tabId;
+    var tabContent = document.getElementById('home-tab-' + tabId);
+    var tabBtn = document.querySelector('.home-tab[data-tab="' + tabId + '"]');
+    var rightPanel = document.getElementById('home-right-split');
+    var rightResize = document.getElementById('home-right-resize');
+
+    var tabLabel = tabBtn ? tabBtn.textContent.trim() : tabId;
+
+    // Hide the tab button
+    if (tabBtn) tabBtn.style.display = 'none';
+
+    // If the popped tab was the active one, switch to another
+    if (tabBtn && tabBtn.classList.contains('active')) {
+        var otherTab = document.querySelector('.home-tab:not([style*="display: none"])');
+        if (otherTab) switchHomeTab(otherTab.dataset.tab);
+    }
+
+    // Check if pinned
+    var pinned = _getPinnedLayout();
+    var isPinned = pinned && pinned.right === tabId;
+
+    // Build header
+    rightPanel.innerHTML = '<div class="home-split-header">' // nosemgrep: insecure-innerhtml, insecure-document-method
+        + '<span>' + tabLabel.replace(/[0-9—–]/g, '').trim() + '</span>'
+        + '<div style="display:flex;align-items:center;gap:0.35rem;">'
+        + '<button class="home-split-pin' + (isPinned ? ' pinned' : '') + '" onclick="togglePinRight()" title="Pin this layout">'
+        + _pinIcon(isPinned) + ' Pin</button>'
+        + '<button class="home-split-collapse" onclick="collapseRightTab()" title="Collapse back to tabs">'
+        + '<svg style="width:10px;height:10px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 15v4.5m0-4.5h4.5m-4.5 0l5.25 5.25"/></svg>'
+        + ' Collapse</button></div></div>';
+
+    // Move tab content into right panel
+    tabContent.style.display = '';
+    rightPanel.appendChild(tabContent);
+
+    // Show the right panel and resize handle
+    rightPanel.classList.add('active');
+    rightResize.classList.add('active-split');
+    document.querySelector('.home-main').classList.add('has-right-split');
+
+    // Restore saved width
+    var savedW = parseInt(localStorage.getItem('home-right-split-width'), 10);
+    if (savedW >= 250 && savedW <= 800) {
+        rightPanel.style.width = savedW + 'px';
+        rightPanel.style.flex = 'none';
+    } else {
+        rightPanel.style.width = '';
+        rightPanel.style.flex = '1';
+    }
+
+    // Re-render graph if needed
+    if (tabId === 'graph') {
+        setTimeout(function() {
+            if (typeof homeGraph !== 'undefined' && homeGraph) {
+                var el = document.getElementById('home-graph');
+                if (el) {
+                    var rect = el.getBoundingClientRect();
+                    homeGraph.width(rect.width).height(rect.height);
+                    homeGraph.zoomToFit(300, 20);
+                }
+            }
+        }, 200);
+    }
+
+    // Trigger data loading for tabs that need it
+    if (tabId === 'workflows' && typeof loadHomeWorkflows === 'function') loadHomeWorkflows();
+    if (tabId === 'memory' && typeof loadHomeMemoryTab === 'function') loadHomeMemoryTab(homeMemoryTab || 'events');
+}
+
+function collapseRightTab(skipUnpin) {
+    if (!_rightSplitTabId) return;
+
+    var tabContent = document.getElementById('home-tab-' + _rightSplitTabId);
+    var tabBtn = document.querySelector('.home-tab[data-tab="' + _rightSplitTabId + '"]');
+    var rightPanel = document.getElementById('home-right-split');
+    var rightResize = document.getElementById('home-right-resize');
+    var mainPanel = document.querySelector('.home-right > .home-panel');
+
+    // Move tab content back
+    if (tabContent && mainPanel) {
+        tabContent.style.display = 'none';
+        mainPanel.appendChild(tabContent);
+    }
+
+    // Show tab button again
+    if (tabBtn) tabBtn.style.display = '';
+
+    // Hide right panel
+    rightPanel.classList.remove('active');
+    rightPanel.innerHTML = ''; // nosemgrep: insecure-innerhtml, insecure-document-method
+    rightPanel.style.width = '';
+    rightPanel.style.flex = '';
+    rightResize.classList.remove('active-split');
+    document.querySelector('.home-main').classList.remove('has-right-split');
+
+    var oldTab = _rightSplitTabId;
+    _rightSplitTabId = null;
+    switchHomeTab(oldTab);
+
+    if (!skipUnpin) {
+        var pinned = _getPinnedLayout() || {};
+        if (pinned.right === oldTab) {
+            delete pinned.right;
+            if (pinned.bottom) localStorage.setItem(SPLIT_PIN_KEY, JSON.stringify(pinned));
+            else localStorage.removeItem(SPLIT_PIN_KEY);
+        }
+    }
+}
+
+function togglePinRight() {
+    var pinned = _getPinnedLayout() || {};
+    var btn = document.querySelector('#home-right-split .home-split-pin');
+    if (pinned.right === _rightSplitTabId) {
+        delete pinned.right;
+        if (btn) { btn.classList.remove('pinned'); btn.innerHTML = _pinIcon(false) + ' Pin'; } // nosemgrep: insecure-innerhtml, insecure-document-method
+    } else {
+        pinned.right = _rightSplitTabId;
+        if (btn) { btn.classList.add('pinned'); btn.innerHTML = _pinIcon(true) + ' Pin'; } // nosemgrep: insecure-innerhtml, insecure-document-method
+    }
+    if (pinned.bottom || pinned.right) localStorage.setItem(SPLIT_PIN_KEY, JSON.stringify(pinned));
+    else localStorage.removeItem(SPLIT_PIN_KEY);
+}
+
+// ── Right-split resize handle ──
+(function() {
+    var MIN = 250, MAX = 800, STORAGE_KEY = 'home-right-split-width';
+    var handle = document.getElementById('home-right-resize');
+    var panel = document.getElementById('home-right-split');
+    if (!handle || !panel) return;
+
+    handle.addEventListener('mousedown', function(e) {
+        if (!panel.classList.contains('active')) return;
+        e.preventDefault();
+        var startX = e.clientX;
+        var startW = panel.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.classList.add('sidebar-resizing');
+
+        function onMove(e) {
+            // Dragging left = wider right panel (startX - e.clientX)
+            var w = Math.min(MAX, Math.max(MIN, startW + (startX - e.clientX)));
+            panel.style.flex = 'none';
+            panel.style.width = w + 'px';
+        }
+        function onUp() {
+            handle.classList.remove('active');
+            document.body.classList.remove('sidebar-resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            localStorage.setItem(STORAGE_KEY, Math.round(panel.getBoundingClientRect().width));
+            // Re-render graph if in right split
+            if (_rightSplitTabId === 'graph' && typeof homeGraph !== 'undefined' && homeGraph) {
+                var el = document.getElementById('home-graph');
+                if (el) {
+                    var rect = el.getBoundingClientRect();
+                    homeGraph.width(rect.width).height(rect.height);
+                }
+            }
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+})();
+
+// Restore saved tab and pinned layout on load
+(function() {
+    var saved = localStorage.getItem('home-active-tab');
+    if (saved && document.getElementById('home-tab-' + saved)) {
+        switchHomeTab(saved);
+    }
+
+    // Restore pinned splits
+    var pinned = _getPinnedLayout();
+    if (pinned) {
+        if (pinned.bottom && document.getElementById('home-tab-' + pinned.bottom)) {
+            popOutTab(pinned.bottom);
+        }
+        if (pinned.right && document.getElementById('home-tab-' + pinned.right)) {
+            popOutTabRight(pinned.right);
+        }
+    }
+})();
+</script>
+
+{% endblock %}

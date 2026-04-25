@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Sync Concepts to ChatApp",
+  "description": "When agent-discovery/concepts.py is edited, automatically copy it to chatapp/app/shared/concepts.py to keep the shared vocabulary in sync for Docker builds.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "agent-discovery/concepts.py"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "cp agent-discovery/concepts.py chatapp/app/shared/concepts.py"
+  }
+}

@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluations - Admin{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'Evaluations'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <main style="padding: 0.75rem 1.5rem 1.5rem; height: calc(100vh - 64px - 42px); display: flex; flex-direction: column; overflow: hidden;">
+        <!-- Top bar: time range + agent tabs -->
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-shrink:0;flex-wrap:wrap;">
+            <div style="display:flex;gap:0.25rem;" id="agent-tabs">
+                <button class="ev-agent-tab active" data-agent="orchestrator" onclick="switchAgent('orchestrator')">Orchestrator</button>
+                <button class="ev-agent-tab" data-agent="discovery" onclick="switchAgent('discovery')">Discovery</button>
+            </div>
+            <div style="display:flex;gap:0.25rem;margin-left:0.5rem;" id="preset-buttons">
+                <button onclick="setTimeRange(1)" id="btn-1" class="ev-range-btn">Today</button>
+                <button onclick="setTimeRange(7)" id="btn-7" class="ev-range-btn active">7d</button>
+                <button onclick="setTimeRange(30)" id="btn-30" class="ev-range-btn">30d</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.3rem;margin-left:auto;font-size:0.7rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);">
+                <input type="date" id="start-date" class="ev-date-input" value="{{ start_time[:10] }}">
+                <span>→</span>
+                <input type="date" id="end-date" class="ev-date-input" value="{{ end_time[:10] }}">
+                <button onclick="applyCustomRange()" class="ev-apply-btn">Apply</button>
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <div style="flex:1;display:flex;gap:0.5rem;overflow:hidden;min-height:0;">
+            <!-- LEFT: Score bars + KPIs -->
+            <div style="width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:0.5rem;overflow-y:auto;">
+                <!-- KPI strip -->
+                <div class="ev-kpi-strip" id="ev-kpis"></div>
+                <!-- Evaluator bars -->
+                <div id="ev-bars" style="flex:1;"></div>
+            </div>
+
+            <!-- RIGHT: Results list -->
+            <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
+                <!-- Filter bar -->
+                <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <select id="ev-filter-evaluator" onchange="filterResults()" style="font-size:0.7rem;font-family:'IBM Plex Mono',monospace;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);">
+                        <option value="">All evaluators</option>
+                    </select>
+                    <span id="ev-result-count" style="font-size:0.62rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-left:auto;"></span>
+                    <button id="ev-prev" onclick="changePage(-1)" style="background:none;border:1px solid var(--border);border-radius:3px;padding:0.15rem 0.35rem;cursor:pointer;color:var(--muted);font-size:0.65rem;font-family:'IBM Plex Mono',monospace;" disabled>‹ Prev</button>
+                    <span id="ev-page-info" style="font-size:0.6rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;"></span>
+                    <button id="ev-next" onclick="changePage(1)" style="background:none;border:1px solid var(--border);border-radius:3px;padding:0.15rem 0.35rem;cursor:pointer;color:var(--muted);font-size:0.65rem;font-family:'IBM Plex Mono',monospace;">Next ›</button>
+                </div>
+                <!-- Results scroll -->
+                <div id="ev-results" style="flex:1;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<style>
+    .ev-agent-tab {
+        padding: 0.3rem 0.7rem; border-radius: 5px; border: 1px solid var(--border);
+        background: none; color: var(--muted); cursor: pointer; font-size: 0.72rem;
+        font-family: 'IBM Plex Mono', monospace; font-weight: 600; transition: all 0.12s;
+    }
+    .ev-agent-tab:hover { color: var(--text); border-color: var(--border2); }
+    .ev-agent-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+    .ev-range-btn {
+        padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);
+        background: none; color: var(--muted); cursor: pointer; font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace; transition: all 0.12s;
+    }
+    .ev-range-btn:hover { color: var(--text); }
+    .ev-range-btn.active { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+
+    .ev-date-input {
+        padding: 0.15rem 0.3rem; border: 1px solid var(--border); border-radius: 4px;
+        background: var(--surface2); color: var(--text); font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .ev-apply-btn {
+        padding: 0.2rem 0.5rem; border-radius: 4px; border: none;
+        background: var(--accent); color: var(--bg); cursor: pointer; font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+    }
+
+    .ev-kpi-strip {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
+    }
+    .ev-kpi {
+        padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);
+        background: var(--surface);
+    }
+    .ev-kpi-value {
+        font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace;
+        color: var(--text);
+    }
+    .ev-kpi-label {
+        font-size: 0.58rem; color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.04em; font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Evaluator bar rows */
+    .ev-bar-row {
+        padding: 0.3rem 0; border-bottom: 1px solid var(--border);
+        cursor: pointer; transition: background 0.1s;
+    }
+    .ev-bar-row:last-child { border-bottom: none; }
+    .ev-bar-row:hover { background: rgba(var(--primary-rgb),0.03); }
+    .ev-bar-row.selected { background: rgba(var(--primary-rgb),0.06); }
+    .ev-bar-name {
+        font-size: 0.65rem; color: var(--text2); font-family: 'IBM Plex Mono', monospace;
+        margin-bottom: 0.15rem;
+    }
+    .ev-bar-line {
+        display: flex; align-items: center; gap: 0.4rem;
+    }
+    .ev-bar-track {
+        flex: 1; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden;
+    }
+    .ev-bar-fill {
+        height: 100%; border-radius: 3px; transition: width 0.4s ease;
+    }
+    .ev-bar-score {
+        font-size: 0.62rem; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
+        width: 36px; text-align: right; flex-shrink: 0;
+    }
+
+    /* Result rows */
+    .ev-result-row {
+        padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border);
+        cursor: pointer; transition: background 0.1s;
+    }
+    .ev-result-row:hover { background: var(--surface2); }
+    .ev-result-head {
+        display: flex; align-items: center; gap: 0.4rem;
+    }
+    .ev-result-score {
+        font-size: 0.72rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace;
+        width: 38px; flex-shrink: 0;
+    }
+    .ev-result-evaluator {
+        font-size: 0.68rem; color: var(--text2); font-family: 'IBM Plex Mono', monospace;
+        flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ev-result-label {
+        font-size: 0.58rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    }
+    .ev-result-ts {
+        font-size: 0.58rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        flex-shrink: 0;
+    }
+    .ev-result-detail {
+        display: none; padding: 0.4rem 0 0.2rem 42px;
+        font-size: 0.72rem; color: var(--text2); line-height: 1.5;
+        border-left: 2px solid var(--border); margin-left: 18px; padding-left: 0.6rem;
+    }
+    .ev-result-detail.open { display: block; }
+    .ev-result-reasoning {
+        font-size: 0.7rem; color: var(--text2); line-height: 1.55; margin-bottom: 0.3rem;
+    }
+    .ev-result-meta {
+        font-size: 0.6rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+        display: flex; gap: 0.5rem; flex-wrap: wrap;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/admin-utils.js"></script>
+<!-- nosemgrep: insecure-document-method -->
+<script>
+// Data from server
+var _agents = {
+    orchestrator: {{ orchestrator_summary | tojson }},
+    discovery: {{ discovery_summary | tojson }},
+};
+var _activeAgent = 'orchestrator';
+var _filterEvaluator = '';
+var _page = 0;
+var _pageSize = 25;
+var _filteredResults = [];
+
+function scoreColor(s) {
+    if (s >= 0.8) return 'var(--green)';
+    if (s >= 0.5) return 'var(--amber)';
+    return 'var(--red)';
+}
+
+function fmtPct(s) { return (s * 100).toFixed(1) + '%'; }
+
+function switchAgent(agent) {
+    _activeAgent = agent;
+    document.querySelectorAll('.ev-agent-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.agent === agent);
+    });
+    renderAgent();
+}
+
+function renderAgent() {
+    var s = _agents[_activeAgent];
+    if (!s || s.total_evaluations === 0) {
+        document.getElementById('ev-kpis').innerHTML = ''; // nosemgrep: insecure-innerhtml, insecure-document-method
+        document.getElementById('ev-bars').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);font-size:0.8rem;">No evaluation data for this agent in the selected period.</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+        document.getElementById('ev-results').innerHTML = ''; // nosemgrep: insecure-innerhtml, insecure-document-method
+        document.getElementById('ev-result-count').textContent = '';
+        return;
+    }
+
+    // KPIs
+    document.getElementById('ev-kpis').innerHTML = // nosemgrep: insecure-innerhtml, insecure-document-method
+        '<div class="ev-kpi"><div class="ev-kpi-value" style="color:' + scoreColor(s.average_score) + ';">' + fmtPct(s.average_score) + '</div><div class="ev-kpi-label">Avg Score</div></div>'
+        + '<div class="ev-kpi"><div class="ev-kpi-value">' + s.total_sessions.toLocaleString() + '</div><div class="ev-kpi-label">Sessions</div></div>'
+        + '<div class="ev-kpi"><div class="ev-kpi-value">' + s.total_evaluations.toLocaleString() + '</div><div class="ev-kpi-label">Evaluations</div></div>'
+        + '<div class="ev-kpi"><div class="ev-kpi-value">' + (s.evaluator_stats || []).length + '</div><div class="ev-kpi-label">Evaluators</div></div>';
+
+    // Evaluator bars
+    var stats = s.evaluator_stats || [];
+    var barsHtml = stats.map(function(st) {
+        var pct = (st.average_score * 100).toFixed(0);
+        var c = scoreColor(st.average_score);
+        var name = st.evaluator_name || st.evaluator_id.replace('Builtin.', '');
+        return '<div class="ev-bar-row" onclick="filterByEvaluator(\'' + st.evaluator_id.replace(/'/g, "\\'") + '\')" title="' + name + ': ' + fmtPct(st.average_score) + ' (' + st.evaluation_count + ' evals)">'
+            + '<div class="ev-bar-name">' + name + '</div>'
+            + '<div class="ev-bar-line">'
+            + '<div class="ev-bar-track"><div class="ev-bar-fill" style="width:' + pct + '%;background:' + c + ';"></div></div>'
+            + '<span class="ev-bar-score" style="color:' + c + ';">' + pct + '</span>'
+            + '</div></div>';
+    }).join('');
+    document.getElementById('ev-bars').innerHTML = barsHtml; // nosemgrep: insecure-innerhtml, insecure-document-method
+
+    // Populate filter dropdown
+    var sel = document.getElementById('ev-filter-evaluator');
+    sel.innerHTML = '<option value="">All evaluators</option>' + stats.map(function(st) { // nosemgrep: insecure-innerhtml, insecure-document-method
+        var name = st.evaluator_name || st.evaluator_id.replace('Builtin.', '');
+        return '<option value="' + st.evaluator_id + '">' + name + ' (' + st.evaluation_count + ')</option>';
+    }).join('');
+    sel.value = _filterEvaluator;
+
+    renderResults();
+}
+
+function filterByEvaluator(evalId) {
+    _filterEvaluator = (_filterEvaluator === evalId) ? '' : evalId;
+    _page = 0;
+    document.getElementById('ev-filter-evaluator').value = _filterEvaluator;
+    // Highlight bar
+    document.querySelectorAll('.ev-bar-row').forEach(function(r, i) {
+        var stats = (_agents[_activeAgent].evaluator_stats || []);
+        r.classList.toggle('selected', stats[i] && stats[i].evaluator_id === _filterEvaluator);
+    });
+    renderResults();
+}
+
+function filterResults() {
+    _filterEvaluator = document.getElementById('ev-filter-evaluator').value;
+    _page = 0;
+    document.querySelectorAll('.ev-bar-row').forEach(function(r, i) {
+        var stats = (_agents[_activeAgent].evaluator_stats || []);
+        r.classList.toggle('selected', stats[i] && stats[i].evaluator_id === _filterEvaluator);
+    });
+    renderResults();
+}
+
+function renderResults() {
+    var s = _agents[_activeAgent];
+    var results = s.recent_results || [];
+    if (_filterEvaluator) {
+        results = results.filter(function(r) { return r.evaluator_id === _filterEvaluator; });
+    }
+    _filteredResults = results;
+    var totalPages = Math.max(1, Math.ceil(results.length / _pageSize));
+    if (_page >= totalPages) _page = totalPages - 1;
+    if (_page < 0) _page = 0;
+
+    var start = _page * _pageSize;
+    var pageResults = results.slice(start, start + _pageSize);
+
+    document.getElementById('ev-result-count').textContent = results.length + ' result' + (results.length !== 1 ? 's' : '');
+    document.getElementById('ev-page-info').textContent = (totalPages > 1) ? (_page + 1) + '/' + totalPages : '';
+    document.getElementById('ev-prev').disabled = _page === 0;
+    document.getElementById('ev-next').disabled = _page >= totalPages - 1;
+
+    if (!pageResults.length) {
+        document.getElementById('ev-results').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);font-size:0.78rem;">No results match the current filter.</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+        return;
+    }
+
+    document.getElementById('ev-results').innerHTML = pageResults.map(function(r, i) { // nosemgrep: insecure-innerhtml, insecure-document-method
+        var idx = start + i;
+        var c = scoreColor(r.score);
+        var name = r.evaluator_id.replace('Builtin.', '');
+        var ts = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        var sid = r.session_id ? r.session_id.substring(0, 10) + '…' : '–';
+        return '<div class="ev-result-row" onclick="toggleDetail(' + idx + ')">'
+            + '<div class="ev-result-head">'
+            + '<span class="ev-result-score" style="color:' + c + ';">' + (r.score * 100).toFixed(0) + '</span>'
+            + '<span class="ev-result-evaluator">' + name + '</span>'
+            + '<span class="ev-result-label">' + (r.label || '') + '</span>'
+            + '<span class="ev-result-ts">' + ts + '</span>'
+            + '</div>'
+            + '<div class="ev-result-detail" id="ev-detail-' + idx + '">'
+            + '<div class="ev-result-reasoning">' + (r.reasoning || 'No reasoning provided.') + '</div>'
+            + '<div class="ev-result-meta">'
+            + '<span>session: <a href="/admin/sessions/' + (r.session_id || '') + '" style="color:var(--accent);" onclick="event.stopPropagation()">' + sid + '</a></span>'
+            + (r.trace_id ? '<span>trace: ' + r.trace_id.substring(0, 12) + '…</span>' : '')
+            + '</div></div></div>';
+    }).join('');
+}
+
+function changePage(delta) {
+    _page += delta;
+    renderResults();
+    document.getElementById('ev-results').scrollTop = 0;
+}
+
+function toggleDetail(i) {
+    var el = document.getElementById('ev-detail-' + i);
+    if (el) el.classList.toggle('open');
+}
+
+// Time range
+function setTimeRange(days) {
+    var end = new Date();
+    var start = new Date();
+    start.setDate(start.getDate() - days);
+    window.location.href = '/admin/evaluations?start_time=' + start.toISOString().slice(0,10) + 'T00:00:00&end_time=' + end.toISOString().slice(0,10) + 'T23:59:59';
+}
+function applyCustomRange() {
+    var s = document.getElementById('start-date').value;
+    var e = document.getElementById('end-date').value;
+    if (s && e) window.location.href = '/admin/evaluations?start_time=' + s + 'T00:00:00&end_time=' + e + 'T23:59:59';
+}
+
+// Highlight active range button
+(function() {
+    var days = {{ days_in_period }};
+    [1, 7, 30].forEach(function(d) {
+        var btn = document.getElementById('btn-' + d);
+        if (btn) btn.classList.toggle('active', days === d);
+    });
+})();
+
+// Initial render
+renderAgent();
+</script>
+{% endblock %}

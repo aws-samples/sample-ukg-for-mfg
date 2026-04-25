@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'Usage Dashboard'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <main class="mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- Time Range Selector -->
+        <div class="mb-6 rounded-lg p-4" style="background: var(--surface); border: 1px solid var(--border);">
+            <div class="flex flex-wrap items-center gap-4">
+                <span class="text-sm font-medium" style="color: var(--text2); font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Time Range:</span>
+                <div class="flex gap-2" id="preset-buttons">
+                    <button onclick="setTimeRange(1)" id="btn-1" class="px-3 py-1.5 text-sm rounded-md transition-colors" style="background: var(--surface2); color: var(--text2); border: 1px solid var(--border);">Today</button>
+                    <button onclick="setTimeRange(7)" id="btn-7" class="px-3 py-1.5 text-sm rounded-md transition-colors" style="background: var(--surface2); color: var(--text2); border: 1px solid var(--border);">7 Days</button>
+                    <button onclick="setTimeRange(30)" id="btn-30" class="px-3 py-1.5 text-sm rounded-md transition-colors" style="background: var(--surface2); color: var(--text2); border: 1px solid var(--border);">30 Days</button>
+                </div>
+                <div class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs" style="color: var(--muted);">From:</label>
+                    <input type="date" id="start-date" class="px-2 py-1 text-sm rounded-md" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text);" value="{{ start_time[:10] }}">
+                    <label class="text-xs" style="color: var(--muted);">To:</label>
+                    <input type="date" id="end-date" class="px-2 py-1 text-sm rounded-md" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text);" value="{{ end_time[:10] }}">
+                    <button onclick="applyCustomRange()" class="px-3 py-1.5 text-sm rounded-md transition-colors" style="background: var(--accent); color: var(--bg);">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics (KPI Cards — velocity-factory style) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- Total Cost -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--green); cursor: default; transition: all 0.2s;"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p style="font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: 'IBM Plex Mono', monospace;">Total Cost</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; margin-top: 0.25rem;">${{ "%.4f"|format(total_cost) }}</p>
+                    </div>
+                    <div style="padding: 0.5rem; background: rgba(63,185,80,0.1); border-radius: 50%;">
+                        <svg class="w-6 h-6" style="color: var(--green);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex gap-4 text-xs" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                    <span>Tokens: ${{ "%.4f"|format(stats.total_cost) }}</span>
+                    <span>Runtime: ${{ "%.4f"|format(runtime_stats.total_runtime_cost) }}</span>
+                </div>
+            </div>
+
+            <!-- Tokens -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); cursor: default; transition: all 0.2s;"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p style="font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: 'IBM Plex Mono', monospace;">Tokens</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; margin-top: 0.25rem;">{{ "{:,}".format(stats.total_tokens) }}</p>
+                    </div>
+                    <div style="padding: 0.5rem; background: rgba(0,216,255,0.1); border-radius: 50%;">
+                        <svg class="w-6 h-6" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex gap-4 text-xs" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                    <span>In: {{ "{:,}".format(stats.total_input_tokens) }}</span>
+                    <span>Out: {{ "{:,}".format(stats.total_output_tokens) }}</span>
+                </div>
+            </div>
+
+            <!-- Runtime -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent2); cursor: default; transition: all 0.2s;"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p style="font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: 'IBM Plex Mono', monospace;">Runtime</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; margin-top: 0.25rem;">{{ "%.2f"|format(runtime_stats.total_time_seconds) }}s</p>
+                    </div>
+                    <div style="padding: 0.5rem; background: rgba(88,166,255,0.1); border-radius: 50%;">
+                        <svg class="w-6 h-6" style="color: var(--accent2);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex gap-4 text-xs" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                    <span>vCPU: {{ "%.6f"|format(runtime_stats.total_vcpu_hours) }}h</span>
+                    <span>Mem: {{ "%.6f"|format(runtime_stats.total_memory_gb_hours) }}GB-h</span>
+                </div>
+            </div>
+
+            <!-- Projected Monthly -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--amber); cursor: default; transition: all 0.2s;"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p style="font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: 'IBM Plex Mono', monospace;">Projected Monthly</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; margin-top: 0.25rem;">${{ "%.2f"|format(projected_monthly) }}</p>
+                    </div>
+                    <div style="padding: 0.5rem; background: rgba(210,153,34,0.1); border-radius: 50%;">
+                        <svg class="w-6 h-6" style="color: var(--amber);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                </div>
+                <p class="mt-3 text-xs" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace;">Based on {{ days_in_period }} day{{ 's' if days_in_period != 1 else '' }}</p>
+            </div>
+        </div>
+
+        <!-- Two-column summary cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <!-- User Sessions -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">User Sessions</h2>
+                    <a href="/admin/users?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--accent2); font-family: 'IBM Plex Mono', monospace;">{{ stats.unique_users }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Users</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ stats.unique_sessions }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Sessions</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ stats.invocation_count }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Invocations</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        {% if stats.unique_users > 0 %}
+                        <p style="font-size: 1.1rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ "%.1f"|format(stats.unique_sessions / stats.unique_users) }}</p>
+                        <p style="font-size: 0.7rem; color: var(--muted);">Avg sessions/user</p>
+                        {% else %}
+                        <span style="font-size: 0.85rem; color: var(--muted);">No data</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Feedback -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">User Feedback</h2>
+                    <a href="/admin/feedback?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ feedback_stats.total_count }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Total</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--green); font-family: 'IBM Plex Mono', monospace;">{{ feedback_stats.positive_count }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Positive</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--red); font-family: 'IBM Plex Mono', monospace;">{{ feedback_stats.negative_count }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Negative</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if feedback_stats.total_count > 0 %}
+                        <div class="w-24 h-2 rounded-full overflow-hidden" style="background: var(--surface3);">
+                            <div class="h-full rounded-full" style="width: {{ feedback_stats.positive_percentage|int }}%; background: var(--green);"></div>
+                        </div>
+                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--green); font-family: 'IBM Plex Mono', monospace;">{{ "%.0f"|format(feedback_stats.positive_percentage) }}%</span>
+                        {% else %}
+                        <span style="font-size: 0.85rem; color: var(--muted);">No data</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <!-- Guardrails -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Guardrails</h2>
+                    <a href="/admin/guardrails?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--amber); font-family: 'IBM Plex Mono', monospace;">{{ guardrail_stats.violation_count }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Violations</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ guardrail_stats.unique_users }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Users</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ guardrail_stats.unique_sessions }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Sessions</p>
+                        </div>
+                    </div>
+                    {% if guardrail_stats.top_filter %}
+                    <div class="text-right">
+                        <span style="display: inline-flex; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 500; background: rgba(248,81,73,0.15); color: var(--red); font-family: 'IBM Plex Mono', monospace;">{{ guardrail_stats.top_filter }}</span>
+                        <p style="font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem;">Top violation</p>
+                    </div>
+                    {% else %}
+                    <span style="font-size: 0.85rem; color: var(--muted);">No violations</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tool Use -->
+            <div class="rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Tool Use</h2>
+                    <a href="/admin/tools?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ "{:,}".format(total_tool_calls) }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Total Calls</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--green); font-family: 'IBM Plex Mono', monospace;">{{ "{:,}".format(total_tool_success) }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Success</p>
+                        </div>
+                        <div class="text-center">
+                            <p style="font-size: 1.5rem; font-weight: 700; color: var(--red); font-family: 'IBM Plex Mono', monospace;">{{ "{:,}".format(total_tool_errors) }}</p>
+                            <p style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Failed</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if total_tool_calls > 0 %}
+                        <div class="w-24 h-2 rounded-full overflow-hidden" style="background: var(--surface3);">
+                            <div class="h-full rounded-full" style="width: {{ (tool_success_rate * 100)|int }}%; background: var(--green);"></div>
+                        </div>
+                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--green); font-family: 'IBM Plex Mono', monospace;">{{ "%.0f"|format(tool_success_rate * 100) }}%</span>
+                        {% else %}
+                        <span style="font-size: 0.85rem; color: var(--muted);">No data</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <!-- Evaluations -->
+            <a href="/admin/evaluations?start_time={{ start_time }}&end_time={{ end_time }}" class="rounded-lg p-5 block" style="background: var(--surface); border: 1px solid var(--border); transition: all 0.2s; text-decoration: none;"
+               onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+               onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0" style="padding: 0.5rem; background: rgba(0,216,255,0.1); border-radius: 50%;">
+                        <svg class="w-6 h-6" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Evaluations</h2>
+                        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">View agent quality evaluation scores and metrics</p>
+                    </div>
+                    <div class="ml-auto">
+                        <svg class="w-5 h-5" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Three Column Layout for Highlights -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Top Models -->
+            <div class="rounded-lg" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--border);">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Top Models</h2>
+                    <a href="/admin/tokens?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                {% if top_models %}
+                <ul>
+                    {% for model in top_models %}
+                    <li class="px-4 py-3" style="border-bottom: 1px solid var(--border);">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center" style="background: rgba(0,216,255,0.1);">
+                                    <svg class="w-3.5 h-3.5" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <span class="text-sm truncate" style="color: var(--text);">{{ model.model_id.split('.')[-1] if '.' in model.model_id else model.model_id }}</span>
+                            </div>
+                            <span style="font-size: 0.75rem; font-weight: 500; color: var(--green); font-family: 'IBM Plex Mono', monospace;">${{ "%.2f"|format(model.cost) }}</span>
+                        </div>
+                        <div class="mt-1 flex gap-3 ml-9" style="font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                            <span>{{ "{:,}".format(model.total_tokens) }} tokens</span>
+                            <span>{{ model.invocation_count }} invocation{{ 's' if model.invocation_count != 1 else '' }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="px-4 py-8 text-center" style="font-size: 0.85rem; color: var(--muted);">No model data</div>
+                {% endif %}
+            </div>
+
+            <!-- Top Users -->
+            <div class="rounded-lg" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--border);">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Top Users</h2>
+                    <a href="/admin/users?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                {% if top_users %}
+                <ul>
+                    {% for user in top_users %}
+                    <li class="px-4 py-3" style="border-bottom: 1px solid var(--border);">
+                        <a href="/admin/users/{{ user.user_id }}?start_time={{ start_time }}&end_time={{ end_time }}" class="block">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <div class="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center" style="background: rgba(0,216,255,0.1);">
+                                        <span style="font-size: 0.7rem; font-weight: 500; color: var(--accent);">{{ (user_emails.get(user.user_id) or user.user_id)[0]|upper }}</span>
+                                    </div>
+                                    <span class="text-sm truncate" style="color: var(--text);">{{ user_emails.get(user.user_id) or user.user_id }}</span>
+                                    {% if user.user_id == current_user_id %}
+                                    <svg class="w-4 h-4 flex-shrink-0" style="color: var(--amber);" fill="currentColor" viewBox="0 0 24 24" title="This is you">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
+                                    {% endif %}
+                                </div>
+                                <span style="font-size: 0.75rem; font-weight: 500; color: var(--green); font-family: 'IBM Plex Mono', monospace;">${{ "%.2f"|format(user.total_cost) }}</span>
+                            </div>
+                            <div class="mt-1 flex gap-3 ml-9" style="font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                                <span>{{ "{:,}".format(user.total_tokens) }} tokens</span>
+                                <span>{{ user.session_count }} session{{ 's' if user.session_count != 1 else '' }}</span>
+                            </div>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="px-4 py-8 text-center" style="font-size: 0.85rem; color: var(--muted);">No user data</div>
+                {% endif %}
+            </div>
+
+            <!-- Top Tools -->
+            <div class="rounded-lg" style="background: var(--surface); border: 1px solid var(--border);">
+                <div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--border);">
+                    <h2 style="font-size: 0.8rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">Top Tools</h2>
+                    <a href="/admin/tools?start_time={{ start_time }}&end_time={{ end_time }}" style="font-size: 0.75rem; color: var(--accent);">View all →</a>
+                </div>
+                {% if top_tools %}
+                <ul>
+                    {% for tool in top_tools %}
+                    <li class="px-4 py-3" style="border-bottom: 1px solid var(--border);">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center" style="background: rgba(88,166,255,0.1);">
+                                    <svg class="w-3.5 h-3.5" style="color: var(--accent2);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                                    </svg>
+                                </div>
+                                <span class="text-sm" style="color: var(--text);">{{ tool.tool_name }}</span>
+                            </div>
+                            <span style="font-size: 0.75rem; font-weight: 500; color: var(--text); font-family: 'IBM Plex Mono', monospace;">{{ "{:,}".format(tool.call_count) }} calls</span>
+                        </div>
+                        <div class="mt-1 ml-9">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 h-1.5 rounded-full overflow-hidden" style="background: var(--surface3);">
+                                    <div class="h-full rounded-full" style="width: {{ (tool.success_rate * 100)|int }}%; background: var(--green);"></div>
+                                </div>
+                                <span style="font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">{{ "%.0f"|format(tool.success_rate * 100) }}%</span>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="px-4 py-8 text-center" style="font-size: 0.85rem; color: var(--muted);">No tool data</div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/admin-utils.js"></script>
+{% endblock %}

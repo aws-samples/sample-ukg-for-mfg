@@ -1,0 +1,129 @@
+[
+  {
+    "name": "list_systems",
+    "description": "List all registered systems in the manufacturing digital thread, optionally filtered by plant, system type, or status. Returns system metadata including system_id, plant, system_type, display_name, and connection details.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Filters for listing systems",
+      "properties": {
+        "plant": {
+          "type": "string",
+          "description": "Filter by plant name (e.g. 'Indianapolis'). Omit to return all plants."
+        },
+        "system_type": {
+          "type": "string",
+          "description": "Filter by system type (e.g. 'ERP', 'MES', 'CMMS', 'PLM'). Omit to return all types."
+        },
+        "status": {
+          "type": "string",
+          "description": "Filter by status. Defaults to 'active'. Use null to return all statuses."
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "List of matching systems",
+      "properties": {
+        "success": { "type": "boolean", "description": "Whether the query succeeded" },
+        "count": { "type": "integer", "description": "Number of systems returned" },
+        "systems": {
+          "type": "array",
+          "description": "Array of system metadata objects",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["success", "count", "systems"]
+    }
+  },
+  {
+    "name": "get_system_schema",
+    "description": "Get all schema entries (tables/endpoints) and field metadata for a specific registered system. Returns table schemas with column details and field-level concept mappings.",
+    "inputSchema": {
+      "type": "object",
+      "description": "System identifier",
+      "properties": {
+        "system_id": {
+          "type": "string",
+          "description": "The unique system identifier (e.g. 'sap-erp-indy', 'ignition-mes-indy')."
+        }
+      },
+      "required": ["system_id"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Schema and field details for the system",
+      "properties": {
+        "success": { "type": "boolean" },
+        "system_id": { "type": "string" },
+        "schema_count": { "type": "integer" },
+        "field_count": { "type": "integer" },
+        "schemas": { "type": "array", "items": { "type": "object" } },
+        "fields": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["success", "system_id", "schemas", "fields"]
+    }
+  },
+  {
+    "name": "find_by_concept",
+    "description": "Find all systems and fields mapped to a canonical manufacturing concept. Uses GSI1 to discover which systems have fields mapped to the given concept. Prefer domain-qualified IDs (e.g. 'production.work-order', 'performance.oee', 'equipment.equipment-id'). Bare IDs are resolved automatically but may match multiple domains. Set compact=false to return full DynamoDB items instead of summaries.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Concept identifier to search for",
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "description": "Domain-qualified concept identifier (e.g. 'production.work-order', 'performance.oee', 'equipment.equipment-id', 'production.batch-id'). Bare IDs like 'work-order' are resolved but may match multiple domains."
+        },
+        "compact": {
+          "type": "boolean",
+          "description": "When true (default), returns only system_id, table_name, field_name, data_type. When false, returns full DynamoDB items."
+        }
+      },
+      "required": ["concept_id"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Systems and fields mapped to the concept",
+      "properties": {
+        "success": { "type": "boolean" },
+        "concept_id": { "type": "string" },
+        "resolved_ids": { "type": "array", "items": { "type": "string" } },
+        "count": { "type": "integer" },
+        "mappings": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["success", "concept_id", "mappings"]
+    }
+  },
+  {
+    "name": "find_equivalences",
+    "description": "Find cross-system field equivalence mappings for a concept. Uses GSI2 to discover how the same concept (e.g. 'production.work-order') is represented across different systems, enabling cross-system joins and translations.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Concept and optional source system filter",
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "description": "Domain-qualified concept identifier (e.g. 'production.work-order', 'equipment.equipment-id')."
+        },
+        "source_system": {
+          "type": "string",
+          "description": "Optional source system ID to filter equivalences (e.g. 'sap-erp-indy')."
+        }
+      },
+      "required": ["concept_id"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Field equivalence mappings across systems",
+      "properties": {
+        "success": { "type": "boolean" },
+        "concept_id": { "type": "string" },
+        "source_system": { "type": "string" },
+        "count": { "type": "integer" },
+        "equivalences": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["success", "concept_id", "equivalences"]
+    }
+  }
+]

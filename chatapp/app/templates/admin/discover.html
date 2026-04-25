@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_title if app_title is defined else 'Digital Thread' }} — Data Discovery{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = is_admin %}
+    {% include "components/header.html" %}
+
+    <main class="disc-main">
+        <!-- LEFT: System Explorer -->
+        <section class="disc-explorer" id="disc-explorer">
+
+            <!-- Guide (collapsible) -->
+            <details class="disc-guide" id="disc-guide">
+                <summary class="disc-guide-toggle">
+                    <svg style="width:14px;height:14px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    Discovery Guide
+                </summary>
+                <div class="disc-guide-body">
+                    <div class="disc-guide-section">
+                        <div class="disc-guide-label">What you can do</div>
+                        <div class="disc-guide-items">
+                            <div class="disc-guide-item"><span>🔍</span> Browse systems, tables, and fields</div>
+                            <div class="disc-guide-item"><span>🔗</span> Explore cross-system equivalences</div>
+                            <div class="disc-guide-item"><span>🏷️</span> View concept mappings per field</div>
+                            <div class="disc-guide-item"><span>💬</span> Ask the Discovery Agent to analyze data</div>
+                            <div class="disc-guide-item"><span>➕</span> Request new system discovery via the agent</div>
+                        </div>
+                    </div>
+                    <div class="disc-guide-section">
+                        <div class="disc-guide-label">Try asking the agent</div>
+                        <div class="disc-guide-examples">
+                            <code onclick="discAskAgent(this.textContent)">"What systems are registered?"</code>
+                            <code onclick="discAskAgent(this.textContent)">"Show me the ERP schema"</code>
+                            <code onclick="discAskAgent(this.textContent)">"How do batch IDs map across systems?"</code>
+                            <code onclick="discAskAgent(this.textContent)">"Discover a new system at jdbc:postgresql://..."</code>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Systems list -->
+            <div class="disc-systems">
+                <div class="disc-systems-header">
+                    <span class="disc-systems-label">Registered Systems</span>
+                    <span class="disc-systems-count" id="disc-sys-count">—</span>
+                </div>
+                <div class="se-systems-list" id="disc-systems-list">
+                    <div class="se-loading">Loading systems…</div>
+                </div>
+            </div>
+
+            <!-- Detail drill-in (hidden by default) -->
+            <div class="se-detail" id="disc-detail" style="display:none;">
+                <button class="se-detail-back" onclick="discExplorer.closeDetail()">
+                    <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to systems
+                </button>
+                <div id="disc-detail-header"></div>
+                <div class="se-detail-tabs">
+                    <button class="se-tab active" data-tab="tables" onclick="discExplorer.switchTab('tables')">Tables</button>
+                    <button class="se-tab" data-tab="concepts" onclick="discExplorer.switchTab('concepts')">Concepts</button>
+                    <button class="se-tab" data-tab="equivalences" onclick="discExplorer.switchTab('equivalences')">Equivalences</button>
+                </div>
+                <div class="se-detail-body" id="disc-detail-body"></div>
+            </div>
+
+            <!-- Graph stats footer -->
+            <div class="disc-graph-footer" id="disc-graph-footer">
+                <div class="disc-graph-label">Registry Summary</div>
+                <div class="disc-graph-stats">
+                    <div class="disc-gstat"><span class="disc-gstat-val" id="disc-gs-systems">—</span><span class="disc-gstat-lbl">Systems</span></div>
+                    <div class="disc-gstat"><span class="disc-gstat-val" id="disc-gs-concepts">—</span><span class="disc-gstat-lbl">Concepts</span></div>
+                    <div class="disc-gstat"><span class="disc-gstat-val" id="disc-gs-equivs">—</span><span class="disc-gstat-lbl">Equivalences</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resize handle -->
+        <div class="disc-resize" id="disc-resize"></div>
+
+        <!-- RIGHT: Discovery Agent Chat -->
+        <section class="disc-chat" id="disc-chat">
+            <div class="disc-chat-header">
+                <div class="disc-chat-badge">
+                    <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+                    <span id="disc-agent-name">Data Discovery Agent</span>
+                </div>
+                <div class="disc-chat-actions">
+                    <select id="disc-model-select"
+                            style="background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace;">
+                    </select>
+                    <div class="disc-chat-loading" id="disc-chat-loading" style="display:none;">
+                        <span class="loading-dot">·</span><span class="loading-dot">·</span><span class="loading-dot">·</span>
+                        <span style="margin-left:0.2rem;">thinking</span>
+                    </div>
+                    <button class="disc-chat-new" onclick="discNewChat()" title="New conversation">
+                        <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        New
+                    </button>
+                </div>
+            </div>
+
+            <!-- Suggestion chips -->
+            <div class="disc-suggestions" id="disc-suggestions">
+                <button class="disc-chip" onclick="discAskAgent('What tools do you have?')">Agent tools</button>
+                <button class="disc-chip" onclick="discAskAgent('How can you help me?')">Agent features</button>
+                <button class="disc-chip" onclick="discAskAgent('What systems are currently registered?')">What systems are registered?</button>
+                <button class="disc-chip" onclick="discAskAgent('Show me equivalence between two systems. List all systems and ask me which ones I want to compare.')">Show equivalences</button>
+            </div>
+
+            <!-- Messages -->
+            <div class="disc-messages" id="disc-messages">
+                <div class="disc-welcome" id="disc-welcome">
+                    <svg style="width:36px;height:36px;color:var(--accent);opacity:0.4;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+                    <div style="font-size:1.1rem;font-weight:600;color:var(--text);">Data Discovery Agent</div>
+                    <div style="font-size:0.82rem;color:var(--muted);max-width:400px;line-height:1.5;">
+                        I can help you explore manufacturing systems, understand data relationships,
+                        discover field mappings, and analyze how systems connect.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input -->
+            <form class="disc-input" onsubmit="discSendChat(event)">
+                <input type="text" id="disc-input" placeholder="Ask about systems, relationships, data patterns…" autocomplete="off"
+                       style="flex:1;padding:0.5rem 0.75rem;font-size:0.85rem;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);outline:none;font-family:'Outfit',sans-serif;"
+                       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+                <button type="submit" style="padding:0.5rem 1rem;border-radius:6px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-weight:500;font-family:'Outfit',sans-serif;font-size:0.85rem;">Send</button>
+            </form>
+        </section>
+    </main>
+</div>
+
+<style>
+/* ── Discover page layout ─────────────────────────────────────────── */
+.disc-main {
+    height: calc(100vh - 64px);
+    display: flex;
+    overflow: hidden;
+}
+
+/* ── Explorer (left) ──────────────────────────────────────────────── */
+.disc-explorer {
+    width: 420px; min-width: 300px; max-width: 600px;
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden; flex-shrink: 0;
+}
+
+/* Guide */
+.disc-guide {
+    margin: 0.75rem; border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; background: var(--surface2); flex-shrink: 0;
+}
+.disc-guide-toggle {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 0.75rem; font-size: 0.78rem; font-weight: 600;
+    color: var(--text2); cursor: pointer; user-select: none; list-style: none;
+}
+.disc-guide-toggle::-webkit-details-marker { display: none; }
+.disc-guide-toggle::after { content: '▾'; margin-left: auto; font-size: 0.7rem; color: var(--muted); transition: transform 0.2s; }
+.disc-guide:not([open]) .disc-guide-toggle::after { transform: rotate(-90deg); }
+.disc-guide-body { padding: 0 0.75rem 0.75rem; }
+.disc-guide-section { margin-bottom: 0.6rem; }
+.disc-guide-section:last-child { margin-bottom: 0; }
+.disc-guide-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.3rem; }
+.disc-guide-items { display: flex; flex-direction: column; gap: 0.2rem; }
+.disc-guide-item { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 0.82rem; color: var(--text2); line-height: 1.4; }
+.disc-guide-examples { display: flex; flex-direction: column; gap: 0.2rem; }
+.disc-guide-examples code {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--accent);
+    background: rgba(0,216,255,0.06); padding: 0.2rem 0.5rem; border-radius: 4px;
+    border: 1px solid rgba(0,216,255,0.1); cursor: pointer; transition: all 0.15s;
+}
+.disc-guide-examples code:hover { background: rgba(0,216,255,0.12); border-color: rgba(0,216,255,0.25); }
+
+/* Systems list */
+.disc-systems { flex: 1; display: flex; flex-direction: column; padding: 0 0.75rem; min-height: 0; overflow: hidden; }
+.disc-systems-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; flex-shrink: 0; }
+.disc-systems-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.disc-systems-count { font-size: 0.68rem; font-family: 'IBM Plex Mono', monospace; color: var(--accent); background: rgba(0,216,255,0.1); padding: 0.1rem 0.4rem; border-radius: 10px; }
+
+/* Detail panel (uses shared se- classes from system_explorer.html) */
+.disc-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+/* Graph footer */
+.disc-graph-footer { padding: 0.6rem 0.75rem; border-top: 1px solid var(--border); flex-shrink: 0; }
+.disc-graph-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.35rem; }
+.disc-graph-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+.disc-gstat { text-align: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem; }
+.disc-gstat-val { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 1rem; font-weight: 700; color: var(--accent); }
+.disc-gstat-lbl { font-size: 0.58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ── Resize handle ────────────────────────────────────────────────── */
+.disc-resize { width: 5px; cursor: col-resize; flex-shrink: 0; background: transparent; transition: background 0.15s; }
+.disc-resize:hover, .disc-resize.active { background: var(--accent); opacity: 0.5; }
+
+/* ── Chat (right) ─────────────────────────────────────────────────── */
+.disc-chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.disc-chat-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.disc-chat-badge { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
+.disc-chat-actions { display: flex; align-items: center; gap: 0.5rem; }
+.disc-chat-loading { font-size: 0.7rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+.disc-chat-new {
+    display: flex; align-items: center; gap: 0.3rem; background: none; border: 1px solid var(--border);
+    color: var(--muted); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.disc-chat-new:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Suggestions */
+.disc-suggestions { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.disc-chip {
+    font-size: 0.78rem; padding: 0.25rem 0.55rem; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 14px; color: var(--text2); cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.disc-chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,216,255,0.06); }
+
+/* Messages */
+.disc-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.disc-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 3rem 2rem; gap: 0.6rem; flex: 1; }
+.disc-msg { animation: fadeIn 0.25s ease-out; max-width: 90%; }
+.disc-msg.user {
+    align-self: flex-end; background: var(--accent); color: var(--bg);
+    padding: 0.5rem 0.75rem; border-radius: 12px 12px 2px 12px; font-size: 0.82rem; line-height: 1.5;
+}
+.disc-msg.agent { align-self: flex-start; max-width: 95%; }
+.disc-msg.agent .disc-agent-label { font-size: 0.58rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
+.disc-msg.agent .disc-agent-content {
+    background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 10px;
+    padding: 0.75rem 0.85rem; font-size: 0.82rem; line-height: 1.7; color: var(--text2);
+}
+.disc-msg.agent .disc-agent-content p { margin: 0.6rem 0; }
+.disc-msg.agent .disc-agent-content p:first-child { margin-top: 0; }
+.disc-msg.agent .disc-agent-content p:last-child { margin-bottom: 0; }
+.disc-msg.agent .disc-agent-content code { background: var(--surface); padding: 0.12rem 0.3rem; border-radius: 3px; font-size: 0.75rem; font-family: 'IBM Plex Mono', monospace; }
+.disc-msg.agent .disc-agent-content strong { color: var(--accent); font-weight: 700; }
+.disc-msg.agent .disc-agent-content em { color: var(--text); }
+.disc-msg.agent .disc-agent-content h1, .disc-msg.agent .disc-agent-content h2,
+.disc-msg.agent .disc-agent-content h3, .disc-msg.agent .disc-agent-content h4 {
+    color: var(--text); margin: 1rem 0 0.4rem; font-weight: 700; line-height: 1.3;
+}
+.disc-msg.agent .disc-agent-content h1:first-child, .disc-msg.agent .disc-agent-content h2:first-child,
+.disc-msg.agent .disc-agent-content h3:first-child, .disc-msg.agent .disc-agent-content h4:first-child { margin-top: 0; }
+.disc-msg.agent .disc-agent-content h2 { font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+.disc-msg.agent .disc-agent-content h3 { font-size: 0.88rem; }
+.disc-msg.agent .disc-agent-content h4 { font-size: 0.84rem; color: var(--accent); }
+.disc-msg.agent .disc-agent-content ul, .disc-msg.agent .disc-agent-content ol { margin: 0.5rem 0; padding-left: 1.4rem; }
+.disc-msg.agent .disc-agent-content li { margin: 0.25rem 0; line-height: 1.6; }
+.disc-msg.agent .disc-agent-content li::marker { color: var(--accent); }
+.disc-msg.agent .disc-agent-content hr { border: none; border-top: 1px solid var(--border); margin: 0.8rem 0; }
+.disc-msg.agent .disc-agent-content blockquote {
+    border-left: 3px solid var(--accent); margin: 0.5rem 0; padding: 0.3rem 0.6rem;
+    background: rgba(0,216,255,0.04); color: var(--text2); font-style: italic;
+}
+.disc-msg.agent .disc-agent-content pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.6rem; overflow-x: auto; margin: 0.5rem 0; }
+.disc-msg.agent .disc-agent-content pre code { background: none; padding: 0; font-size: 0.72rem; }
+.disc-msg.agent .disc-agent-content table { border-collapse: collapse; width: 100%; margin: 0.6rem 0; font-size: 0.72rem; }
+.disc-msg.agent .disc-agent-content th, .disc-msg.agent .disc-agent-content td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; }
+.disc-msg.agent .disc-agent-content th { background: var(--surface3); font-weight: 700; color: var(--text); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.disc-msg.agent .disc-agent-content td { color: var(--text2); }
+.disc-msg.agent .disc-agent-content td code { font-size: 0.7rem; }
+.disc-chat-streaming { display: inline-block; width: 6px; height: 1em; background: var(--accent); animation: blink 1s step-end infinite; vertical-align: text-bottom; margin-left: 2px; }
+
+/* Tool cards (matching /chat page style) */
+.disc-tools-wrap { display: flex; flex-direction: column; gap: 0.25rem; max-width: 95%; animation: fadeIn 0.2s ease-out; }
+.disc-tool-card {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    background: rgba(0,216,255,0.04); border-color: rgba(0,216,255,0.15);
+    font-size: 0.75rem; transition: all 0.15s;
+}
+.disc-tool-card.done { background: rgba(0,160,255,0.04); border-color: rgba(0,160,255,0.15); }
+.disc-tool-header {
+    display: flex; align-items: center; gap: 0.35rem; width: 100%;
+    padding: 0.35rem 0.55rem; background: none; border: none; cursor: pointer;
+    font-family: inherit; color: var(--text2); transition: background 0.15s;
+}
+.disc-tool-header:hover { background: rgba(255,255,255,0.04); }
+.disc-tool-card .disc-tool-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); animation: dotPulse 1.4s infinite; flex-shrink: 0; }
+.disc-tool-card.done .disc-tool-dot { background: var(--green); animation: none; }
+.disc-tool-label { font-size: 0.62rem; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+.disc-tool-card .disc-tool-name { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disc-tool-status { font-size: 0.62rem; font-weight: 600; color: var(--accent); margin-left: auto; flex-shrink: 0; }
+.disc-tool-card.done .disc-tool-status { color: var(--green); }
+.disc-tool-chevron { width: 12px; height: 12px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; }
+.disc-tool-card.open .disc-tool-chevron { transform: rotate(180deg); }
+.disc-tool-details { display: none; border-top: 1px solid var(--border); }
+.disc-tool-card.open .disc-tool-details { display: block; }
+.disc-tool-section { padding: 0.4rem 0.55rem; }
+.disc-tool-result-section { padding: 0.4rem 0.55rem; border-top: 1px solid var(--border); }
+.disc-tool-section-hdr { font-size: 0.62rem; font-weight: 700; color: var(--muted); margin-bottom: 0.25rem; }
+.disc-tool-pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0.3rem 0.45rem; overflow-x: auto; max-height: 200px; overflow-y: auto;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--text2);
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+}
+.disc-tools-more {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--accent); font-size: 0.7rem; padding: 0.25rem 0.5rem;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace; transition: all 0.15s;
+    margin-top: 0.15rem;
+}
+.disc-tools-more:hover { border-color: var(--accent); background: rgba(0,216,255,0.06); }
+
+/* Input */
+.disc-input { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+/* Empty state */
+.disc-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; text-align: center; color: var(--muted); gap: 0.4rem; }
+.disc-empty-text { font-size: 0.88rem; color: var(--text2); }
+.disc-empty-hint { font-size: 0.8rem; }
+</style>
+
+{% include "components/system_explorer.html" %}
+<script src="/static/js/discover.js"></script>
+
+<script>
+// Resize handle
+(function() {
+    var MIN = 260, MAX = 650, KEY = 'disc-explorer-width';
+    var handle = document.getElementById('disc-resize');
+    var explorer = document.querySelector('.disc-explorer');
+    if (!handle || !explorer) return;
+    var saved = parseInt(localStorage.getItem(KEY), 10);
+    if (saved >= MIN && saved <= MAX) { explorer.style.flex = 'none'; explorer.style.width = saved + 'px'; }
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var startX = e.clientX, startW = explorer.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.classList.add('sidebar-resizing');
+        function onMove(ev) { var w = Math.min(MAX, Math.max(MIN, startW + (ev.clientX - startX))); explorer.style.flex = 'none'; explorer.style.width = w + 'px'; }
+        function onUp() { handle.classList.remove('active'); document.body.classList.remove('sidebar-resizing'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); localStorage.setItem(KEY, Math.round(explorer.getBoundingClientRect().width)); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+})();
+
+// Discovery Guide collapse persistence
+(function() {
+    var KEY = 'disc-guide-open';
+    var guide = document.getElementById('disc-guide');
+    if (!guide) return;
+    var saved = localStorage.getItem(KEY);
+    if (saved === null) {
+        guide.open = true; // default open on first visit
+    } else {
+        guide.open = saved === '1';
+    }
+    guide.addEventListener('toggle', function() {
+        localStorage.setItem(KEY, guide.open ? '1' : '0');
+    });
+})();
+</script>
+
+{% endblock %}

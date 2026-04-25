@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - {{ app_title if app_title else 'AgentCore Chat' }}{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background: var(--bg);">
+    <div class="max-w-md w-full space-y-8">
+        <div class="text-center">
+            <div class="mb-4 flex justify-center">
+                <img src="{{ logo_url if logo_url else '/static/favicon.svg' }}" alt="Logo" class="w-16 h-16 object-contain themed-img">
+            </div>
+            <h1 style="font-family: 'IBM Plex Mono', monospace; font-size: 1.5rem; font-weight: 600; color: var(--accent);">
+                {{ app_title if app_title else 'Chat Agent' }}
+            </h1>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--muted);">
+                {{ app_subtitle if app_subtitle else 'AI-Powered Universal Knowledge Graph on AWS' }}
+            </p>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+            <h2 style="font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1.5rem;">Sign in to your account</h2>
+            
+            {% if error %}
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(248,81,73,0.1); border: 1px solid var(--red); border-radius: 8px;">
+                <p style="font-size: 0.85rem; color: var(--red);">{{ error }}</p>
+            </div>
+            {% endif %}
+
+            <form action="/auth/login" method="POST" class="space-y-6">
+                <div>
+                    <label for="email" style="display: block; font-size: 0.75rem; font-weight: 500; color: var(--text2); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'IBM Plex Mono', monospace;">
+                        Email address
+                    </label>
+                    <input type="email" id="email" name="email" required autocomplete="email"
+                           style="width: 100%; padding: 0.6rem 0.75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s;"
+                           onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 2px rgba(0,216,255,0.2)'"
+                           onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"
+                           placeholder="you@example.com">
+                </div>
+
+                <div>
+                    <label for="password" style="display: block; font-size: 0.75rem; font-weight: 500; color: var(--text2); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'IBM Plex Mono', monospace;">
+                        Password
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="password" name="password" required autocomplete="current-password"
+                               style="width: 100%; padding: 0.6rem 2.5rem 0.6rem 0.75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s;"
+                               onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 2px rgba(0,216,255,0.2)'"
+                               onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"
+                               placeholder="••••••••">
+                        <button type="button" onclick="togglePassword()"
+                                class="absolute inset-y-0 right-0 flex items-center pr-3"
+                                style="color: var(--muted); background: none; border: none; cursor: pointer;"
+                                aria-label="Toggle password visibility">
+                            <svg id="eye-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-off-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit"
+                        style="width: 100%; padding: 0.75rem; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;"
+                        onmouseover="this.style.opacity='0.9'"
+                        onmouseout="this.style.opacity='1'">
+                    Sign in
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Swap themed images on login page
+(function() {
+    var theme = localStorage.getItem('agentcore-global-theme') || 'dark';
+    if (theme === 'light') document.documentElement.classList.add('light');
+    document.querySelectorAll('img.themed-img').forEach(function(img) {
+        var src = img.getAttribute('src');
+        if (theme === 'light') {
+            src = src.replace('favicon.svg', 'favicon-light.svg').replace('favicon-dark.svg', 'favicon-light.svg');
+        } else {
+            src = src.replace('favicon.svg', 'favicon-dark.svg').replace('favicon-light.svg', 'favicon-dark.svg');
+        }
+        img.setAttribute('src', src);
+        img.classList.add('ready');
+    });
+    var fav = document.querySelector('link[rel="icon"]');
+    if (fav) {
+        var h = fav.getAttribute('href');
+        if (theme === 'light') h = h.replace('favicon.svg', 'favicon-light.svg').replace('favicon-dark.svg', 'favicon-light.svg');
+        else h = h.replace('favicon.svg', 'favicon-dark.svg').replace('favicon-light.svg', 'favicon-dark.svg');
+        fav.setAttribute('href', h);
+    }
+})();
+
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const eyeIcon = document.getElementById('eye-icon');
+    const eyeOffIcon = document.getElementById('eye-off-icon');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.classList.add('hidden');
+        eyeOffIcon.classList.remove('hidden');
+    } else {
+        passwordInput.type = 'password';
+        eyeIcon.classList.remove('hidden');
+        eyeOffIcon.classList.add('hidden');
+    }
+}
+
+// Clear stale cache on login page load so it refreshes after login
+if (typeof DataCache !== 'undefined') DataCache.clearAll();
+
+</script>
+{% endblock %}

@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}System Registry - Admin Dashboard{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'System Registry'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <main class="mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {% if not registry_configured %}
+        <!-- Not configured state -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">Registry not configured</h3>
+            <p class="mt-1 text-sm text-gray-500">Set REGISTRY_TABLE_NAME in your environment to enable the System Registry viewer.</p>
+        </div>
+        {% else %}
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Systems</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ systems|length }}</p>
+                    </div>
+                    <div class="p-3 bg-teal-100 rounded-full">
+                        <svg class="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Tables / Endpoints</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ systems|sum(attribute='table_count') }}</p>
+                    </div>
+                    <div class="p-3 bg-blue-100 rounded-full">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 0v1.5c0 .621-.504 1.125-1.125 1.125" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Fields / Params</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ systems|sum(attribute='field_count') }}</p>
+                    </div>
+                    <div class="p-3 bg-purple-100 rounded-full">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">System Types</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ systems|map(attribute='system_type')|unique|list|length }}</p>
+                    </div>
+                    <div class="p-3 bg-amber-100 rounded-full">
+                        <svg class="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Systems Table -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Registered Systems</h2>
+            </div>
+
+            {% if systems %}
+            <table class="w-full table-fixed">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th style="width:2.5rem" class="pl-3 pr-1 py-3 text-left">
+                            <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"
+                                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="Select all systems">
+                        </th>
+                        <th class="w-3/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">System</th>
+                        <th class="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Protocol</th>
+                        <th class="w-1/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ISA-95</th>
+                        <th class="w-1/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tables</th>
+                        <th class="w-1/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fields</th>
+                        <th class="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="w-2/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                        <th class="w-10 px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for sys in systems %}
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="handleRowClick(event, '{{ sys.system_id }}')">
+                        <td class="pl-3 pr-1 py-4" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="system-checkbox h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                   value="{{ sys.system_id }}" onchange="updateBulkBar()"
+                                   aria-label="Select {{ sys.system_id }}">
+                        </td>
+                        <td class="px-4 py-4">
+                            <a href="/admin/registry/{{ sys.system_id }}" class="text-sm font-medium text-primary-600 hover:text-primary-800 truncate block" onclick="event.stopPropagation()">
+                                {{ sys.system_id }}
+                            </a>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">{{ sys.name }}</p>
+                        </td>
+                        <td class="px-4 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap
+                                {% if sys.system_type == 'ERP' %}bg-blue-100 text-blue-800
+                                {% elif sys.system_type == 'MES' %}bg-green-100 text-green-800
+                                {% elif sys.system_type == 'CMMS' %}bg-amber-100 text-amber-800
+                                {% elif sys.system_type == 'PLM' %}bg-purple-100 text-purple-800
+                                {% elif sys.system_type == 'IoT' %}bg-cyan-100 text-cyan-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}"
+                                title="{{ sys.system_type }}">
+                                {{ sys.system_type }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            {% if sys.protocol %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-gray-100 text-gray-700">{{ sys.protocol }}</span>
+                            {% else %}
+                            <span class="text-xs text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700">L{{ sys.isa95_level }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">{{ sys.table_count }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">{{ sys.field_count }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if sys.status == 'active' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ sys.status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-xs text-gray-500" title="{{ sys.discovered_at }}">
+                            {% if sys.discovered_at %}
+                            {{ sys.discovered_at[:16].replace('T', ' ') }} UTC
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right">
+                            <button onclick="event.stopPropagation(); confirmDelete('{{ sys.system_id }}', '{{ sys.name }}', {{ sys.table_count }}, {{ sys.field_count }})"
+                                    class="text-gray-400 hover:text-red-600 transition-colors" title="Delete system"
+                                    aria-label="Delete system {{ sys.system_id }}">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="px-6 py-12 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No systems registered</h3>
+                <p class="mt-1 text-sm text-gray-500">Use the Discovery Agent to inspect and register data sources.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<!-- Bulk Action Bar -->
+<div id="bulkBar" class="fixed bottom-0 inset-x-0 z-40 hidden">
+    <div class="mx-auto max-w-4xl px-4 pb-4">
+        <div class="flex items-center justify-between bg-gray-900 text-white rounded-lg shadow-lg px-6 py-3">
+            <span class="text-sm"><span id="bulkCount" class="font-semibold">0</span> systems selected</span>
+            <div class="flex items-center gap-3">
+                <button onclick="clearSelection()" class="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                    Clear
+                </button>
+                <button onclick="confirmBulkDelete()" class="px-4 py-1.5 text-sm font-medium bg-red-600 hover:bg-red-700 rounded-md transition-colors">
+                    Delete selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeDeleteModal()"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-100">
+                    <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-medium text-gray-900">Delete System</h3>
+                    <p class="mt-2 text-sm text-gray-500">
+                        Are you sure you want to delete <span id="deleteSystemName" class="font-semibold text-gray-700"></span>?
+                    </p>
+                    <p class="mt-1 text-sm text-gray-500">
+                        This will permanently remove the system and all <span id="deleteRecordCount" class="font-semibold"></span> related records (schemas, fields, equivalences) from the registry.
+                    </p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button id="deleteConfirmBtn" onclick="executeDelete()" class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let pendingDeleteId = null;
+let pendingBulkIds = [];
+
+function handleRowClick(event, systemId) {
+    // Don't navigate if clicking a checkbox or button
+    if (event.target.closest('input[type="checkbox"]') || event.target.closest('button')) return;
+    window.location.href = '/admin/registry/' + encodeURIComponent(systemId);
+}
+
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.system-checkbox:checked')).map(cb => cb.value);
+}
+
+function updateBulkBar() {
+    const selected = getSelectedIds();
+    const bar = document.getElementById('bulkBar');
+    const countEl = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+    const allBoxes = document.querySelectorAll('.system-checkbox');
+
+    countEl.textContent = selected.length;
+    bar.classList.toggle('hidden', selected.length === 0);
+
+    // Update select-all state
+    if (allBoxes.length > 0) {
+        selectAll.checked = selected.length === allBoxes.length;
+        selectAll.indeterminate = selected.length > 0 && selected.length < allBoxes.length;
+    }
+}
+
+function toggleSelectAll(el) {
+    document.querySelectorAll('.system-checkbox').forEach(cb => { cb.checked = el.checked; });
+    updateBulkBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.system-checkbox').forEach(cb => { cb.checked = false; });
+    document.getElementById('selectAll').checked = false;
+    document.getElementById('selectAll').indeterminate = false;
+    updateBulkBar();
+}
+
+function confirmDelete(systemId, systemName, tableCount, fieldCount) {
+    pendingDeleteId = systemId;
+    pendingBulkIds = [];
+    document.getElementById('deleteSystemName').textContent = systemId + (systemName ? ' (' + systemName + ')' : '');
+    const total = (tableCount || 0) + (fieldCount || 0) + 1;
+    document.getElementById('deleteRecordCount').textContent = total;
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function confirmBulkDelete() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) return;
+    pendingDeleteId = null;
+    pendingBulkIds = ids;
+    document.getElementById('deleteSystemName').textContent = ids.length + ' systems (' + ids.join(', ') + ')';
+    document.getElementById('deleteRecordCount').textContent = 'all';
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+    pendingDeleteId = null;
+    pendingBulkIds = [];
+}
+
+async function executeDelete() {
+    const btn = document.getElementById('deleteConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    try {
+        if (pendingBulkIds.length > 0) {
+            const resp = await fetch('/admin/registry/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system_ids: pendingBulkIds }),
+            });
+            if (resp.ok) {
+                window.location.reload();
+            } else {
+                const data = await resp.json().catch(() => ({}));
+                alert(data.detail || 'Bulk delete failed');
+                btn.disabled = false;
+                btn.textContent = 'Delete';
+            }
+        } else if (pendingDeleteId) {
+            const resp = await fetch('/admin/registry/' + encodeURIComponent(pendingDeleteId), { method: 'DELETE' });
+            if (resp.ok) {
+                window.location.reload();
+            } else {
+                const data = await resp.json().catch(() => ({}));
+                alert(data.detail || 'Failed to delete system');
+                btn.disabled = false;
+                btn.textContent = 'Delete';
+            }
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+    }
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDeleteModal();
+});
+</script>
+{% endblock %}
