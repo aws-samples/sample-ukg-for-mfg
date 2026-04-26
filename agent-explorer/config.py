@@ -1,12 +1,12 @@
-"""Configuration management for the Orchestrator V2 agent."""
+"""Configuration management for the Explorer agent."""
 from dataclasses import dataclass
 import os
 from typing import Optional
 
 
 @dataclass
-class OrchestratorConfig:
-    """Configuration for the Orchestrator V2 AgentCore agent.
+class ExplorerConfig:
+    """Configuration for the Explorer AgentCore agent.
 
     Attributes:
         registry_table_name: DynamoDB System Registry table name
@@ -40,14 +40,14 @@ class OrchestratorConfig:
     otel_console_export: bool = False
 
     @classmethod
-    def from_env(cls) -> "OrchestratorConfig":
+    def from_env(cls) -> "ExplorerConfig":
         """Load configuration from environment variables.
 
         Checks for AgentCore-provided environment variables first,
         then falls back to custom environment variables for local development.
 
         Returns:
-            OrchestratorConfig instance with values from environment
+            ExplorerConfig instance with values from environment
 
         Raises:
             ValueError: If required environment variables are missing

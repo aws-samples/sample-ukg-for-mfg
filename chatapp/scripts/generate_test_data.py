@@ -47,8 +47,6 @@ MAX_TURNS = 10
 
 # Possible model IDs
 MODELS = [
-    "global.amazon.nova-2-lite-v1:0",
-    "us.amazon.nova-pro-v1:0",
     "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
     "global.anthropic.claude-sonnet-4-6",

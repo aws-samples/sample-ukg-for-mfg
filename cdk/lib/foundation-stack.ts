@@ -343,7 +343,7 @@ export class FoundationStack extends cdk.Stack {
                 PutRequest: {
                   Item: {
                     setting_key: { S: 'app_title' },
-                    setting_value: { S: 'Manufacturing Digital Thread' },
+                    setting_value: { S: 'Manufacturing Universal Knowledge Graph' },
                     setting_type: { S: 'text' },
                     description: { S: 'Application title displayed in header' },
                     updated_at: { S: '2025-01-01T00:00:00.000Z' },
@@ -354,7 +354,7 @@ export class FoundationStack extends cdk.Stack {
                 PutRequest: {
                   Item: {
                     setting_key: { S: 'app_subtitle' },
-                    setting_value: { S: 'AI-Powered Universal Knowledge Graph on AWS' },
+                    setting_value: { S: 'AI-Powered Virtual Knowledge Graph on AWS' },
                     setting_type: { S: 'text' },
                     description: { S: 'Application subtitle displayed in header' },
                     updated_at: { S: '2025-01-01T00:00:00.000Z' },
@@ -836,7 +836,7 @@ export class FoundationStack extends cdk.Stack {
         // NOTE: secretObjectValue replaces the ENTIRE secret on every deploy,
         // so these MUST be listed here even though downstream stacks own them.
         agentcore_runtime_arn: cdk.SecretValue.unsafePlainText(''),  // Legacy — needed for rollback compat
-        orchestrator_runtime_arn: cdk.SecretValue.unsafePlainText(''),
+        explorer_runtime_arn: cdk.SecretValue.unsafePlainText(''),
         discovery_runtime_arn: cdk.SecretValue.unsafePlainText(''),        memory_id: cdk.SecretValue.unsafePlainText(''),
         guardrail_id: cdk.SecretValue.unsafePlainText(''),
         guardrail_version: cdk.SecretValue.unsafePlainText(''),

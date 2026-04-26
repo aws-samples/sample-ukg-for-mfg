@@ -136,8 +136,8 @@
         [data-sidebar-theme="light"] *,
         #memory-sidebar[data-sidebar-theme="light"],
         #memory-sidebar[data-sidebar-theme="light"] *,
-        #dt-sidebar[data-sidebar-theme="light"],
-        #dt-sidebar[data-sidebar-theme="light"] *,
+        #ukg-sidebar[data-sidebar-theme="light"],
+        #ukg-sidebar[data-sidebar-theme="light"] *,
         #sidebar-toggle-strip[data-sidebar-theme="light"],
         #sidebar-toggle-strip[data-sidebar-theme="light"] * {
             --sidebar-bg: #ffffff;
@@ -244,7 +244,7 @@
         }
 
         /* ── Systems grid — responsive columns ── */
-        .dt-systems-grid {
+        .ukg-systems-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 0.5rem;
@@ -413,11 +413,11 @@
         }
 
         /* ── Sidebar transitions ── */
-        #memory-sidebar, #dt-sidebar { transition: transform 0.3s ease, opacity 0.3s ease; }
+        #memory-sidebar, #ukg-sidebar { transition: transform 0.3s ease, opacity 0.3s ease; }
         #sidebar-toggle-strip { transition: opacity 0.2s ease; }
 
         @media (max-width: 1023px) {
-            #memory-sidebar, #dt-sidebar {
+            #memory-sidebar, #ukg-sidebar {
                 position: fixed; right: 0; top: 0; bottom: 0; z-index: 50;
                 box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
             }

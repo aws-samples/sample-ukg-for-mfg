@@ -122,7 +122,7 @@ fi
 # Change to CDK directory
 cd "$SCRIPT_DIR"
 
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 
 # ============================================================================
 # STEP 0: Clean up CloudWatch Logs Deliveries (must be deleted before sources)
@@ -200,7 +200,7 @@ else
     echo ""
     echo -e "${YELLOW}Stack destruction order:${NC}"
     echo "  1. ${APP_NAME}-ChatApp (ECS Express Mode)"
-    echo "  2. ${APP_NAME}-Agent (V1 Agent + V2 Orchestrator + V2 Discovery Agent)"
+    echo "  2. ${APP_NAME}-Agent (V1 Agent + V2 Explorer + V2 Discovery Agent)"
     echo "  3. ${APP_NAME}-Bedrock (Guardrail, Knowledge Base, Memory)"
     echo "  4. ${APP_NAME}-Foundation (Cognito, DynamoDB, IAM, Secrets, System Registry)"
     echo ""
@@ -270,7 +270,7 @@ if [ "$DRY_RUN" = true ]; then
 else
     echo -e "${CYAN}Summary of destroyed resources:${NC}"
     echo "  - ChatApp (ECS Express Mode / Lambda, ECR, CodeBuild, S3 source bucket)"
-    echo "  - Agent (V1 Agent, V2 Orchestrator, V2 Discovery Agent, ECR, CodeBuild, Runtimes)"
+    echo "  - Agent (V1 Agent, V2 Explorer, V2 Discovery Agent, ECR, CodeBuild, Runtimes)"
     echo "  - Bedrock (Guardrail, Knowledge Base, Memory)"
     echo "  - Foundation (Cognito, DynamoDB, IAM roles, Secrets, System Registry)"
     echo "  - CloudWatch log groups"

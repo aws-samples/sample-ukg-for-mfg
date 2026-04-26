@@ -29,7 +29,7 @@ class AppConfig:
         cognito_user_pool_id: The Cognito User Pool ID
         cognito_client_id: The Cognito app client ID
         cognito_client_secret: The Cognito app client secret
-        agentcore_runtime_arn: (DEPRECATED) Use orchestrator_runtime_arn instead
+        agentcore_runtime_arn: (DEPRECATED) Use explorer_runtime_arn instead
         aws_region: The AWS region for services
         memory_id: The AgentCore Memory ID
         app_url: The application URL (optional)
@@ -40,7 +40,7 @@ class AppConfig:
         guardrail_enabled: Whether guardrail evaluation is enabled
         guardrail_table_name: DynamoDB table for guardrail violations
         prompt_templates_table_name: DynamoDB table for prompt templates
-        orchestrator_runtime_arn: ARN for the Orchestrator V2 runtime (optional)
+        explorer_runtime_arn: ARN for the Explorer runtime (optional)
         discovery_runtime_arn: ARN for the Discovery Agent runtime (optional)
     """
 
@@ -61,9 +61,9 @@ class AppConfig:
     runtime_usage_table_name: str = "agentcore-runtime-usage"
     registry_table_name: Optional[str] = None
     discovery_history_table_name: Optional[str] = None
-    workflows_table_name: str = "mfg-thread-saved-workflows"
-    workflow_results_table_name: str = "mfg-thread-workflow-results"
-    orchestrator_runtime_arn: str = ""
+    workflows_table_name: str = "mfg-ukg-saved-workflows"
+    workflow_results_table_name: str = "mfg-ukg-workflow-results"
+    explorer_runtime_arn: str = ""
     discovery_runtime_arn: Optional[str] = None
 
     @classmethod
@@ -99,7 +99,7 @@ class AppConfig:
         
         # Always required vars
         required_vars = [
-            ("ORCHESTRATOR_RUNTIME_ARN", "orchestrator_runtime_arn"),
+            ("EXPLORER_RUNTIME_ARN", "explorer_runtime_arn"),
             ("AWS_REGION", "aws_region"),
             ("MEMORY_ID", "memory_id"),
         ]
@@ -160,11 +160,11 @@ class AppConfig:
 
         # Workflows table configuration
         values["workflows_table_name"] = os.environ.get(
-            "WORKFLOWS_TABLE_NAME", "mfg-thread-saved-workflows"
+            "WORKFLOWS_TABLE_NAME", "mfg-ukg-saved-workflows"
         ).strip()
 
         values["workflow_results_table_name"] = os.environ.get(
-            "WORKFLOW_RESULTS_TABLE_NAME", "mfg-thread-workflow-results"
+            "WORKFLOW_RESULTS_TABLE_NAME", "mfg-ukg-workflow-results"
         ).strip()
 
         # Discovery agent runtime ARN (optional — admin-only agent)

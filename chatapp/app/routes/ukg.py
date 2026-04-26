@@ -1,4 +1,4 @@
-"""Digital Thread API routes for the sidebar and admin views.
+"""Universal Knowledge Graph API routes for the sidebar and admin views.
 
 Provides JSON endpoints for:
 - /api/registry/systems — registered systems (sidebar)
@@ -20,12 +20,12 @@ from app.config import get_config
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/registry", tags=["digital_thread"])
+ukg_router = APIRouter(prefix="/api/registry", tags=["ukg"])
 
 
-@router.get("/systems")
+@ukg_router.get("/systems")
 async def get_systems(request: Request):
-    """Get all registered systems for the Digital Thread sidebar."""
+    """Get all registered systems for the Universal Knowledge Graph sidebar."""
     config = get_config()
     if not config.registry_table_name:
         return JSONResponse(content={"systems": [], "count": 0, "configured": False})
@@ -41,7 +41,7 @@ async def get_systems(request: Request):
     })
 
 
-@router.get("/vocabulary")
+@ukg_router.get("/vocabulary")
 async def get_vocabulary(request: Request):
     """Get the canonical manufacturing vocabulary grouped by ISA-95 domain."""
     return JSONResponse(content={
@@ -50,7 +50,7 @@ async def get_vocabulary(request: Request):
     })
 
 
-@router.get("/concepts")
+@ukg_router.get("/concepts")
 async def get_concepts(request: Request):
     """Get fields grouped by concept across all systems (admin view)."""
     config = get_config()
@@ -97,7 +97,7 @@ async def get_concepts(request: Request):
     })
 
 
-@router.get("/equivalences")
+@ukg_router.get("/equivalences")
 async def get_equivalences(request: Request):
     """Get all cross-system field equivalences (admin view)."""
     config = get_config()

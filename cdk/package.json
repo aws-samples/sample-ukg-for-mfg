@@ -1,7 +1,7 @@
 {
-  "name": "agentcore-chatapp-cdk",
+  "name": "mfg-ukg-cdk",
   "version": "1.0.0",
-  "description": "CDK deployment for AgentCore Chat Application with DynamoDB, Guardrails, and Knowledge Base",
+  "description": "CDK deployment for Universal Knowledge Graph for Manufacturing",
   "main": "app.ts",
   "scripts": {
     "build": "tsc",

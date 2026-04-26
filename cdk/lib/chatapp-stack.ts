@@ -563,8 +563,8 @@ def handler(event, context):
             valueFrom: `${secretArn}:cognito_client_secret::`,
           },
           {
-            name: 'ORCHESTRATOR_RUNTIME_ARN',
-            valueFrom: `${secretArn}:orchestrator_runtime_arn::`,
+            name: 'EXPLORER_RUNTIME_ARN',
+            valueFrom: `${secretArn}:explorer_runtime_arn::`,
           },
           {
             name: 'MEMORY_ID',
@@ -615,8 +615,8 @@ def handler(event, context):
             valueFrom: `${secretArn}:discovery_runtime_arn::`,
           },
           {
-            name: 'ORCHESTRATOR_EVAL_CONFIG_ID',
-            valueFrom: `${secretArn}:orchestrator_eval_config_id::`,
+            name: 'EXPLORER_EVAL_CONFIG_ID',
+            valueFrom: `${secretArn}:explorer_eval_config_id::`,
           },
           {
             name: 'DISCOVERY_EVAL_CONFIG_ID',
@@ -991,9 +991,9 @@ def handler(event, context):
       'GUARDRAIL_VERSION': 'guardrail_version',
       'KB_ID': 'kb_id',
       'REGISTRY_TABLE_NAME': 'registry_table_name',
-      'ORCHESTRATOR_RUNTIME_ARN': 'orchestrator_runtime_arn',
+      'EXPLORER_RUNTIME_ARN': 'explorer_runtime_arn',
       'DISCOVERY_RUNTIME_ARN': 'discovery_runtime_arn',
-      'ORCHESTRATOR_EVAL_CONFIG_ID': 'orchestrator_eval_config_id',
+      'EXPLORER_EVAL_CONFIG_ID': 'explorer_eval_config_id',
       'DISCOVERY_EVAL_CONFIG_ID': 'discovery_eval_config_id',
       'WORKFLOW_EXECUTOR_ARN': 'workflow_executor_arn',
       'WORKFLOWS_TABLE_NAME': 'workflows_table_name',

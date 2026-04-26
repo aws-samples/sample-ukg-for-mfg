@@ -17,7 +17,7 @@ import boto3
 
 
 def get_rds_config(region: str) -> dict:
-    app_name = os.getenv("APP_NAME", "mfg-thread")
+    app_name = os.getenv("APP_NAME", "mfg-ukg")
     secret_name = f"{app_name}/appconfig"
     client = boto3.client("secretsmanager", region_name=region)
     secret = json.loads(client.get_secret_value(SecretId=secret_name)["SecretString"])

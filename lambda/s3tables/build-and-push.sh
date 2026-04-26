@@ -25,7 +25,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 ECR_REPO_NAME="${APP_NAME}-mcp-lambda"
 AWS_REGION="${AWS_REGION:-us-east-2}"
 AWS_PROFILE=""

@@ -91,19 +91,19 @@ export interface AppConfig {
   /** S3 bucket name for CodeBuild source */
   buildSourceBucketName: string;
 
-  // V2 Agent configuration (Orchestrator + Discovery)
+  // V2 Agent configuration (Explorer + Discovery)
   /** System Registry DynamoDB table name */
   registryTableName: string;
-  /** Orchestrator ECR repository name */
-  orchestratorRepoName: string;
+  /** Explorer ECR repository name */
+  explorerRepoName: string;
   /** Discovery Agent ECR repository name */
   discoveryRepoName: string;
-  /** CodeBuild project name for Orchestrator builds */
-  orchestratorBuildProjectName: string;
+  /** CodeBuild project name for Explorer builds */
+  explorerBuildProjectName: string;
   /** CodeBuild project name for Discovery Agent builds */
   discoveryBuildProjectName: string;
-  /** Orchestrator AgentCore Runtime name */
-  orchestratorRuntimeName: string;
+  /** Explorer AgentCore Runtime name */
+  explorerRuntimeName: string;
   /** Discovery Agent AgentCore Runtime name */
   discoveryRuntimeName: string;
 }
@@ -141,7 +141,7 @@ function getEnvNumberOrDefault(envVar: string, defaultValue: number): number {
  * Note: deploymentMode is set dynamically from CDK context in bin/app.ts
  */
 // Extract appName first so all other defaults can reference it
-const appName = getEnvOrDefault('APP_NAME', 'mfg-thread');
+const appName = getEnvOrDefault('APP_NAME', 'mfg-ukg');
 
 export const config: AppConfig = {
   // Base configuration
@@ -194,13 +194,13 @@ export const config: AppConfig = {
   // CodeBuild configuration
   buildSourceBucketName: getEnvOrDefault('BUILD_SOURCE_BUCKET_NAME', `${appName}-build-source`),
 
-  // V2 Agent configuration (Orchestrator + Discovery)
+  // V2 Agent configuration (Explorer + Discovery)
   registryTableName: getEnvOrDefault('REGISTRY_TABLE_NAME', `${appName}-system-registry`),
-  orchestratorRepoName: getEnvOrDefault('ORCHESTRATOR_REPO_NAME', `${appName}-orchestrator`),
+  explorerRepoName: getEnvOrDefault('EXPLORER_REPO_NAME', `${appName}-explorer`),
   discoveryRepoName: getEnvOrDefault('DISCOVERY_REPO_NAME', `${appName}-discovery`),
-  orchestratorBuildProjectName: getEnvOrDefault('ORCHESTRATOR_BUILD_PROJECT_NAME', `${appName}-orchestrator-build`),
+  explorerBuildProjectName: getEnvOrDefault('EXPLORER_BUILD_PROJECT_NAME', `${appName}-explorer-build`),
   discoveryBuildProjectName: getEnvOrDefault('DISCOVERY_BUILD_PROJECT_NAME', `${appName}-discovery-build`),
-  orchestratorRuntimeName: getEnvOrDefault('ORCHESTRATOR_RUNTIME_NAME', `${appName}_orchestrator`.replace(/-/g, '_')),
+  explorerRuntimeName: getEnvOrDefault('EXPLORER_RUNTIME_NAME', `${appName}_explorer`.replace(/-/g, '_')),
   discoveryRuntimeName: getEnvOrDefault('DISCOVERY_RUNTIME_NAME', `${appName}_discovery`.replace(/-/g, '_')),
 };
 
@@ -285,15 +285,15 @@ export const exportNames = {
   s3TablesBucketName: `${config.appName}-S3TablesBucketName`,
 
   // ========================================================================
-  // V2 Agent Stack exports (Orchestrator + Discovery)
+  // V2 Agent Stack exports (Explorer + Discovery)
   // ========================================================================
 
   /** System Registry table name - used by Agent Stack for V2 agents */
   registryTableName: `${config.appName}-RegistryTableName`,
   /** System Registry table ARN - used by Agent Stack for IAM permissions */
   registryTableArn: `${config.appName}-RegistryTableArn`,
-  /** Orchestrator AgentCore Runtime ARN - stored in secrets for ChatApp routing */
-  orchestratorRuntimeArn: `${config.appName}-OrchestratorRuntimeArn`,
+  /** Explorer AgentCore Runtime ARN - stored in secrets for ChatApp routing */
+  explorerRuntimeArn: `${config.appName}-ExplorerRuntimeArn`,
   /** Discovery Agent AgentCore Runtime ARN - stored in secrets for admin endpoint */
   discoveryRuntimeArn: `${config.appName}-DiscoveryRuntimeArn`,
 

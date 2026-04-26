@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 
-from app.auth.cognito import CognitoAuth, AuthenticationError
+from app.auth.cognito import CognitoAuth, AuthenticationError, invalidate_user_groups_cache
 from app.auth.middleware import SESSION_COOKIE_NAME
 from app.templates_config import templates
 
@@ -76,6 +76,10 @@ async def login(
             id_token=token_response.id_token
         )
         validated_username = user_info.username or user_info.email or user_info.user_id
+
+        # Fresh login → drop any stale cached groups so admin status reflects
+        # the user's current Cognito group memberships immediately.
+        invalidate_user_groups_cache(validated_username)
         
         # Create session data - split into two cookies to stay under 4KB limit
         # Main session cookie (access + id tokens)
@@ -133,6 +137,18 @@ async def logout(request: Request):
     Returns:
         Redirect to login page
     """
+    # Invalidate cached group membership for this user so the next login
+    # re-fetches from Cognito.
+    session_cookie = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_cookie:
+        try:
+            session_data = json.loads(session_cookie)
+            username = session_data.get("username")
+            if username:
+                invalidate_user_groups_cache(username)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     response = RedirectResponse(url="/auth/login", status_code=302)
     response.delete_cookie(SESSION_COOKIE_NAME)
     response.delete_cookie(f"{SESSION_COOKIE_NAME}_refresh")

@@ -25,7 +25,7 @@ CDK_DIR="$(dirname "$SCRIPT_DIR")/cdk"
 # Default configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DEV_MODE=false
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 SECRET_NAME="${SECRET_NAME:-${APP_NAME}/appconfig}"
 PROFILE_OVERRIDE=""
 
@@ -111,7 +111,7 @@ RUNTIME_USAGE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.runtime_usage_table_na
 GUARDRAIL_ID=$(echo "$SECRET_VALUE" | jq -r '.guardrail_id // empty')
 GUARDRAIL_VERSION=$(echo "$SECRET_VALUE" | jq -r '.guardrail_version // empty')
 KB_ID=$(echo "$SECRET_VALUE" | jq -r '.kb_id // empty')
-ORCHESTRATOR_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.orchestrator_runtime_arn // empty')
+EXPLORER_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.explorer_runtime_arn // empty')
 DISCOVERY_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.discovery_runtime_arn // empty')
 REGISTRY_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.registry_table_name // empty')
 DISCOVERY_HISTORY_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.discovery_history_table_name // empty')
@@ -121,12 +121,12 @@ WORKFLOW_SCHEDULER_GROUP=$(echo "$SECRET_VALUE" | jq -r '.workflow_scheduler_gro
 WORKFLOW_SCHEDULER_ROLE_ARN=$(echo "$SECRET_VALUE" | jq -r '.workflow_scheduler_role_arn // empty')
 WORKFLOW_RESULTS_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.workflow_results_table_name // empty')
 WORKFLOWS_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.workflows_table_name // empty')
-ORCHESTRATOR_EVAL_CONFIG_ID=$(echo "$SECRET_VALUE" | jq -r '.orchestrator_eval_config_id // empty')
+EXPLORER_EVAL_CONFIG_ID=$(echo "$SECRET_VALUE" | jq -r '.explorer_eval_config_id // empty')
 DISCOVERY_EVAL_CONFIG_ID=$(echo "$SECRET_VALUE" | jq -r '.discovery_eval_config_id // empty')
 
 # Validate required values
-if [ -z "$ORCHESTRATOR_RUNTIME_ARN" ]; then
-    echo -e "${RED}Error: ORCHESTRATOR_RUNTIME_ARN is empty. Agent stack may not be fully deployed.${NC}"
+if [ -z "$EXPLORER_RUNTIME_ARN" ]; then
+    echo -e "${RED}Error: EXPLORER_RUNTIME_ARN is empty. Agent stack may not be fully deployed.${NC}"
     exit 1
 fi
 
@@ -159,12 +159,12 @@ COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID
 COGNITO_CLIENT_SECRET=$COGNITO_CLIENT_SECRET
 
 # AgentCore Configuration
-ORCHESTRATOR_RUNTIME_ARN=$ORCHESTRATOR_RUNTIME_ARN
+EXPLORER_RUNTIME_ARN=$EXPLORER_RUNTIME_ARN
 DISCOVERY_RUNTIME_ARN=$DISCOVERY_RUNTIME_ARN
 MEMORY_ID=$MEMORY_ID
 
 # AgentCore Evaluation Configuration
-ORCHESTRATOR_EVAL_CONFIG_ID=$ORCHESTRATOR_EVAL_CONFIG_ID
+EXPLORER_EVAL_CONFIG_ID=$EXPLORER_EVAL_CONFIG_ID
 DISCOVERY_EVAL_CONFIG_ID=$DISCOVERY_EVAL_CONFIG_ID
 
 # AgentCore Gateway Configuration
@@ -201,7 +201,7 @@ echo ""
 echo -e "${CYAN}Configuration:${NC}"
 echo "  AWS Region: $AWS_REGION"
 echo "  DEV_MODE: $DEV_MODE"
-echo "  Orchestrator ARN: ${ORCHESTRATOR_RUNTIME_ARN:-not configured}"
+echo "  Explorer ARN: ${EXPLORER_RUNTIME_ARN:-not configured}"
 echo "  Discovery ARN: ${DISCOVERY_RUNTIME_ARN:-not configured}"
 echo "  Gateway ID: ${REGISTRY_GATEWAY_ID:-not configured}"
 echo "  Memory ID: $MEMORY_ID"

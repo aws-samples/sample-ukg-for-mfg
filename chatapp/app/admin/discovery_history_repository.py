@@ -20,7 +20,7 @@ class DiscoveryHistoryRepository:
 
     def __init__(self, table_name: Optional[str] = None, region: Optional[str] = None):
         self.table_name = table_name or os.environ.get(
-            "DISCOVERY_HISTORY_TABLE_NAME", "mfg-thread-discovery-history"
+            "DISCOVERY_HISTORY_TABLE_NAME", "mfg-ukg-discovery-history"
         )
         self.region = region or os.environ.get("AWS_REGION", "us-east-1")
         boto_config = Config(

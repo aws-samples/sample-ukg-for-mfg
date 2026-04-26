@@ -6,7 +6,7 @@
  * - AgentCore Gateway with the Lambda target
  * - IAM permissions for Gateway → Lambda invocation
  *
- * Both the Orchestrator and Discovery agents consume these tools via
+ * Both the Explorer and Discovery agents consume these tools via
  * the Gateway MCP protocol, eliminating duplicated tool code.
  *
  * Exports:
@@ -180,7 +180,7 @@ def handler(event, context):
                 roleArn=role_arn,
                 protocolType='MCP',
                 authorizerType='AWS_IAM',
-                description='Shared registry tools for Orchestrator and Discovery agents',
+                description='Shared registry tools for Explorer and Discovery agents',
             )
             gateway_id = gw_response['gatewayId']
             print(f"Created gateway (initial ID): {gateway_id}")
@@ -248,7 +248,7 @@ def handler(event, context):
                     gatewayIdentifier=gateway_id,
                     name=gateway_name,
                     roleArn=role_arn,
-                    description='Shared registry tools for Orchestrator and Discovery agents',
+                    description='Shared registry tools for Explorer and Discovery agents',
                 )
             except Exception as e:
                 print(f"Gateway update warning: {e}")
@@ -362,7 +362,7 @@ def handler(event, context):
         // which causes the Lambda to re-resolve the gateway ID by name. If that
         // resolved ID differs from the stored PhysicalResourceId, CFN treats it
         // as a resource replacement and tries to change the exported value, which
-        // fails when mfg-thread-agent is importing mfg-thread-RegistryGatewayId.
+        // fails when mfg-ukg-agent is importing mfg-ukg-RegistryGatewayId.
       },
     });
 
@@ -423,7 +423,7 @@ def handler(event, context):
         {
           id: 'AwsSolutions-IAM5',
           reason: 'DynamoDB GSI access requires index/* pattern. Table ARN is imported from Foundation stack via CloudFormation export.',
-          appliesTo: ['Resource::mfg-thread-SystemRegistryTableArn/index/*'],
+          appliesTo: ['Resource::mfg-ukg-SystemRegistryTableArn/index/*'],
         },
       ]
     );

@@ -27,7 +27,7 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 
 def get_bucket_name(region: str) -> str:
-    app_name = os.getenv("APP_NAME", "mfg-thread")
+    app_name = os.getenv("APP_NAME", "mfg-ukg")
     secret_name = f"{app_name}/appconfig"
     client = boto3.client("secretsmanager", region_name=region)
     secret = json.loads(client.get_secret_value(SecretId=secret_name)["SecretString"])

@@ -1066,11 +1066,11 @@ async def evaluations_dashboard(
     eval_repo = EvaluationRepository()
 
     # Fetch evaluation summaries for both agents
-    orchestrator_summary = await eval_repo.get_agent_summary(
-        eval_repo.orchestrator_config_id,
+    explorer_summary = await eval_repo.get_agent_summary(
+        eval_repo.explorer_config_id,
         start_dt,
         end_dt,
-        agent_name="Orchestrator",
+        agent_name="Explorer",
     )
     discovery_summary = await eval_repo.get_agent_summary(
         eval_repo.discovery_config_id,
@@ -1085,7 +1085,7 @@ async def evaluations_dashboard(
         "admin/evaluations.html",
         {
             "request": request,
-            "orchestrator_summary": asdict(orchestrator_summary),
+            "explorer_summary": asdict(explorer_summary),
             "discovery_summary": asdict(discovery_summary),
             "start_time": start_dt.isoformat(),
             "end_time": end_dt.isoformat(),

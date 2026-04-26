@@ -1,8 +1,8 @@
 /**
- * Digital Thread sidebar JavaScript.
+ * Universal Knowledge Graph sidebar JavaScript.
  *
  * Handles theme toggling, tab switching, data loading, and rendering
- * for the Digital Thread sidebar (Systems + Vocabulary tabs).
+ * for the Universal Knowledge Graph sidebar (Systems + Vocabulary tabs).
  */
 
 // ============================================================================
@@ -10,39 +10,39 @@
 // ============================================================================
 
 let currentDtTab = 'systems';
-const DT_THEME_KEY = 'agentcore-dt-theme';
-const DT_COLLAPSED_KEY = 'agentcore-dt-collapsed';
-let dtCache = { systems: null, vocabulary: null };
-let dtVocabExpanded = {};
-let dtVocabSearchTerm = '';
+const UKG_THEME_KEY = 'agentcore-ukg-theme';
+const UKG_COLLAPSED_KEY = 'agentcore-ukg-collapsed';
+let ukgCache = { systems: null, vocabulary: null };
+let ukgVocabExpanded = {};
+let ukgVocabSearchTerm = '';
 
 // ============================================================================
 // Theme
 // ============================================================================
 
-function initDtTheme() {
-    var saved = localStorage.getItem(DT_THEME_KEY);
-    applyDtTheme(saved || 'dark');
+function initUkgTheme() {
+    var saved = localStorage.getItem(UKG_THEME_KEY);
+    applyUkgTheme(saved || 'dark');
 }
 
-function toggleDtTheme() {
-    var sidebar = document.getElementById('dt-sidebar');
+function toggleUkgTheme() {
+    var sidebar = document.getElementById('ukg-sidebar');
     var current = sidebar ? sidebar.dataset.sidebarTheme || 'light' : 'light';
     var next = current === 'dark' ? 'light' : 'dark';
-    applyDtTheme(next);
-    localStorage.setItem(DT_THEME_KEY, next);
+    applyUkgTheme(next);
+    localStorage.setItem(UKG_THEME_KEY, next);
 }
 
-function applyDtTheme(theme) {
-    ['dt-sidebar', 'dt-sidebar-inner', 'dt-toggle-collapsed'].forEach(function (id) {
+function applyUkgTheme(theme) {
+    ['ukg-sidebar', 'ukg-sidebar-inner', 'ukg-toggle-collapsed'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.dataset.sidebarTheme = theme;
     });
     var strip = document.getElementById('sidebar-toggle-strip');
     if (strip) strip.dataset.sidebarTheme = theme;
 
-    var sun = document.getElementById('dt-theme-icon-sun');
-    var moon = document.getElementById('dt-theme-icon-moon');
+    var sun = document.getElementById('ukg-theme-icon-sun');
+    var moon = document.getElementById('ukg-theme-icon-moon');
     if (sun && moon) {
         if (theme === 'dark') { sun.classList.remove('hidden'); moon.classList.add('hidden'); }
         else { sun.classList.add('hidden'); moon.classList.remove('hidden'); }
@@ -56,7 +56,7 @@ function applyDtTheme(theme) {
 
 function updateDtTabStyling(active) {
     ['systems', 'vocabulary'].forEach(function (t) {
-        var btn = document.getElementById('dt-tab-' + t);
+        var btn = document.getElementById('ukg-tab-' + t);
         if (!btn) return;
         if (t === active) {
             btn.style.color = 'var(--sidebar-tab-active-text)';
@@ -72,9 +72,9 @@ function updateDtTabStyling(active) {
     });
 }
 
-function switchDtTab(tab) {
+function switchUkgTab(tab) {
     ['systems', 'vocabulary'].forEach(function (t) {
-        var el = document.getElementById('dt-tab-content-' + t);
+        var el = document.getElementById('ukg-tab-content-' + t);
         if (el) {
             if (t === tab) el.classList.remove('hidden');
             else el.classList.add('hidden');
@@ -90,7 +90,7 @@ function switchDtTab(tab) {
 // ============================================================================
 
 /** Escape HTML to prevent XSS. */
-function dtEscape(text) {
+function ukgEscape(text) {
     var div = document.createElement('div');
     div.textContent = text || '';
     return div.innerHTML; // nosemgrep: insecure-innerhtml, insecure-document-method
@@ -124,12 +124,12 @@ function dtEmpty(title, subtitle, emoji) {
 // ============================================================================
 
 async function loadDtTab(tab, force) {
-    if (!force && dtCache[tab]) {
-        if (tab === 'systems') renderDtSystems(dtCache[tab]);
-        else if (tab === 'vocabulary') renderDtVocabulary(dtCache[tab]);
+    if (!force && ukgCache[tab]) {
+        if (tab === 'systems') renderUkgSystems(ukgCache[tab]);
+        else if (tab === 'vocabulary') renderUkgVocabulary(ukgCache[tab]);
         return;
     }
-    var container = document.getElementById('dt-' + tab + '-content');
+    var container = document.getElementById('ukg-' + tab + '-content');
     if (!container) return;
     container.innerHTML = dtSpinner(tab); // nosemgrep: insecure-innerhtml, insecure-document-method
 
@@ -145,11 +145,11 @@ async function loadDtTab(tab, force) {
                 return;
             }
             var items = data.systems || [];
-            dtCache.systems = items;
-            renderDtSystems(items);
+            ukgCache.systems = items;
+            renderUkgSystems(items);
         } else if (tab === 'vocabulary') {
-            dtCache.vocabulary = data;
-            renderDtVocabulary(data);
+            ukgCache.vocabulary = data;
+            renderUkgVocabulary(data);
         }
     } catch (e) {
         console.error('DT load error (' + tab + '):', e);
@@ -184,8 +184,8 @@ function statusDot(status) {
     return '<span class="inline-block w-2 h-2 rounded-full mr-1" style="background:' + color + ';"></span>';
 }
 
-function renderDtSystems(items) {
-    var c = document.getElementById('dt-systems-content');
+function renderUkgSystems(items) {
+    var c = document.getElementById('ukg-systems-content');
     if (!c) return;
     if (!items.length) {
         c.innerHTML = dtEmpty('No systems registered', 'Systems appear after the Discovery Agent runs', '🏭'); // nosemgrep: insecure-innerhtml, insecure-document-method
@@ -195,14 +195,14 @@ function renderDtSystems(items) {
         return '<div class="p-3 rounded-lg" style="background: var(--sidebar-card-bg); border: 1px solid var(--sidebar-card-border);">'
             + '<div class="flex items-center gap-2 mb-2">'
             + '<span class="text-lg">' + systemTypeEmoji(s.system_type) + '</span>'
-            + '<span class="text-sm font-semibold truncate" style="color: var(--sidebar-text);">' + dtEscape(s.name || s.system_id) + '</span>'
-            + '<span class="ml-auto text-xs flex items-center" style="color: var(--sidebar-text-muted);">' + statusDot(s.status) + dtEscape(s.status) + '</span>'
+            + '<span class="text-sm font-semibold truncate" style="color: var(--sidebar-text);">' + ukgEscape(s.name || s.system_id) + '</span>'
+            + '<span class="ml-auto text-xs flex items-center" style="color: var(--sidebar-text-muted);">' + statusDot(s.status) + ukgEscape(s.status) + '</span>'
             + '</div>'
             + '<div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs" style="color: var(--sidebar-text-muted);">'
-            + '<div>📍 ' + dtEscape(s.plant || '—') + '</div>'
-            + '<div>📡 ' + dtEscape(s.protocol || '—') + '</div>'
+            + '<div>📍 ' + ukgEscape(s.plant || '—') + '</div>'
+            + '<div>📡 ' + ukgEscape(s.protocol || '—') + '</div>'
             + '<div>📐 ' + isaLabel(s.isa95_level) + '</div>'
-            + '<div>🏷️ ' + dtEscape(s.system_type || '—') + '</div>'
+            + '<div>🏷️ ' + ukgEscape(s.system_type || '—') + '</div>'
             + '</div>'
             + '<div class="flex gap-3 mt-2 text-xs" style="color: var(--sidebar-text-muted);">'
             + '<span class="px-2 py-0.5 rounded" style="background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text);">' + (s.table_count || 0) + ' tables</span>'
@@ -210,15 +210,15 @@ function renderDtSystems(items) {
             + '</div>'
             + '</div>';
     }).join('');
-    c.innerHTML = '<div class="dt-systems-grid">' + cards + '</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+    c.innerHTML = '<div class="ukg-systems-grid">' + cards + '</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
 }
 
 // ============================================================================
 // Vocabulary renderer — collapsible groups with search
 // ============================================================================
 
-function renderDtVocabulary(data) {
-    var c = document.getElementById('dt-vocabulary-content');
+function renderUkgVocabulary(data) {
+    var c = document.getElementById('ukg-vocabulary-content');
     if (!c) return;
     var groups = data.groups || [];
     var total = data.total_concepts || 0;
@@ -233,14 +233,14 @@ function renderDtVocabulary(data) {
         + '<svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color: var(--sidebar-text-muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">'
         + '<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />'
         + '</svg>'
-        + '<input id="dt-vocab-search" type="text" placeholder="Search concepts..." '
-        + 'oninput="filterDtVocabulary(this.value)" '
+        + '<input id="ukg-vocab-search" type="text" placeholder="Search concepts..." '
+        + 'oninput="filterUkgVocabulary(this.value)" '
         + 'class="w-full pl-8 pr-8 py-1.5 text-xs rounded-md" '
         + 'style="background: var(--sidebar-card-bg); border: 1px solid var(--sidebar-card-border); color: var(--sidebar-text); outline: none;" '
         + 'onfocus="this.style.borderColor=\'var(--sidebar-tab-active-text)\'" '
         + 'onblur="this.style.borderColor=\'var(--sidebar-card-border)\'" '
-        + 'value="' + dtEscape(dtVocabSearchTerm) + '" />'
-        + '<button id="dt-vocab-search-clear" onclick="clearDtVocabSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:opacity-80 ' + (dtVocabSearchTerm ? '' : 'hidden') + '" style="color: var(--sidebar-text-muted);" aria-label="Clear search">'
+        + 'value="' + ukgEscape(ukgVocabSearchTerm) + '" />'
+        + '<button id="ukg-vocab-search-clear" onclick="clearUkgVocabSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:opacity-80 ' + (ukgVocabSearchTerm ? '' : 'hidden') + '" style="color: var(--sidebar-text-muted);" aria-label="Clear search">'
         + '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>'
         + '</button>'
         + '</div>'
@@ -249,36 +249,36 @@ function renderDtVocabulary(data) {
     var header = '<div class="mb-3 text-xs" style="color: var(--sidebar-text-muted);">'
         + '<span class="font-medium" style="color: var(--sidebar-text);">' + total + '</span> canonical concepts across '
         + '<span class="font-medium" style="color: var(--sidebar-text);">' + groups.length + '</span> domains'
-        + '<span id="dt-vocab-match-count" class="' + (dtVocabSearchTerm ? '' : 'hidden') + '"> · <span class="font-medium" style="color: var(--sidebar-tab-active-text);">0</span> matches</span>'
+        + '<span id="ukg-vocab-match-count" class="' + (ukgVocabSearchTerm ? '' : 'hidden') + '"> · <span class="font-medium" style="color: var(--sidebar-tab-active-text);">0</span> matches</span>'
         + '</div>';
 
     var cards = groups.map(function (group, gi) {
-        var isExpanded = dtVocabExpanded[gi] === true;
+        var isExpanded = ukgVocabExpanded[gi] === true;
         var conceptCount = 0;
         group.subgroups.forEach(function (sg) { conceptCount += sg.concepts.length; });
 
         var subgroupHtml = group.subgroups.map(function (sg) {
             var items = sg.concepts.map(function (concept) {
-                return '<div class="dt-vocab-item flex items-start gap-2 py-1" data-concept="' + dtEscape((concept.id + ' ' + concept.desc).toLowerCase()) + '">'
-                    + '<code class="text-xs px-1.5 py-0.5 rounded shrink-0" style="background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text);">' + dtEscape(concept.id) + '</code>'
-                    + '<span class="text-xs" style="color: var(--sidebar-text-muted);">' + dtEscape(concept.desc) + '</span>'
+                return '<div class="ukg-vocab-item flex items-start gap-2 py-1" data-concept="' + ukgEscape((concept.id + ' ' + concept.desc).toLowerCase()) + '">'
+                    + '<code class="text-xs px-1.5 py-0.5 rounded shrink-0" style="background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text);">' + ukgEscape(concept.id) + '</code>'
+                    + '<span class="text-xs" style="color: var(--sidebar-text-muted);">' + ukgEscape(concept.desc) + '</span>'
                     + '</div>';
             }).join('');
 
-            return '<div class="dt-vocab-subgroup mb-2">'
-                + '<div class="text-xs font-semibold mb-1" style="color: var(--sidebar-text);">' + dtEscape(sg.name) + '</div>'
+            return '<div class="ukg-vocab-subgroup mb-2">'
+                + '<div class="text-xs font-semibold mb-1" style="color: var(--sidebar-text);">' + ukgEscape(sg.name) + '</div>'
                 + items
                 + '</div>';
         }).join('');
 
-        return '<div class="dt-vocab-group rounded-lg mb-2" data-group-index="' + gi + '" style="background: var(--sidebar-card-bg); border: 1px solid var(--sidebar-card-border);">'
-            + '<button onclick="toggleDtVocabGroup(' + gi + ')" class="w-full px-3 py-2.5 flex items-center gap-2 text-left hover:opacity-80 transition-opacity">'
+        return '<div class="ukg-vocab-group rounded-lg mb-2" data-group-index="' + gi + '" style="background: var(--sidebar-card-bg); border: 1px solid var(--sidebar-card-border);">'
+            + '<button onclick="toggleUkgVocabGroup(' + gi + ')" class="w-full px-3 py-2.5 flex items-center gap-2 text-left hover:opacity-80 transition-opacity">'
             + '<span class="text-lg">' + (group.icon || '📁') + '</span>'
-            + '<span class="text-sm font-semibold flex-1" style="color: var(--sidebar-text);">' + dtEscape(group.group) + '</span>'
-            + '<span class="dt-vocab-group-count text-xs px-2 py-0.5 rounded-full" style="background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text);">' + conceptCount + '</span>'
+            + '<span class="text-sm font-semibold flex-1" style="color: var(--sidebar-text);">' + ukgEscape(group.group) + '</span>'
+            + '<span class="ukg-vocab-group-count text-xs px-2 py-0.5 rounded-full" style="background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text);">' + conceptCount + '</span>'
             + '<svg class="w-4 h-4 transition-transform ' + (isExpanded ? 'rotate-180' : '') + '" style="color: var(--sidebar-text-muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>'
             + '</button>'
-            + '<div class="px-3 pb-3 ' + (isExpanded ? '' : 'hidden') + '" id="dt-vocab-group-' + gi + '">'
+            + '<div class="px-3 pb-3 ' + (isExpanded ? '' : 'hidden') + '" id="ukg-vocab-group-' + gi + '">'
             + subgroupHtml
             + '</div>'
             + '</div>';
@@ -287,8 +287,8 @@ function renderDtVocabulary(data) {
     c.innerHTML = searchBox + header + cards; // nosemgrep: insecure-innerhtml, insecure-document-method
 
     // Re-apply filter if there was an active search
-    if (dtVocabSearchTerm) {
-        filterDtVocabulary(dtVocabSearchTerm);
+    if (ukgVocabSearchTerm) {
+        filterUkgVocabulary(ukgVocabSearchTerm);
     }
 }
 
@@ -297,17 +297,17 @@ function renderDtVocabulary(data) {
  * Matches against concept ID and description. Shows/hides items,
  * auto-expands groups with matches, hides groups with no matches.
  */
-function filterDtVocabulary(term) {
-    dtVocabSearchTerm = (term || '').trim();
-    var query = dtVocabSearchTerm.toLowerCase();
-    var clearBtn = document.getElementById('dt-vocab-search-clear');
-    var matchCountEl = document.getElementById('dt-vocab-match-count');
+function filterUkgVocabulary(term) {
+    ukgVocabSearchTerm = (term || '').trim();
+    var query = ukgVocabSearchTerm.toLowerCase();
+    var clearBtn = document.getElementById('ukg-vocab-search-clear');
+    var matchCountEl = document.getElementById('ukg-vocab-match-count');
 
-    if (clearBtn) clearBtn.classList.toggle('hidden', !dtVocabSearchTerm);
-    if (matchCountEl) matchCountEl.classList.toggle('hidden', !dtVocabSearchTerm);
+    if (clearBtn) clearBtn.classList.toggle('hidden', !ukgVocabSearchTerm);
+    if (matchCountEl) matchCountEl.classList.toggle('hidden', !ukgVocabSearchTerm);
 
-    var items = document.querySelectorAll('.dt-vocab-item');
-    var groups = document.querySelectorAll('.dt-vocab-group');
+    var items = document.querySelectorAll('.ukg-vocab-item');
+    var groups = document.querySelectorAll('.ukg-vocab-group');
     var totalMatches = 0;
 
     if (!query) {
@@ -316,13 +316,13 @@ function filterDtVocabulary(term) {
         groups.forEach(function (g) {
             g.classList.remove('hidden');
             var gi = parseInt(g.dataset.groupIndex, 10);
-            var body = document.getElementById('dt-vocab-group-' + gi);
+            var body = document.getElementById('ukg-vocab-group-' + gi);
             if (body) {
-                if (dtVocabExpanded[gi]) body.classList.remove('hidden');
+                if (ukgVocabExpanded[gi]) body.classList.remove('hidden');
                 else body.classList.add('hidden');
             }
             // Restore subgroup visibility
-            g.querySelectorAll('.dt-vocab-subgroup').forEach(function (sg) { sg.classList.remove('hidden'); });
+            g.querySelectorAll('.ukg-vocab-subgroup').forEach(function (sg) { sg.classList.remove('hidden'); });
         });
         return;
     }
@@ -338,13 +338,13 @@ function filterDtVocabulary(term) {
     // Show/hide groups and subgroups based on whether they have visible items
     groups.forEach(function (g) {
         var gi = parseInt(g.dataset.groupIndex, 10);
-        var body = document.getElementById('dt-vocab-group-' + gi);
+        var body = document.getElementById('ukg-vocab-group-' + gi);
         var visibleInGroup = 0;
 
         if (body) {
             // Check subgroups
-            body.querySelectorAll('.dt-vocab-subgroup').forEach(function (sg) {
-                var visibleItems = sg.querySelectorAll('.dt-vocab-item:not(.hidden)').length;
+            body.querySelectorAll('.ukg-vocab-subgroup').forEach(function (sg) {
+                var visibleItems = sg.querySelectorAll('.ukg-vocab-item:not(.hidden)').length;
                 sg.classList.toggle('hidden', visibleItems === 0);
                 visibleInGroup += visibleItems;
             });
@@ -357,7 +357,7 @@ function filterDtVocabulary(term) {
         g.classList.toggle('hidden', visibleInGroup === 0);
 
         // Update the count badge to show filtered count
-        var countEl = g.querySelector('.dt-vocab-group-count');
+        var countEl = g.querySelector('.ukg-vocab-group-count');
         if (countEl) countEl.textContent = visibleInGroup;
     });
 
@@ -367,18 +367,18 @@ function filterDtVocabulary(term) {
     }
 }
 
-function clearDtVocabSearch() {
-    dtVocabSearchTerm = '';
-    var input = document.getElementById('dt-vocab-search');
+function clearUkgVocabSearch() {
+    ukgVocabSearchTerm = '';
+    var input = document.getElementById('ukg-vocab-search');
     if (input) { input.value = ''; input.focus(); }
-    filterDtVocabulary('');
+    filterUkgVocabulary('');
     // Restore original group counts from cache
-    if (dtCache.vocabulary) renderDtVocabulary(dtCache.vocabulary);
+    if (ukgCache.vocabulary) renderUkgVocabulary(ukgCache.vocabulary);
 }
 
-function toggleDtVocabGroup(index) {
-    dtVocabExpanded[index] = !dtVocabExpanded[index];
-    var el = document.getElementById('dt-vocab-group-' + index);
+function toggleUkgVocabGroup(index) {
+    ukgVocabExpanded[index] = !ukgVocabExpanded[index];
+    var el = document.getElementById('ukg-vocab-group-' + index);
     if (el) el.classList.toggle('hidden');
     // Rotate the chevron
     var btn = el ? el.previousElementSibling : null;
@@ -392,18 +392,18 @@ function toggleDtVocabGroup(index) {
 // Sidebar toggle
 // ============================================================================
 
-function toggleDtSidebar() {
-    var sidebar = document.getElementById('dt-sidebar');
+function toggleUkgSidebar() {
+    var sidebar = document.getElementById('ukg-sidebar');
     if (!sidebar) return;
     var isCollapsed = sidebar.classList.contains('hidden');
     if (isCollapsed) expandDtSidebar();
     else collapseDtSidebar();
-    localStorage.setItem(DT_COLLAPSED_KEY, String(!isCollapsed));
+    localStorage.setItem(UKG_COLLAPSED_KEY, String(!isCollapsed));
 }
 
 function expandDtSidebar(skipRefresh) {
-    var sidebar = document.getElementById('dt-sidebar');
-    var toggleBtn = document.getElementById('dt-toggle-collapsed');
+    var sidebar = document.getElementById('ukg-sidebar');
+    var toggleBtn = document.getElementById('ukg-toggle-collapsed');
     // Collapse memory sidebar if open (only one panel at a time)
     var memSidebar = document.getElementById('memory-sidebar');
     if (memSidebar && !memSidebar.classList.contains('hidden')) {
@@ -415,12 +415,12 @@ function expandDtSidebar(skipRefresh) {
         toggleBtn.style.background = 'var(--sidebar-tab-active-bg)';
         toggleBtn.style.color = 'var(--sidebar-tab-active-text)';
     }
-    if (!skipRefresh) refreshDigitalThread();
+    if (!skipRefresh) refreshUkg();
 }
 
 function collapseDtSidebar() {
-    var sidebar = document.getElementById('dt-sidebar');
-    var toggleBtn = document.getElementById('dt-toggle-collapsed');
+    var sidebar = document.getElementById('ukg-sidebar');
+    var toggleBtn = document.getElementById('ukg-toggle-collapsed');
     if (sidebar) { sidebar.classList.add('hidden'); sidebar.classList.remove('flex'); }
     if (toggleBtn) {
         toggleBtn.style.background = 'transparent';
@@ -428,11 +428,11 @@ function collapseDtSidebar() {
     }
 }
 
-function initDtSidebar() {
-    var sidebar = document.getElementById('dt-sidebar');
+function initUkgSidebar() {
+    var sidebar = document.getElementById('ukg-sidebar');
     if (!sidebar) return;
     var isWide = window.innerWidth >= 1280;
-    var saved = localStorage.getItem(DT_COLLAPSED_KEY);
+    var saved = localStorage.getItem(UKG_COLLAPSED_KEY);
     var shouldCollapse = saved !== null ? saved === 'true' : !isWide;
     if (shouldCollapse) collapseDtSidebar();
     else expandDtSidebar(true);
@@ -444,12 +444,12 @@ function initDtSidebar() {
 
 var isRefreshingDt = false;
 
-async function refreshDigitalThread(force) {
+async function refreshUkg(force) {
     if (isRefreshingDt) return;
     isRefreshingDt = true;
-    if (force) dtCache = { systems: null, vocabulary: null };
-    var btn = document.getElementById('dt-refresh-btn');
-    var icon = document.getElementById('dt-refresh-icon');
+    if (force) ukgCache = { systems: null, vocabulary: null };
+    var btn = document.getElementById('ukg-refresh-btn');
+    var icon = document.getElementById('ukg-refresh-icon');
     if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
     if (icon) icon.classList.add('animate-spin');
     try {
@@ -466,12 +466,12 @@ async function refreshDigitalThread(force) {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    initDtTheme();
-    initDtSidebar();
+    initUkgTheme();
+    initUkgSidebar();
     loadDtTab('systems');
 });
 if (document.readyState !== 'loading') {
-    initDtTheme();
-    initDtSidebar();
+    initUkgTheme();
+    initUkgSidebar();
     loadDtTab('systems');
 }

@@ -2,7 +2,7 @@
 AgentCore Gateway Lambda Target — System Registry Tools
 
 Implements 4 registry read tools as a single Lambda function target
-for AgentCore Gateway. Both the Orchestrator and Discovery agents access
+for AgentCore Gateway. Both the Explorer and Discovery agents access
 these tools via the Gateway MCP protocol instead of bundling them directly.
 
 Tools:

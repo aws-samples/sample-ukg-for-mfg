@@ -21,17 +21,17 @@ logger = logging.getLogger(__name__)
 # Built-in default templates returned when DynamoDB is empty
 DEFAULT_TEMPLATES = [
     {
-        "template_id": "dt-agent-capabilities",
+        "template_id": "ukg-agent-capabilities",
         "title": "🤖 Agent Capabilities",
         "description": "Discover how the agent can help",
         "prompt_detail": "How can you help me?",
         "sort_order": 1,
     },
     {
-        "template_id": "dt-systems-overview",
+        "template_id": "ukg-systems-overview",
         "title": "🏭 Systems Overview",
         "description": "Discover what manufacturing systems are connected",
-        "prompt_detail": "What manufacturing systems are connected to the digital thread?",
+        "prompt_detail": "What manufacturing systems are connected to the universal knowledge graph?",
         "sort_order": 2,
     },
 ]

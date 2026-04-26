@@ -1,7 +1,7 @@
 [
   {
     "name": "list_systems",
-    "description": "List all registered systems in the manufacturing digital thread, optionally filtered by plant, system type, or status. Returns system metadata including system_id, plant, system_type, display_name, and connection details.",
+    "description": "List all registered systems in the manufacturing universal knowledge graph, optionally filtered by plant, system type, or status. Returns system metadata including system_id, plant, system_type, display_name, and connection details.",
     "inputSchema": {
       "type": "object",
       "description": "Filters for listing systems",

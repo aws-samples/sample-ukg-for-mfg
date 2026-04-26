@@ -16,9 +16,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-AWS_REGION="${AWS_REGION:-us-east-2}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_PROFILE_ARG=""
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 POOL_NAME="${APP_NAME}-users"
 ADMIN_GROUP_NAME="Admin"
 
@@ -33,6 +33,11 @@ for arg in "$@"; do
         GRAB_PROFILE=false
         continue
     fi
+    if [ "$GRAB_REGION" = true ]; then
+        AWS_REGION="$arg"
+        GRAB_REGION=false
+        continue
+    fi
     case $arg in
         --admin)
             IS_ADMIN=true
@@ -42,6 +47,12 @@ for arg in "$@"; do
             ;;
         --profile)
             GRAB_PROFILE=true
+            ;;
+        --region=*)
+            AWS_REGION="${arg#*=}"
+            ;;
+        --region)
+            GRAB_REGION=true
             ;;
         -*)
             echo -e "${RED}Unknown option: $arg${NC}"
@@ -64,10 +75,12 @@ fi
 
 # Check arguments
 if [ -z "$EMAIL" ]; then
-    echo -e "${RED}Usage: ./create-user.sh <email> [password] [--admin]${NC}"
-    echo "  email    - User's email address"
-    echo "  password - Optional password (will prompt if not provided)"
-    echo "  --admin  - Add user to Admin group"
+    echo -e "${RED}Usage: ./create-user.sh <email> [password] [--admin] [--region <region>] [--profile <profile>]${NC}"
+    echo "  email              - User's email address"
+    echo "  password           - Optional password (will prompt if not provided)"
+    echo "  --admin            - Add user to Admin group"
+    echo "  --region <region>  - AWS region (default: \$AWS_REGION or us-east-1)"
+    echo "  --profile <name>   - AWS CLI profile"
     exit 1
 fi
 
@@ -77,8 +90,11 @@ USER_POOL_ID=$(aws cognito-idp list-user-pools --max-results 60 --region "$AWS_R
     --query "UserPools[?Name=='$POOL_NAME'].Id" --output text)
 
 if [ -z "$USER_POOL_ID" ]; then
-    echo -e "${RED}Error: User Pool '$POOL_NAME' not found${NC}"
-    echo "Run ./setup-cognito.sh first"
+    echo -e "${RED}Error: User Pool '$POOL_NAME' not found in $AWS_REGION${NC}"
+    echo -e "${YELLOW}Tips:${NC}"
+    echo "  - If you deployed to a different region, pass --region <region>"
+    echo "  - If you're using a named profile, pass --profile <profile-name>"
+    echo "  - Verify the app was deployed: cd ../../cdk && ./deploy-all.sh --region <region>"
     exit 1
 fi
 

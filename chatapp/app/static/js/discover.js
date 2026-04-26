@@ -1,5 +1,5 @@
 /**
- * Data Discovery Page — mfg-digital-thread
+ * Data Discovery Page — mfg-ukg
  * System explorer + Discovery Agent chat.
  */
 
@@ -15,10 +15,8 @@ const DISC_MODELS = [
     { id: "global.anthropic.claude-opus-4-5-20251101-v1:0", name: "Claude Opus 4.5" },
     { id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5" },
     { id: "global.anthropic.claude-haiku-4-5-20251001-v1:0", name: "Claude Haiku 4.5" },
-    { id: "us.amazon.nova-pro-v1:0", name: "Nova Pro" },
-    { id: "global.amazon.nova-2-lite-v1:0", name: "Nova 2 Lite" },
 ];
-const DISC_DEFAULT_MODEL = "global.amazon.nova-2-lite-v1:0";
+const DISC_DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-6";
 
 function discGetModel() {
     var stored = localStorage.getItem(DISC_MODEL_KEY);

@@ -38,7 +38,7 @@ from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 DISCOVERY_MODEL = "us.anthropic.claude-sonnet-4-6"
 
 DISCOVERY_PROMPT = """\
-You are the Data Discovery Agent for a manufacturing digital thread platform. Your job is to \
+You are the Data Discovery Agent for a manufacturing universal knowledge graph platform. Your job is to \
 inspect new data sources, catalog their schema, infer semantic mappings, discover \
 cross-system equivalences, and register everything in the System Registry.
 
@@ -56,7 +56,7 @@ Extract the raw schema from the target data source using the appropriate inspect
 - For MCP servers: use `inspect_mcp_server` with the server URL.
 - For S3 Tables, Iceberg, or any Glue-cataloged data: use `inspect_athena_source` with the Glue database name. \
 For S3 Tables specifically, set catalog to "s3tablescatalog/<bucket-name>" \
-(e.g. "s3tablescatalog/mfg-thread-manufacturing-123456789012-us-east-2"). \
+(e.g. "s3tablescatalog/mfg-ukg-manufacturing-123456789012-us-east-2"). \
 **IMPORTANT for S3 Tables**: Use `discover_s3tables_bucket` with the bucket name. \
 This tool handles the entire multi-namespace pipeline automatically — it lists all \
 namespaces, then processes each through all 5 phases (inspect → analyze → correlate → \

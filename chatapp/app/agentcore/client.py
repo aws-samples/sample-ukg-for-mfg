@@ -174,7 +174,7 @@ class AgentCoreClient:
             region: AWS region (defaults to config)
         """
         config = get_config()
-        self.runtime_arn = runtime_arn or config.orchestrator_runtime_arn
+        self.runtime_arn = runtime_arn or config.explorer_runtime_arn
         self.region = region or config.aws_region
         
         boto_config = Config(
@@ -353,7 +353,7 @@ class AgentCoreClient:
         prompt: str,
         session_id: str,
         user_id: str,
-        model_id: str = "global.amazon.nova-2-lite-v1:0",
+        model_id: str = "global.anthropic.claude-sonnet-4-6",
     ) -> AsyncGenerator[SSEEvent, None]:
         """Invoke AgentCore Runtime and stream the response.
         

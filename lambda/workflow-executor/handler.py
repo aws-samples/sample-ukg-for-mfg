@@ -6,7 +6,7 @@ the result back to DynamoDB.
 
 Environment variables:
     WORKFLOWS_TABLE_NAME: DynamoDB table for workflows and results
-    ORCHESTRATOR_RUNTIME_ARN: AgentCore Runtime ARN to invoke
+    EXPLORER_RUNTIME_ARN: AgentCore Runtime ARN to invoke
     AWS_REGION: AWS region
 """
 
@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 
 WORKFLOWS_TABLE = os.environ.get("WORKFLOWS_TABLE_NAME", "")
 RESULTS_TABLE = os.environ.get("WORKFLOW_RESULTS_TABLE_NAME", "")
-RUNTIME_ARN = os.environ.get("ORCHESTRATOR_RUNTIME_ARN", "")
+RUNTIME_ARN = os.environ.get("EXPLORER_RUNTIME_ARN", "")
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 ddb = boto3.client("dynamodb", config=Config(region_name=REGION, retries={"max_attempts": 3, "mode": "adaptive"}))

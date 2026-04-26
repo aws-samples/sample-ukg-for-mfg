@@ -37,7 +37,7 @@ class WorkflowStorageService:
                 from app.config import get_config
                 self.workflows_table = get_config().workflows_table_name
             except Exception:
-                self.workflows_table = "mfg-thread-workflows"
+                self.workflows_table = "mfg-ukg-workflows"
 
         self.results_table = os.environ.get("WORKFLOW_RESULTS_TABLE_NAME", "")
         if not self.results_table:
@@ -45,7 +45,7 @@ class WorkflowStorageService:
                 from app.config import get_config
                 self.results_table = get_config().workflow_results_table_name
             except Exception:
-                self.results_table = "mfg-thread-workflow-results"
+                self.results_table = "mfg-ukg-workflow-results"
 
     # ── Workflow CRUD ─────────────────────────────────────────────────────
 

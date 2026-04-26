@@ -29,7 +29,7 @@ export class WorkflowSchedulerStack extends cdk.Stack {
 
     // Import cross-stack values
     const secretArn = cdk.Fn.importValue(exportNames.secretArn);
-    const orchestratorRuntimeArn = cdk.Fn.importValue(exportNames.orchestratorRuntimeArn);
+    const explorerRuntimeArn = cdk.Fn.importValue(exportNames.explorerRuntimeArn);
 
     // ── Lambda Function ──────────────────────────────────────────────
     this.executorFunction = new lambda.Function(this, 'WorkflowExecutor', {
@@ -42,7 +42,7 @@ export class WorkflowSchedulerStack extends cdk.Stack {
       environment: {
         WORKFLOWS_TABLE_NAME: config.workflowsTableName,
         WORKFLOW_RESULTS_TABLE_NAME: config.workflowResultsTableName,
-        ORCHESTRATOR_RUNTIME_ARN: orchestratorRuntimeArn,
+        EXPLORER_RUNTIME_ARN: explorerRuntimeArn,
         AWS_REGION_OVERRIDE: config.region,
       },
       description: 'Executes scheduled workflows by invoking AgentCore Runtime',

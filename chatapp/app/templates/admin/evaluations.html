@@ -20,7 +20,7 @@
         <!-- Top bar: time range + agent tabs -->
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-shrink:0;flex-wrap:wrap;">
             <div style="display:flex;gap:0.25rem;" id="agent-tabs">
-                <button class="ev-agent-tab active" data-agent="orchestrator" onclick="switchAgent('orchestrator')">Orchestrator</button>
+                <button class="ev-agent-tab active" data-agent="explorer" onclick="switchAgent('explorer')">Explorer</button>
                 <button class="ev-agent-tab" data-agent="discovery" onclick="switchAgent('discovery')">Discovery</button>
             </div>
             <div style="display:flex;gap:0.25rem;margin-left:0.5rem;" id="preset-buttons">
@@ -181,10 +181,10 @@
 <script>
 // Data from server
 var _agents = {
-    orchestrator: {{ orchestrator_summary | tojson }},
+    explorer: {{ explorer_summary | tojson }},
     discovery: {{ discovery_summary | tojson }},
 };
-var _activeAgent = 'orchestrator';
+var _activeAgent = 'explorer';
 var _filterEvaluator = '';
 var _page = 0;
 var _pageSize = 25;

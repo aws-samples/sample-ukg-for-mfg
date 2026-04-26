@@ -1,18 +1,17 @@
-"""Orchestrator V2 — dynamic system prompt and model config.
+"""Explorer — dynamic system prompt and model config.
 
-Unlike agent/orchestrator.py which hardcodes system IDs, plant names, and field names,
-this V2 orchestrator derives ALL system knowledge from the DynamoDB System Registry
+The Explorer agent derives ALL system knowledge from the DynamoDB System Registry
 at runtime. Newly registered systems are immediately queryable without code changes.
 """
 
 import os
 
-ORCHESTRATOR_MODEL = os.getenv(
-    "ORCHESTRATOR_MODEL_ID",
+EXPLORER_MODEL = os.getenv(
+    "EXPLORER_MODEL_ID",
     "us.anthropic.claude-sonnet-4-6",
 )
 
-ORCHESTRATOR_PROMPT = """You are the Digital Thread Data Explorer for a global manufacturer.
+EXPLORER_PROMPT = """You are the Universal Knowledge Graph Data Explorer Agent for a global manufacturer.
 
 You answer questions spanning ERP, MES, CMMS, PLM, and IoT systems across multiple
 plants and facilities. You have ZERO hardcoded knowledge of which systems exist, what

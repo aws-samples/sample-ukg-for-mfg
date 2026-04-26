@@ -497,7 +497,7 @@ async def register_all(namespace: str = None) -> AsyncIterator:
                     _account_id = _boto3.client("sts", region_name=_region).get_caller_identity()["Account"]
                 except Exception:
                     pass
-                _app_name = os.getenv("APP_NAME", "mfg-thread")
+                _app_name = os.getenv("APP_NAME", "mfg-ukg")
                 connection_config = {
                     "catalog": catalog,
                     "database": database,
@@ -597,7 +597,7 @@ async def discover_s3tables_bucket(
 
     Args:
         bucket_name: S3 Tables bucket name
-            (e.g. "mfg-thread-manufacturing-136380264626-us-east-2").
+            (e.g. "mfg-ukg-manufacturing-136380264626-us-east-2").
         workgroup: Athena workgroup (default "primary").
         output_location: S3 path for Athena query results. If empty, auto-generated.
 

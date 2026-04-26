@@ -1,4 +1,4 @@
-# Manufacturing Digital Thread — Agentic Data Explorer
+# Manufacturing Universal Knowledge Graph — Agentic Data Explorer
 
 A multi-agent AI application that unifies manufacturing data across ERP, MES, CMMS, PLM, and IoT systems through autonomous data discovery, a dynamic system registry, and natural language exploration. Built with Amazon Bedrock AgentCore, Strands Agents SDK, and FastAPI.
 
@@ -39,7 +39,7 @@ Manufacturing organizations run dozens of disconnected systems — ERP, MES, CMM
 This project solves that with two cooperating AI agents:
 
 - **Zero-config data onboarding** — Point the Discovery Agent at an S3 Tables bucket, RDS database, or API and it autonomously inspects schemas, maps fields to manufacturing concepts (ISA-95 aligned), and registers cross-system equivalences
-- **Natural language data exploration** — Ask questions that span multiple systems ("Trace ORD-000003 from design to delivery") and the Orchestrator Agent resolves entities across systems, queries each source, and synthesizes a unified answer with source citations
+- **Natural language data exploration** — Ask questions that span multiple systems ("Trace ORD-000003 from design to delivery") and the Data Explorer Agent resolves entities across systems, queries each source, and synthesizes a unified answer with source citations
 - **Automated workflows** — Turn any chat prompt into a scheduled workflow that runs on EventBridge, delivering recurring insights without manual intervention
 - **Built-in cost intelligence** — Track token usage, runtime costs, and tool invocations with projections to forecast production spending before you scale
 - **Flexible deployment** — Choose between always-on ECS (~$60/mo) or serverless Lambda Web Adapter (~$5/mo) based on your traffic patterns
@@ -221,7 +221,7 @@ The application uses two cooperating agents backed by a shared system registry, 
 
 | Agent | Purpose |
 |-------|---------|
-| **Orchestrator** | Answers manufacturing questions by discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `query_system`, `find_by_concept`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
+| **Data Explorer** | Answers manufacturing questions by discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `query_system`, `find_by_concept`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
 | **Discovery** | Admin-only agent that inspects and registers new data sources (S3 Tables, APIs, databases). Runs a multi-phase process: inspect schema → analyze fields → map to ISA-95 concepts → register cross-system equivalences. Tools: `inspect`, `analyze`, `register`, `discovery_helpers`. |
 
 ### Key Components
@@ -231,7 +231,7 @@ The application uses two cooperating agents backed by a shared system registry, 
 | **System Registry** | DynamoDB-backed registry of all connected systems, their schemas, field-to-concept mappings, and cross-system equivalences. Served via API Gateway + Lambda. Shared by both agents via AgentCore Gateway. |
 | **Knowledge Base** | Bedrock Knowledge Base (S3 Vectors) for semantic search over manufacturing reference documents (ISA-95, glossary, standards). |
 | **S3 Tables** | Apache Iceberg tables on S3 for manufacturing data (ERP, MES, CMMS, PLM, IoT). Queried via Lambda + Athena. |
-| **AgentCore Memory** | Event and semantic memory for conversation persistence across sessions. Separate memory stores for Orchestrator and Discovery agents. |
+| **AgentCore Memory** | Event and semantic memory for conversation persistence across sessions. Separate memory stores for Explorer and Discovery agents. |
 | **Guardrails** | Bedrock Guardrails for content filtering with violation tracking and analytics. |
 | **Workflow Scheduler** | EventBridge Scheduler + Lambda for running prompts on a schedule with per-user result tracking. |
 
@@ -282,8 +282,7 @@ npm install -g aws-cdk
 4. **Create a test user** (add `--admin` for admin access):
    ```bash
    cd ../chatapp/scripts
-   export AWS_REGION=us-east-1
-   ./create-user.sh your-email@example.com YourPassword123@ --admin
+   ./create-user.sh --region us-east-1 --profile your-profile your-email@example.com YourPassword123@ --admin
    ```
 
 5. **Access the application** using the URL shown in the deployment output.
@@ -293,7 +292,7 @@ The deployment creates:
 - DynamoDB tables for usage analytics, feedback, guardrails, workflows, system registry
 - Bedrock Guardrail for content filtering
 - Bedrock Knowledge Base with S3 Vectors and reference documents
-- AgentCore Memory (separate stores for Orchestrator and Discovery)
+- AgentCore Memory (separate stores for Explorer and Discovery)
 - AgentCore Runtimes for both agents
 - API Gateway + Lambda for the System Registry
 - Workflow Scheduler (EventBridge + Lambda)
@@ -366,7 +365,7 @@ The CDK deployment creates 7 CloudFormation stacks:
 |-------|-------------|---------------|
 | **Foundation** | Auth, Storage, IAM, Secrets | Cognito, DynamoDB tables (10), IAM roles, Secrets Manager, System Registry table |
 | **Bedrock** | AI/ML Resources | Guardrail, Knowledge Base (S3 Vectors), AgentCore Memory (×2) |
-| **Agent** | Agent Infrastructure | ECR (×2), CodeBuild (×2), Orchestrator + Discovery AgentCore Runtimes, Observability |
+| **Agent** | Agent Infrastructure | ECR (×2), CodeBuild (×2), Explorer + Discovery AgentCore Runtimes, Observability |
 | **Gateway** | Registry API | API Gateway + Lambda, AgentCore Gateway for shared registry tools |
 | **S3Tables** | Data Layer | S3 Tables namespace, Athena catalog |
 | **WorkflowScheduler** | Automation | Lambda executor, EventBridge Scheduler group |
@@ -424,7 +423,7 @@ Since this project connects to live data sources, you need representative manufa
 
 1. Use the standalone synthetic data generator app to create a data batch (e.g., Construction scenario, 2000 rows)
 2. Load the generated data into an S3 Tables bucket via the generator's Load page
-3. In the Digital Thread app, go to Data Discovery and tell the agent: `Register S3 tables in "<bucket-name>"`
+3. In the Universal Knowledge Graph app, go to Data Discovery and tell the agent: `Register S3 tables in "<bucket-name>"`
 4. The Discovery Agent runs its 5-phase process (inspect → analyze → map → register → verify)
 5. Registered systems appear in the Home page Systems and Graph tabs
 6. Use the generator's "Generate Questions" feature to create prompt templates matching your data
@@ -448,14 +447,14 @@ The Knowledge Base is automatically created during CDK deployment with:
 
 ```bash
 # Get the source bucket name from CDK outputs
-SOURCE_BUCKET=$(cat cdk/cdk-outputs.json | jq -r '."mfg-thread-bedrock".SourceBucketName')
+SOURCE_BUCKET=$(cat cdk/cdk-outputs.json | jq -r '."mfg-ukg-bedrock".SourceBucketName')
 
 # Upload documents
 aws s3 cp my-document.pdf s3://${SOURCE_BUCKET}/documents/
 aws s3 cp my-folder/ s3://${SOURCE_BUCKET}/documents/ --recursive
 
 # Trigger ingestion
-KB_ID=$(cat cdk/cdk-outputs.json | jq -r '."mfg-thread-bedrock".KnowledgeBaseId')
+KB_ID=$(cat cdk/cdk-outputs.json | jq -r '."mfg-ukg-bedrock".KnowledgeBaseId')
 DS_ID=$(aws bedrock-agent list-data-sources --knowledge-base-id $KB_ID \
   --query "dataSourceSummaries[0].dataSourceId" --output text --no-cli-pager)
 
@@ -470,7 +469,7 @@ PDF, Plain text, Markdown, HTML, Word (.doc/.docx), CSV
 
 ### How the Agent Uses It
 
-The Orchestrator Agent searches the Knowledge Base for relevant context before falling back to web search. Domain-specific knowledge takes precedence over general web content.
+The Data Explorer Agent searches the Knowledge Base for relevant context before falling back to web search. Domain-specific knowledge takes precedence over general web content.
 
 ---
 
@@ -481,7 +480,7 @@ The Orchestrator Agent searches the Knowledge Base for relevant context before f
 cd cdk && npx cdk list
 
 # Deploy a specific stack
-npx cdk deploy mfg-thread-ChatApp --require-approval never
+npx cdk deploy mfg-ukg-ChatApp --require-approval never
 
 # View stack differences before deploying
 npx cdk diff
@@ -496,16 +495,16 @@ cat cdk/cdk-outputs.json
 npx cdk --app 'npx ts-node bin/testdata-app.ts' deploy
 
 # Update only the ChatApp (faster for UI changes)
-npx cdk deploy mfg-thread-ChatApp --require-approval never
+npx cdk deploy mfg-ukg-ChatApp --require-approval never
 ```
 
 ### Testing Agents via CLI
 
 ```bash
-# Get the Orchestrator runtime ARN
+# Get the Explorer runtime ARN
 ORCH_ARN=$(aws cloudformation describe-stacks \
-  --stack-name mfg-thread-Agent --region us-east-1 \
-  --query 'Stacks[0].Outputs[?OutputKey==`OrchestratorRuntimeArn`].OutputValue' \
+  --stack-name mfg-ukg-Agent --region us-east-1 \
+  --query 'Stacks[0].Outputs[?OutputKey==`ExplorerRuntimeArn`].OutputValue' \
   --output text --no-cli-pager)
 
 # Invoke
@@ -528,9 +527,9 @@ aws bedrock-agentcore invoke-agent-runtime \
 | `COGNITO_USER_POOL_ID` | Yes | Cognito User Pool ID |
 | `COGNITO_CLIENT_ID` | Yes | Cognito App Client ID |
 | `COGNITO_CLIENT_SECRET` | Yes | Cognito App Client Secret |
-| `AGENTCORE_RUNTIME_ARN` | Yes | Orchestrator AgentCore Runtime ARN |
+| `AGENTCORE_RUNTIME_ARN` | Yes | Explorer AgentCore Runtime ARN |
 | `DISCOVERY_RUNTIME_ARN` | Yes | Discovery AgentCore Runtime ARN |
-| `MEMORY_ID` | Yes | Orchestrator AgentCore Memory ID |
+| `MEMORY_ID` | Yes | Explorer AgentCore Memory ID |
 | `DISCOVERY_MEMORY_ID` | Yes | Discovery AgentCore Memory ID |
 | `USAGE_TABLE_NAME` | Yes | DynamoDB table for usage records |
 | `FEEDBACK_TABLE_NAME` | Yes | DynamoDB table for feedback records |
@@ -552,7 +551,7 @@ aws bedrock-agentcore invoke-agent-runtime \
 
 > All values are auto-populated by `./sync-env.sh` from AWS Secrets Manager after CDK deployment.
 
-### Agent (Orchestrator / Discovery)
+### Agent (Explorer / Discovery)
 
 | Variable | Description |
 |----------|-------------|
@@ -564,9 +563,9 @@ aws bedrock-agentcore invoke-agent-runtime \
 ## Project Structure
 
 ```
-mfg-digital-thread/
-├── agent-orchestrator/           # Orchestrator agent (Strands + AgentCore)
-│   ├── orchestrator.py           # Dynamic system prompt, model config
+mfg-ukg/
+├── agent-explorer/               # Explorer agent (Strands + AgentCore)
+│   ├── explorer.py               # Dynamic system prompt, model config
 │   ├── my_agent.py               # Agent definition with memory hooks
 │   ├── guardrails.py             # Guardrail evaluation logic
 │   ├── telemetry.py              # OpenTelemetry instrumentation
@@ -596,7 +595,7 @@ mfg-digital-thread/
 │   │   │   ├── chat.py           # SSE streaming chat endpoint
 │   │   │   ├── discovery.py      # Discovery agent chat endpoint
 │   │   │   ├── workflows.py      # Workflow CRUD and scheduling
-│   │   │   ├── digital_thread.py # Digital thread explorer
+│   │   │   ├── ukg.py             # Universal Knowledge Graph explorer
 │   │   │   ├── registry.py       # System registry API
 │   │   │   ├── registry_graph.py # Graph visualization data
 │   │   │   ├── admin.py          # Admin dashboard routes

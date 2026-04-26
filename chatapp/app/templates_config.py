@@ -40,8 +40,8 @@ async def init_template_globals():
         # Set defaults using centralized functions
         default_palette = generate_color_palette(DEFAULT_PRIMARY_COLOR)
         templates.env.globals.update({
-            "app_title": "Manufacturing Digital Thread",
-            "app_subtitle": "AI-Powered Universal Knowledge Graph on AWS",
+            "app_title": "Manufacturing Universal Knowledge Graph",
+            "app_subtitle": "AI-Powered Virtual Knowledge Graph on AWS",
             "logo_url": "/static/favicon.svg",
             "chat_logo_url": "/static/chat-placeholder.svg",
             "primary_color": DEFAULT_PRIMARY_COLOR,

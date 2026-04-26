@@ -36,7 +36,7 @@ AWS_PROFILE=""
 TARGET="ecs"
 SKIP_BUILD=false
 WAIT=false
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 
 # ECS configuration
 ECS_SERVICE_NAME="${ECS_SERVICE_NAME:-${APP_NAME}-express}"

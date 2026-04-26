@@ -1,5 +1,5 @@
 """
-Orchestrator V2 Agent - AgentCore Runtime entry point.
+Explorer Agent - AgentCore Runtime entry point.
 
 Architecture:
 - Registry tools (DynamoDB reads) — dynamic system discovery
@@ -23,10 +23,10 @@ from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.hooks import AgentInitializedEvent, HookProvider, HookRegistry, MessageAddedEvent
 from strands_tools import calculator, current_time
 
-from config import OrchestratorConfig
+from config import ExplorerConfig
 from guardrails import NotifyOnlyGuardrailsHook
 from logger import setup_logger
-from orchestrator import ORCHESTRATOR_MODEL, ORCHESTRATOR_PROMPT
+from explorer import EXPLORER_MODEL, EXPLORER_PROMPT
 from telemetry import is_telemetry_initialized, setup_telemetry
 from tools.query_system import query_system
 from tools.knowledge_base import search_knowledge_base
@@ -51,11 +51,11 @@ def get_config():
     variables are not yet available.
 
     Returns:
-        Tuple of (OrchestratorConfig, Logger, MemoryClient)
+        Tuple of (ExplorerConfig, Logger, MemoryClient)
     """
     global _config, _logger, _memory_client
     if _config is None:
-        _config = OrchestratorConfig.from_env()
+        _config = ExplorerConfig.from_env()
         _logger = setup_logger(__name__, _config.log_level)
         _memory_client = MemoryClient(region_name=_config.aws_region)
         if not is_telemetry_initialized():
@@ -63,7 +63,7 @@ def get_config():
                 enabled=_config.otel_enabled,
                 otlp_endpoint=_config.otel_endpoint,
                 console_export=_config.otel_console_export,
-                service_name="orchestrator-v2-agent",
+                service_name="explorer-agent",
             )
     return _config, _logger, _memory_client
 
@@ -157,13 +157,13 @@ class MemoryHook(HookProvider):
 
 @app.entrypoint
 async def invoke(payload, context):
-    """Orchestrator V2 agent — dynamic registry-driven multi-system queries."""
+    """Explorer agent — dynamic registry-driven multi-system queries."""
     start_time = time.time()
     config, log, _ = get_config()
 
     session_id = getattr(context, "session_id", None) or "default"
     user_id = payload.get("userId", "anonymous")
-    model_id = payload.get("modelId", ORCHESTRATOR_MODEL)
+    model_id = payload.get("modelId", EXPLORER_MODEL)
 
     guardrail_id = payload.get("guardrailId") or config.guardrail_id
     guardrail_version = payload.get("guardrailVersion") or config.guardrail_version
@@ -225,7 +225,7 @@ async def invoke(payload, context):
 
     agent = Agent(
         model=BedrockModel(model_id=model_id, max_tokens=64000),
-        system_prompt=ORCHESTRATOR_PROMPT,
+        system_prompt=EXPLORER_PROMPT,
         conversation_manager=SummarizingConversationManager(
             summary_ratio=0.3,
             preserve_recent_messages=10,

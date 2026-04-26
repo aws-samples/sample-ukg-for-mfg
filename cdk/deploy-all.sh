@@ -125,7 +125,7 @@ fi
 # Change to CDK directory
 cd "$SCRIPT_DIR"
 
-APP_NAME="${APP_NAME:-mfg-thread}"
+APP_NAME="${APP_NAME:-mfg-ukg}"
 
 # ============================================================================
 # STEP 1: Install dependencies and build
@@ -229,19 +229,26 @@ if [ "$DRY_RUN" != true ]; then
     # Wait for the destination to become ACTIVE (can take 1-3 minutes in new regions)
     echo -e "${YELLOW}Waiting for X-Ray trace destination to become ACTIVE...${NC}"
     for i in {1..30}; do
-        XRAY_STATUS=$(aws xray get-trace-segment-destination --region "$AWS_REGION" --query 'Status' --output text 2>/dev/null || echo "UNKNOWN")
-        if [ "$XRAY_STATUS" = "ACTIVE" ]; then
-            echo -e "${GREEN}X-Ray trace destination is ACTIVE${NC}"
+        XRAY_STATE=$(aws xray get-trace-segment-destination --region "$AWS_REGION" --query '[Destination,Status]' --output text 2>/dev/null || echo "UNKNOWN UNKNOWN")
+        XRAY_DEST=$(echo "$XRAY_STATE" | awk '{print $1}')
+        XRAY_STATUS=$(echo "$XRAY_STATE" | awk '{print $2}')
+        if [ "$XRAY_DEST" = "CloudWatchLogs" ] && [ "$XRAY_STATUS" = "ACTIVE" ]; then
+            echo -e "${GREEN}X-Ray trace destination is ACTIVE on CloudWatchLogs${NC}"
             break
         fi
         echo -n "."
         sleep 10
     done
     
-    if [ "$XRAY_STATUS" != "ACTIVE" ]; then
+    if [ "$XRAY_DEST" != "CloudWatchLogs" ] || [ "$XRAY_STATUS" != "ACTIVE" ]; then
         echo ""
-        echo -e "${YELLOW}Warning: X-Ray trace destination status is '$XRAY_STATUS' after 5 minutes.${NC}"
-        echo -e "${YELLOW}The Agent stack may fail. You can retry deploy-all.sh once it becomes ACTIVE.${NC}"
+        echo -e "${RED}Error: X-Ray trace destination is '$XRAY_DEST' / '$XRAY_STATUS' after 5 minutes.${NC}"
+        echo -e "${RED}Expected 'CloudWatchLogs' / 'ACTIVE'. The Agent stack will fail.${NC}"
+        echo -e "${YELLOW}This usually means the CloudWatch Logs resource policy for X-Ray is missing.${NC}"
+        echo -e "${YELLOW}If you see an AccessDeniedException above, create the policy manually:${NC}"
+        echo -e "${YELLOW}  aws logs put-resource-policy --policy-name AgentCoreTracingPolicy --region $AWS_REGION \\\\${NC}"
+        echo -e "${YELLOW}    --policy-document '{...}' (see cdk/lib/agent-stack.ts XRayTracingPolicy for template)${NC}"
+        exit 1
     fi
 else
     echo -e "${CYAN}[DRY RUN] Would enable X-Ray CloudWatch Logs trace destination${NC}"
@@ -487,7 +494,7 @@ if [ "$DRY_RUN" != true ]; then
     echo "  1. ${APP_NAME}-Foundation (Cognito, DynamoDB, IAM, Secrets, System Registry)"
     echo "  2. ${APP_NAME}-Bedrock (Guardrail, Knowledge Base, Memory)"
     echo "  3. ${APP_NAME}-Gateway (AgentCore Gateway, shared registry tools)"
-    echo "  4. ${APP_NAME}-Agent (Orchestrator + Discovery Agent)"
+    echo "  4. ${APP_NAME}-Agent (Explorer + Discovery Agent)"
     if [ "$SKIP_CHATAPP" = true ]; then
         echo "  5. ${APP_NAME}-ChatApp (skipped)"
     elif [ "$INGRESS_MODE" = "ecs" ]; then
@@ -580,7 +587,7 @@ if [ "$DRY_RUN" != true ]; then
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo "  1. Create a user:    cd ../chatapp/scripts && ./create-user.sh <email> <password> --admin"
+    echo "  1. Create a user:    cd ../chatapp/scripts && ./create-user.sh <email> <password> --admin --region $AWS_REGION${AWS_PROFILE:+ --profile $AWS_PROFILE}"
     echo "  2. Access the application using the URL(s) shown above"
     echo ""
     echo -e "${YELLOW}Useful Commands:${NC}"

@@ -54,11 +54,9 @@ var SHARED_MODELS = [
     { id: "global.anthropic.claude-opus-4-5-20251101-v1:0", name: "Claude Opus 4.5", description: "IN [$5.00] - OUT [$25.00]" },
     { id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5", description: "IN [$3.00] - OUT [$15.00]" },
     { id: "global.anthropic.claude-haiku-4-5-20251001-v1:0", name: "Claude Haiku 4.5", description: "IN [$1.00] - OUT [$5.00]" },
-    { id: "us.amazon.nova-pro-v1:0", name: "Nova Pro", description: "IN [$0.80] - OUT [$3.20]" },
-    { id: "global.amazon.nova-2-lite-v1:0", name: "Nova 2 Lite", description: "IN [$0.30] - OUT [$2.50]" },
 ];
 
-var SHARED_DEFAULT_MODEL_ID = "global.amazon.nova-2-lite-v1:0";
+var SHARED_DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6";
 
 /** Build <option> HTML for a model <select>. includeBlank adds an empty first option. */
 function buildModelOptions(selectedId, includeBlank) {

@@ -74,7 +74,7 @@ class AgentEvaluationSummary:
     """Summary of evaluation results for a single agent runtime.
 
     Attributes:
-        agent_name: Display name for the agent (e.g., 'Orchestrator')
+        agent_name: Display name for the agent (e.g., 'Explorer')
         average_score: Mean score across all evaluators
         total_evaluations: Total number of evaluation results
         total_sessions: Count of unique session IDs
@@ -113,8 +113,8 @@ class EvaluationRepository:
             region: AWS region (defaults to AWS_REGION env var)
         """
         self.region = region or os.environ.get("AWS_REGION", "us-east-1")
-        self.orchestrator_config_id = os.environ.get(
-            "ORCHESTRATOR_EVAL_CONFIG_ID", ""
+        self.explorer_config_id = os.environ.get(
+            "EXPLORER_EVAL_CONFIG_ID", ""
         )
         self.discovery_config_id = os.environ.get(
             "DISCOVERY_EVAL_CONFIG_ID", ""

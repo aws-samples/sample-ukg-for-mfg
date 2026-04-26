@@ -119,7 +119,7 @@ const DEFAULT_MODEL_ID = SHARED_DEFAULT_MODEL_ID;
 
 /**
  * Get the currently selected model from localStorage.
- * Returns the default model (Nova 2 Lite) if no selection is stored.
+ * Returns the default model (Claude Sonnet 4.6) if no selection is stored.
  * 
  * @returns {Object} The selected model object with id, name, description
  * 
@@ -135,7 +135,7 @@ function getSelectedModel() {
         }
     }
     
-    // Return default model (Nova 2 Lite)
+    // Return default model (Claude Sonnet 4.6)
     return AVAILABLE_MODELS.find(m => m.id === DEFAULT_MODEL_ID) || AVAILABLE_MODELS[0];
 }
 
@@ -314,7 +314,7 @@ let selectedAgent = null;
  */
 function getSelectedAgent() {
     if (selectedAgent) return selectedAgent;
-    const agents = window.availableAgents || [{ id: 'orchestrator', name: 'Orchestrator Agent', description: 'Dynamic knowledge layer' }];
+    const agents = window.availableAgents || [{ id: 'explorer', name: 'Data Explorer Agent', description: 'Dynamic knowledge layer' }];
     const stored = localStorage.getItem(AGENT_SELECTION_KEY);
     if (stored) {
         const found = agents.find(a => a.id === stored);
@@ -2748,10 +2748,10 @@ function expandMemorySidebar(skipRefresh = false) {
     const toggleBtn = document.getElementById('memory-toggle-collapsed');
     
     // Collapse DT sidebar if open (only one panel at a time)
-    const dtSidebar = document.getElementById('dt-sidebar');
-    if (dtSidebar && !dtSidebar.classList.contains('hidden')) {
+    const ukgSidebar = document.getElementById('ukg-sidebar');
+    if (ukgSidebar && !ukgSidebar.classList.contains('hidden')) {
         if (typeof collapseDtSidebar === 'function') collapseDtSidebar();
-        localStorage.setItem('agentcore-dt-collapsed', 'true');
+        localStorage.setItem('agentcore-ukg-collapsed', 'true');
     }
     
     if (sidebar) {
@@ -2988,7 +2988,7 @@ function initializeMemorySidebar() {
  */
 function handleWindowResize() {
     const savedPreference = localStorage.getItem(MEMORY_COLLAPSED_KEY);
-    const dtSaved = localStorage.getItem('agentcore-dt-collapsed');
+    const ukgSaved = localStorage.getItem('agentcore-ukg-collapsed');
     const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
 
     // Only auto-adjust if user hasn't explicitly set a preference
@@ -2997,14 +2997,14 @@ function handleWindowResize() {
             collapseMemorySidebar();
         } else {
             // Only expand if DT sidebar is not already open
-            const dtSidebar = document.getElementById('dt-sidebar');
-            const dtOpen = dtSidebar && !dtSidebar.classList.contains('hidden');
+            const ukgSidebar = document.getElementById('ukg-sidebar');
+            const dtOpen = ukgSidebar && !ukgSidebar.classList.contains('hidden');
             if (!dtOpen) expandMemorySidebar();
         }
     }
 
     // Same for DT sidebar
-    if (dtSaved === null) {
+    if (ukgSaved === null) {
         if (isMobile) {
             if (typeof collapseDtSidebar === 'function') collapseDtSidebar();
         } else if (window.innerWidth >= 1280) {

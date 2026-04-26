@@ -1,5 +1,5 @@
 /**
- * Home page — Digital Thread Control Panel
+ * Home page — Universal Knowledge Graph Control Panel
  * Loads systems, graph, vocabulary, and provides inline chat.
  *
  * Shares localStorage keys with /chat page:
@@ -36,7 +36,7 @@ function getHomeAgent() {
         var a = agents.find(function(x) { return x.id === stored; });
         if (a) return a;
     }
-    return agents[0] || { id: 'orchestrator', name: 'Orchestrator' };
+    return agents[0] || { id: 'explorer', name: 'Data Explorer' };
 }
 
 function setHomeAgent(agentId) {
@@ -556,7 +556,7 @@ async function sendHomeChat(event) {
         const resp = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: msg, session_id: sessionId, agent_mode: 'orchestrator', model_id: modelId }),
+            body: JSON.stringify({ prompt: msg, session_id: sessionId, agent_mode: 'explorer', model_id: modelId }),
         });
 
         if (!resp.ok) {

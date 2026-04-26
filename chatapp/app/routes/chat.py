@@ -35,17 +35,17 @@ class ChatRequest(BaseModel):
         prompt: User message to send to the agent
         session_id: Session ID for conversation context
         model_id: Optional model identifier for LLM selection
-        agent_mode: Which agent backend to use (v1, orchestrator, discovery)
+        agent_mode: Which agent backend to use (v1, explorer, discovery)
     """
     prompt: str = Field(..., min_length=1, description="User message")
     session_id: str = Field(..., min_length=1, description="Session ID")
     model_id: Optional[str] = Field(
-        default="global.amazon.nova-2-lite-v1:0",
+        default="global.anthropic.claude-sonnet-4-6",
         description="Model identifier for LLM selection"
     )
     agent_mode: Optional[str] = Field(
-        default="orchestrator",
-        description="Agent backend: orchestrator or discovery"
+        default="explorer",
+        description="Agent backend: explorer or discovery"
     )
 
 
@@ -125,7 +125,7 @@ async def _stream_chat_response(
     prompt: str,
     session_id: str,
     user_id: str,
-    model_id: str = "global.amazon.nova-2-lite-v1:0",
+    model_id: str = "global.anthropic.claude-sonnet-4-6",
     user_email: str | None = None,
     agent_mode: str = "v1",
 ):
@@ -143,7 +143,7 @@ async def _stream_chat_response(
         user_id: User ID for memory operations (UUID)
         model_id: Model identifier for LLM selection
         user_email: User email for analytics display
-        agent_mode: Which agent to invoke (orchestrator, discovery)
+        agent_mode: Which agent to invoke (explorer, discovery)
         
     Yields:
         SSE formatted event strings
@@ -151,8 +151,8 @@ async def _stream_chat_response(
     # Resolve runtime ARN based on agent_mode
     config = get_config()
     runtime_arn = None
-    if agent_mode == "orchestrator" and config.orchestrator_runtime_arn:
-        runtime_arn = config.orchestrator_runtime_arn
+    if agent_mode == "explorer" and config.explorer_runtime_arn:
+        runtime_arn = config.explorer_runtime_arn
     elif agent_mode == "discovery" and config.discovery_runtime_arn:
         runtime_arn = config.discovery_runtime_arn
     else:
@@ -473,8 +473,8 @@ async def chat(request: Request, body: ChatRequest):
         raise HTTPException(status_code=400, detail="Session ID cannot be empty")
     
     # Validate agent_mode and enforce access control
-    agent_mode = body.agent_mode or "orchestrator"
-    if agent_mode not in ("orchestrator", "discovery"):
+    agent_mode = body.agent_mode or "explorer"
+    if agent_mode not in ("explorer", "discovery"):
         raise HTTPException(status_code=400, detail=f"Invalid agent_mode: {agent_mode}")
     
     if agent_mode == "discovery":
@@ -485,10 +485,10 @@ async def chat(request: Request, body: ChatRequest):
         if not config.discovery_runtime_arn:
             raise HTTPException(status_code=503, detail="Discovery agent runtime not configured")
     
-    if agent_mode == "orchestrator":
+    if agent_mode == "explorer":
         config = get_config()
-        if not config.orchestrator_runtime_arn:
-            raise HTTPException(status_code=503, detail="Orchestrator runtime not configured")
+        if not config.explorer_runtime_arn:
+            raise HTTPException(status_code=503, detail="Explorer runtime not configured")
     
     # Return SSE streaming response
     return StreamingResponse(

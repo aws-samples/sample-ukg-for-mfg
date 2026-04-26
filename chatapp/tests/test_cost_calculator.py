@@ -91,11 +91,11 @@ class TestCostCalculator:
     def test_get_model_rates_known_model(self):
         """Test getting rates for a known model."""
         calc = CostCalculator()
-        
-        rates = calc.get_model_rates("us.amazon.nova-pro-v1:0")
-        
-        assert rates["input"] == 0.80
-        assert rates["output"] == 3.20
+
+        rates = calc.get_model_rates("global.anthropic.claude-sonnet-4-6")
+
+        assert rates["input"] == 3.00
+        assert rates["output"] == 15.00
 
     def test_get_model_rates_unknown_model(self):
         """Test getting rates for unknown model returns defaults."""

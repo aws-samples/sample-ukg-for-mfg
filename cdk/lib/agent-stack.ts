@@ -36,7 +36,7 @@ export class AgentStack extends cdk.Stack {
   public readonly agentRuntimeRole: iam.Role;
 
   // Runtime resources
-  /** The primary AgentCore CfnRuntime (Orchestrator) */
+  /** The primary AgentCore CfnRuntime (Explorer) */
   public readonly agentRuntime: bedrockagentcore.CfnRuntime;
 
   // Observability resources
@@ -127,7 +127,7 @@ export class AgentStack extends cdk.Stack {
           'logs:PutLogEvents',
         ],
         resources: [
-          `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.orchestratorBuildProjectName}*`,
+          `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.explorerBuildProjectName}*`,
           `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.discoveryBuildProjectName}*`,
         ],
       })
@@ -269,7 +269,7 @@ export class AgentStack extends cdk.Stack {
     // have been removed — agents use DynamoDB registry tools and generic query_system.
 
     // ========================================================================
-    // V2 AGENT DEPLOYMENTS (Orchestrator + Discovery)
+    // V2 AGENT DEPLOYMENTS (Explorer + Discovery)
     // Requirements: 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 12.3
     // ========================================================================
 
@@ -280,9 +280,9 @@ export class AgentStack extends cdk.Stack {
     const registryTableArn = cdk.Fn.importValue(`${config.appName}-SystemRegistryTableArn`);
     const registryTableName = cdk.Fn.importValue(`${config.appName}-SystemRegistryTableName`);
 
-    // --- Orchestrator ECR Repository ---
-    const orchestratorRepository = new ecr.Repository(this, 'OrchestratorRepository', {
-      repositoryName: config.orchestratorRepoName,
+    // --- Explorer ECR Repository ---
+    const explorerRepository = new ecr.Repository(this, 'ExplorerRepository', {
+      repositoryName: config.explorerRepoName,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       emptyOnDelete: true,
       imageScanOnPush: true,
@@ -313,13 +313,13 @@ export class AgentStack extends cdk.Stack {
     });
 
     // Grant CodeBuild role access to new ECR repos
-    orchestratorRepository.grantPullPush(codeBuildRole);
+    explorerRepository.grantPullPush(codeBuildRole);
     discoveryRepository.grantPullPush(codeBuildRole);
 
-    // --- Orchestrator S3 Source Deployment ---
-    const orchestratorSourceDeployment = new s3deploy.BucketDeployment(this, 'OrchestratorSourceDeployment', {
+    // --- Explorer S3 Source Deployment ---
+    const explorerSourceDeployment = new s3deploy.BucketDeployment(this, 'ExplorerSourceDeployment', {
       sources: [
-        s3deploy.Source.asset(path.join(__dirname, '../../agent-orchestrator'), {
+        s3deploy.Source.asset(path.join(__dirname, '../../agent-explorer'), {
           exclude: [
             '.venv/**',
             'venv/**',
@@ -341,7 +341,7 @@ export class AgentStack extends cdk.Stack {
         }),
       ],
       destinationBucket: this.sourceBucket,
-      destinationKeyPrefix: 'orchestrator-source',
+      destinationKeyPrefix: 'explorer-source',
       prune: true,
       retainOnDelete: false,
       memoryLimit: 512,
@@ -378,14 +378,14 @@ export class AgentStack extends cdk.Stack {
       memoryLimit: 512,
     });
 
-    // --- Orchestrator CodeBuild Project ---
-    const orchestratorBuildProject = new codebuild.Project(this, 'OrchestratorBuildProject', {
-      projectName: config.orchestratorBuildProjectName,
-      description: 'Build ARM64 Docker images for Orchestrator agent',
+    // --- Explorer CodeBuild Project ---
+    const explorerBuildProject = new codebuild.Project(this, 'ExplorerBuildProject', {
+      projectName: config.explorerBuildProjectName,
+      description: 'Build ARM64 Docker images for Explorer agent',
       role: codeBuildRole,
       source: codebuild.Source.s3({
         bucket: this.sourceBucket,
-        path: 'orchestrator-source.zip',
+        path: 'explorer-source.zip',
       }),
       environment: {
         buildImage: codebuild.LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0,
@@ -402,7 +402,7 @@ export class AgentStack extends cdk.Stack {
           },
           ECR_REPO_URI: {
             type: codebuild.BuildEnvironmentVariableType.PLAINTEXT,
-            value: orchestratorRepository.repositoryUri,
+            value: explorerRepository.repositoryUri,
           },
         },
       },
@@ -496,15 +496,15 @@ export class AgentStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(30),
     });
 
-    // --- Trigger Orchestrator CodeBuild ---
-    const triggerOrchestratorBuild = new cr.AwsCustomResource(this, 'TriggerOrchestratorCodeBuild', {
+    // --- Trigger Explorer CodeBuild ---
+    const triggerExplorerBuild = new cr.AwsCustomResource(this, 'TriggerExplorerCodeBuild', {
       onCreate: {
         service: 'CodeBuild',
         action: 'startBuild',
         parameters: {
-          projectName: orchestratorBuildProject.projectName,
+          projectName: explorerBuildProject.projectName,
           sourceTypeOverride: 'S3',
-          sourceLocationOverride: `${this.sourceBucket.bucketName}/orchestrator-source/`,
+          sourceLocationOverride: `${this.sourceBucket.bucketName}/explorer-source/`,
           environmentVariablesOverride: [
             { name: 'DEPLOY_TIMESTAMP', value: deployTimestamp, type: 'PLAINTEXT' },
           ],
@@ -515,9 +515,9 @@ export class AgentStack extends cdk.Stack {
         service: 'CodeBuild',
         action: 'startBuild',
         parameters: {
-          projectName: orchestratorBuildProject.projectName,
+          projectName: explorerBuildProject.projectName,
           sourceTypeOverride: 'S3',
-          sourceLocationOverride: `${this.sourceBucket.bucketName}/orchestrator-source/`,
+          sourceLocationOverride: `${this.sourceBucket.bucketName}/explorer-source/`,
           environmentVariablesOverride: [
             { name: 'DEPLOY_TIMESTAMP', value: deployTimestamp, type: 'PLAINTEXT' },
           ],
@@ -528,11 +528,11 @@ export class AgentStack extends cdk.Stack {
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
           actions: ['codebuild:StartBuild'],
-          resources: [orchestratorBuildProject.projectArn],
+          resources: [explorerBuildProject.projectArn],
         }),
       ]),
     });
-    triggerOrchestratorBuild.node.addDependency(orchestratorSourceDeployment);
+    triggerExplorerBuild.node.addDependency(explorerSourceDeployment);
 
     // --- Trigger Discovery CodeBuild ---
     const triggerDiscoveryBuild = new cr.AwsCustomResource(this, 'TriggerDiscoveryCodeBuild', {
@@ -572,7 +572,7 @@ export class AgentStack extends cdk.Stack {
     });
     triggerDiscoveryBuild.node.addDependency(discoverySourceDeployment);
 
-    // --- Build Waiter Lambda (shared by Orchestrator + Discovery builds) ---
+    // --- Build Waiter Lambda (shared by Explorer + Discovery builds) ---
     const buildWaiterFunction = new lambda.Function(this, 'BuildWaiterFunction', {
       functionName: `${config.appName}-build-waiter`,
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -648,18 +648,18 @@ def handler(event, context):
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['codebuild:BatchGetBuilds'],
-        resources: [orchestratorBuildProject.projectArn, discoveryBuildProject.projectArn],
+        resources: [explorerBuildProject.projectArn, discoveryBuildProject.projectArn],
       })
     );
 
-    const orchestratorBuildWaiter = new cdk.CustomResource(this, 'OrchestratorBuildWaiter', {
+    const explorerBuildWaiter = new cdk.CustomResource(this, 'ExplorerBuildWaiter', {
       serviceToken: buildWaiterProvider.serviceToken,
       properties: {
-        BuildId: triggerOrchestratorBuild.getResponseField('build.id'),
+        BuildId: triggerExplorerBuild.getResponseField('build.id'),
         Timestamp: Date.now().toString(),
       },
     });
-    orchestratorBuildWaiter.node.addDependency(triggerOrchestratorBuild);
+    explorerBuildWaiter.node.addDependency(triggerExplorerBuild);
 
     const discoveryBuildWaiter = new cdk.CustomResource(this, 'DiscoveryBuildWaiter', {
       serviceToken: buildWaiterProvider.serviceToken,
@@ -671,20 +671,20 @@ def handler(event, context):
     discoveryBuildWaiter.node.addDependency(triggerDiscoveryBuild);
 
     // ========================================================================
-    // ORCHESTRATOR RUNTIME ROLE (Req 10.7: read-only DynamoDB + Bedrock/Memory/KB/Guardrail)
+    // EXPLORER RUNTIME ROLE (Req 10.7: read-only DynamoDB + Bedrock/Memory/KB/Guardrail)
     // ========================================================================
 
-    const orchestratorRuntimeRole = new iam.Role(this, 'OrchestratorRuntimeRole', {
-      roleName: `${config.appName}-orchestrator-runtime-role-${this.region}`,
+    const explorerRuntimeRole = new iam.Role(this, 'ExplorerRuntimeRole', {
+      roleName: `${config.appName}-explorer-runtime-role-${this.region}`,
       assumedBy: new iam.CompositePrincipal(
         new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com'),
         new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       ),
-      description: 'IAM role for Orchestrator AgentCore Runtime with read-only DynamoDB, Bedrock, Memory, KB, and Guardrail permissions',
+      description: 'IAM role for Explorer AgentCore Runtime with read-only DynamoDB, Bedrock, Memory, KB, and Guardrail permissions',
     });
 
     // ECR permissions
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'ECRAccess',
         effect: iam.Effect.ALLOW,
@@ -699,7 +699,7 @@ def handler(event, context):
     );
 
     // CloudWatch Logs permissions
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'CloudWatchLogsAccess',
         effect: iam.Effect.ALLOW,
@@ -716,7 +716,7 @@ def handler(event, context):
     );
 
     // X-Ray tracing permissions
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'XRayAccess',
         effect: iam.Effect.ALLOW,
@@ -732,7 +732,7 @@ def handler(event, context):
     );
 
     // Read-only DynamoDB access to registry table + GSIs (Req 10.7)
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'RegistryReadOnly',
         effect: iam.Effect.ALLOW,
@@ -749,7 +749,7 @@ def handler(event, context):
     );
 
     // Bedrock model invocation
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'BedrockModelAccess',
         effect: iam.Effect.ALLOW,
@@ -767,7 +767,7 @@ def handler(event, context):
     );
 
     // Bedrock Guardrails
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'BedrockGuardrailAccess',
         effect: iam.Effect.ALLOW,
@@ -782,7 +782,7 @@ def handler(event, context):
     );
 
     // Bedrock Knowledge Base
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'BedrockKnowledgeBaseAccess',
         effect: iam.Effect.ALLOW,
@@ -797,7 +797,7 @@ def handler(event, context):
     );
 
     // AgentCore Memory
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'AgentCoreMemoryAccess',
         effect: iam.Effect.ALLOW,
@@ -823,7 +823,7 @@ def handler(event, context):
     );
 
     // Athena query permissions for query_system tool
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'AthenaQueryAccess',
         effect: iam.Effect.ALLOW,
@@ -838,7 +838,7 @@ def handler(event, context):
     );
 
     // Glue metadata for Athena catalog resolution
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'GlueMetadataAccess',
         effect: iam.Effect.ALLOW,
@@ -855,7 +855,7 @@ def handler(event, context):
     );
 
     // S3 Tables read access for query_system
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'S3TablesReadAccess',
         effect: iam.Effect.ALLOW,
@@ -878,7 +878,7 @@ def handler(event, context):
     );
 
     // S3 access for Athena query results bucket
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'AthenaResultsBucketAccess',
         effect: iam.Effect.ALLOW,
@@ -1133,7 +1133,7 @@ def handler(event, context):
     const gatewayName = `${config.appName}-registry-gateway`;
     
     // AgentCore Gateway permissions (shared registry tools)
-    orchestratorRuntimeRole.addToPolicy(
+    explorerRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'AgentCoreGatewayAccess',
         effect: iam.Effect.ALLOW,
@@ -1217,21 +1217,21 @@ def handler(event, context):
     );
 
     // ========================================================================
-    // ORCHESTRATOR CfnRuntime (Req 10.6, 12.3: PUBLIC network mode, no VPC)
+    // EXPLORER CfnRuntime (Req 10.6, 12.3: PUBLIC network mode, no VPC)
     // ========================================================================
 
-    const orchestratorRuntime = new bedrockagentcore.CfnRuntime(this, 'OrchestratorRuntime', {
-      agentRuntimeName: config.orchestratorRuntimeName,
-      description: `Orchestrator V2 AgentCore Runtime for ${config.appName}`,
+    const explorerRuntime = new bedrockagentcore.CfnRuntime(this, 'ExplorerRuntime', {
+      agentRuntimeName: config.explorerRuntimeName,
+      description: `Explorer AgentCore Runtime for ${config.appName}`,
       agentRuntimeArtifact: {
         containerConfiguration: {
-          containerUri: `${orchestratorRepository.repositoryUri}:latest`,
+          containerUri: `${explorerRepository.repositoryUri}:latest`,
         },
       },
       networkConfiguration: {
         networkMode: 'PUBLIC',
       },
-      roleArn: orchestratorRuntimeRole.roleArn,
+      roleArn: explorerRuntimeRole.roleArn,
       protocolConfiguration: 'HTTP',
       environmentVariables: {
         REGISTRY_TABLE_NAME: registryTableName,
@@ -1246,14 +1246,14 @@ def handler(event, context):
       tags: {
         Application: config.appName,
         ManagedBy: 'CDK',
-        AgentType: 'orchestrator-v2',
+        AgentType: 'explorer',
         DeployTimestamp: deployTimestamp,
       },
     });
-    orchestratorRuntime.node.addDependency(orchestratorBuildWaiter);
+    explorerRuntime.node.addDependency(explorerBuildWaiter);
 
-    // The orchestrator is now the primary agent runtime (replaces V1 agent)
-    this.agentRuntime = orchestratorRuntime;
+    // The explorer is now the primary agent runtime (replaces V1 agent)
+    this.agentRuntime = explorerRuntime;
 
     // Glue and Athena permissions for Discovery Agent (inspect_athena_source)
     discoveryRuntimeRole.addToPolicy(
@@ -1384,7 +1384,7 @@ def handler(event, context):
     });
 
     // --- Delivery Source for Application Logs ---
-    const logsDeliverySource = new logs.CfnDeliverySource(this, 'OrchestratorLogsDeliverySource', {
+    const logsDeliverySource = new logs.CfnDeliverySource(this, 'ExplorerLogsDeliverySource', {
       name: `${runtimeId}-v2-logs-source`,
       logType: 'APPLICATION_LOGS',
       resourceArn: this.agentRuntime.attrAgentRuntimeArn,
@@ -1395,7 +1395,7 @@ def handler(event, context):
     });
 
     // --- Delivery Source for Usage Logs ---
-    const usageLogsDeliverySource = new logs.CfnDeliverySource(this, 'OrchestratorUsageLogsDeliverySource', {
+    const usageLogsDeliverySource = new logs.CfnDeliverySource(this, 'ExplorerUsageLogsDeliverySource', {
       name: `${runtimeId}-v2-usage-logs-source`,
       logType: 'USAGE_LOGS',
       resourceArn: this.agentRuntime.attrAgentRuntimeArn,
@@ -1637,7 +1637,7 @@ def handler(event, context):
     });
 
     // Delivery Destination for Usage Logs (Firehose)
-    const usageLogsDeliveryDestination = new logs.CfnDeliveryDestination(this, 'OrchestratorUsageLogsDeliveryDestination', {
+    const usageLogsDeliveryDestination = new logs.CfnDeliveryDestination(this, 'ExplorerUsageLogsDeliveryDestination', {
       name: `${runtimeId}-v2-usage-firehose-destination`,
       deliveryDestinationType: 'FH',
       destinationResourceArn: usageLogsFirehose.attrArn,
@@ -1648,7 +1648,7 @@ def handler(event, context):
     });
 
     // Delivery: Connect Usage Logs Source to Firehose Destination
-    const usageLogsDelivery = new logs.CfnDelivery(this, 'OrchestratorUsageLogsDelivery', {
+    const usageLogsDelivery = new logs.CfnDelivery(this, 'ExplorerUsageLogsDelivery', {
       deliverySourceName: usageLogsDeliverySource.name,
       deliveryDestinationArn: usageLogsDeliveryDestination.attrArn,
       tags: [
@@ -1660,7 +1660,7 @@ def handler(event, context):
     usageLogsDelivery.addDependency(usageLogsDeliveryDestination);
 
     // --- Delivery Source for Traces ---
-    const tracesDeliverySource = new logs.CfnDeliverySource(this, 'OrchestratorTracesDeliverySource', {
+    const tracesDeliverySource = new logs.CfnDeliverySource(this, 'ExplorerTracesDeliverySource', {
       name: `${runtimeId}-v2-traces-source`,
       logType: 'TRACES',
       resourceArn: this.agentRuntime.attrAgentRuntimeArn,
@@ -1671,7 +1671,7 @@ def handler(event, context):
     });
 
     // --- Delivery Destination for CloudWatch Logs ---
-    const logsDeliveryDestination = new logs.CfnDeliveryDestination(this, 'OrchestratorLogsDeliveryDestination', {
+    const logsDeliveryDestination = new logs.CfnDeliveryDestination(this, 'ExplorerLogsDeliveryDestination', {
       name: `${runtimeId}-v2-logs-destination`,
       deliveryDestinationType: 'CWL',
       destinationResourceArn: this.runtimeLogGroup.logGroupArn,
@@ -1682,7 +1682,7 @@ def handler(event, context):
     });
 
     // --- Delivery Destination for X-Ray Traces ---
-    const tracesDeliveryDestination = new logs.CfnDeliveryDestination(this, 'OrchestratorTracesDeliveryDestination', {
+    const tracesDeliveryDestination = new logs.CfnDeliveryDestination(this, 'ExplorerTracesDeliveryDestination', {
       name: `${runtimeId}-v2-traces-destination`,
       deliveryDestinationType: 'XRAY',
       tags: [
@@ -1692,7 +1692,7 @@ def handler(event, context):
     });
 
     // --- Delivery: Connect Logs Source to CloudWatch Logs Destination ---
-    const logsDelivery = new logs.CfnDelivery(this, 'OrchestratorLogsDelivery', {
+    const logsDelivery = new logs.CfnDelivery(this, 'ExplorerLogsDelivery', {
       deliverySourceName: logsDeliverySource.name,
       deliveryDestinationArn: logsDeliveryDestination.attrArn,
       tags: [
@@ -1704,7 +1704,7 @@ def handler(event, context):
     logsDelivery.addDependency(logsDeliveryDestination);
 
     // --- Delivery: Connect Traces Source to X-Ray Destination ---
-    const tracesDelivery = new logs.CfnDelivery(this, 'OrchestratorTracesDelivery', {
+    const tracesDelivery = new logs.CfnDelivery(this, 'ExplorerTracesDelivery', {
       deliverySourceName: tracesDeliverySource.name,
       deliveryDestinationArn: tracesDeliveryDestination.attrArn,
       tags: [
@@ -1717,7 +1717,7 @@ def handler(event, context):
 
     // ========================================================================
     // DISCOVERY RUNTIME OBSERVABILITY
-    // Mirrors orchestrator observability for the discovery agent
+    // Mirrors explorer observability for the discovery agent
     // ========================================================================
 
     const discoveryRuntimeId = `${config.appName}-discovery-runtime`;
@@ -1832,26 +1832,26 @@ def handler(event, context):
 
     // ========================================================================
     // ONLINE EVALUATION CONFIGS (Req 1.1–1.6, 2.1–2.6, 4.1–4.4, 5.1, 5.3)
-    // Automated quality evaluation for Orchestrator and Discovery runtimes
+    // Automated quality evaluation for Explorer and Discovery runtimes
     // ========================================================================
 
-    // --- Orchestrator Online Evaluation Config ---
+    // --- Explorer Online Evaluation Config ---
     const evalConfigPrefix = config.appName.replace(/-/g, '_');
     // The evaluator reads from the runtime's auto-created log group, not the vended logs group.
     // Pattern: /aws/bedrock-agentcore/runtimes/<runtimeId>-DEFAULT
-    const orchestratorAutoLogGroup = `/aws/bedrock-agentcore/runtimes/${orchestratorRuntime.attrAgentRuntimeId}-DEFAULT`;
+    const explorerAutoLogGroup = `/aws/bedrock-agentcore/runtimes/${explorerRuntime.attrAgentRuntimeId}-DEFAULT`;
     const discoveryAutoLogGroup = `/aws/bedrock-agentcore/runtimes/${discoveryRuntime.attrAgentRuntimeId}-DEFAULT`;
 
-    const orchestratorEvalConfig = new cdk.CfnResource(this, 'OrchestratorOnlineEvalConfig', {
+    const explorerEvalConfig = new cdk.CfnResource(this, 'ExplorerOnlineEvalConfig', {
       type: 'AWS::BedrockAgentCore::OnlineEvaluationConfig',
       properties: {
-        OnlineEvaluationConfigName: `${evalConfigPrefix}_orchestrator_eval`,
+        OnlineEvaluationConfigName: `${evalConfigPrefix}_explorer_eval`,
         EvaluationExecutionRoleArn: evalExecutionRole.roleArn,
         ExecutionStatus: 'ENABLED',
         DataSourceConfig: {
           CloudWatchLogs: {
-            LogGroupNames: [orchestratorAutoLogGroup],
-            ServiceNames: [`${config.orchestratorRuntimeName}.DEFAULT`],
+            LogGroupNames: [explorerAutoLogGroup],
+            ServiceNames: [`${config.explorerRuntimeName}.DEFAULT`],
           },
         },
         Evaluators: [
@@ -1873,9 +1873,9 @@ def handler(event, context):
         ],
       },
     });
-    orchestratorEvalConfig.node.addDependency(orchestratorRuntime);
-    orchestratorEvalConfig.node.addDependency(this.runtimeLogGroup);
-    orchestratorEvalConfig.node.addDependency(evalExecutionRole);
+    explorerEvalConfig.node.addDependency(explorerRuntime);
+    explorerEvalConfig.node.addDependency(this.runtimeLogGroup);
+    explorerEvalConfig.node.addDependency(evalExecutionRole);
 
     // --- Discovery Online Evaluation Config ---
     const discoveryEvalConfig = new cdk.CfnResource(this, 'DiscoveryOnlineEvalConfig', {
@@ -2293,10 +2293,10 @@ def handler(event, context):
       properties: {
         SecretId: secretArn,
         NewValues: JSON.stringify({
-          orchestrator_runtime_arn: orchestratorRuntime.attrAgentRuntimeArn,
+          explorer_runtime_arn: explorerRuntime.attrAgentRuntimeArn,
           discovery_runtime_arn: discoveryRuntime.attrAgentRuntimeArn,
           registry_gateway_id: registryGatewayId,
-          orchestrator_eval_config_id: orchestratorEvalConfig.getAtt('OnlineEvaluationConfigId').toString(),
+          explorer_eval_config_id: explorerEvalConfig.getAtt('OnlineEvaluationConfigId').toString(),
           discovery_eval_config_id: discoveryEvalConfig.getAtt('OnlineEvaluationConfigId').toString(),
         }),
         Timestamp: Date.now().toString(),
@@ -2305,7 +2305,7 @@ def handler(event, context):
 
     // Ensure secret update happens after all runtimes are created
     updateSecretWithAgentRuntime.node.addDependency(this.agentRuntime);
-    updateSecretWithAgentRuntime.node.addDependency(orchestratorRuntime);
+    updateSecretWithAgentRuntime.node.addDependency(explorerRuntime);
     updateSecretWithAgentRuntime.node.addDependency(discoveryRuntime);
 
     // ========================================================================
@@ -2367,10 +2367,10 @@ def handler(event, context):
     });
 
     // --- V2 Agent Runtime Exports ---
-    new cdk.CfnOutput(this, 'OrchestratorRuntimeArn', {
-      value: orchestratorRuntime.attrAgentRuntimeArn,
-      description: 'Orchestrator AgentCore Runtime ARN',
-      exportName: exportNames.orchestratorRuntimeArn,
+    new cdk.CfnOutput(this, 'ExplorerRuntimeArn', {
+      value: explorerRuntime.attrAgentRuntimeArn,
+      description: 'Explorer AgentCore Runtime ARN',
+      exportName: exportNames.explorerRuntimeArn,
     });
 
     new cdk.CfnOutput(this, 'DiscoveryRuntimeArn', {
@@ -2379,9 +2379,9 @@ def handler(event, context):
       exportName: exportNames.discoveryRuntimeArn,
     });
 
-    new cdk.CfnOutput(this, 'OrchestratorRepositoryUri', {
-      value: orchestratorRepository.repositoryUri,
-      description: 'ECR repository URI for Orchestrator container images',
+    new cdk.CfnOutput(this, 'ExplorerRepositoryUri', {
+      value: explorerRepository.repositoryUri,
+      description: 'ECR repository URI for Explorer container images',
     });
 
     new cdk.CfnOutput(this, 'DiscoveryRepositoryUri', {
@@ -2390,10 +2390,10 @@ def handler(event, context):
     });
 
     // --- Evaluation Config ID Exports (Req 7.5) ---
-    new cdk.CfnOutput(this, 'OrchestratorEvalConfigId', {
-      value: orchestratorEvalConfig.getAtt('OnlineEvaluationConfigId').toString(),
-      description: 'Online Evaluation Config ID for Orchestrator runtime',
-      exportName: `${config.appName}-OrchestratorEvalConfigId`,
+    new cdk.CfnOutput(this, 'ExplorerEvalConfigId', {
+      value: explorerEvalConfig.getAtt('OnlineEvaluationConfigId').toString(),
+      description: 'Online Evaluation Config ID for Explorer runtime',
+      exportName: `${config.appName}-ExplorerEvalConfigId`,
     });
 
     new cdk.CfnOutput(this, 'DiscoveryEvalConfigId', {
@@ -2453,7 +2453,7 @@ def handler(event, context):
           id: 'AwsSolutions-IAM5',
           reason: 'CodeBuild log groups include build number. Scoped to specific project prefix.',
           appliesTo: [
-            `Resource::arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.orchestratorBuildProjectName}*`,
+            `Resource::arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.explorerBuildProjectName}*`,
             `Resource::arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/${config.discoveryBuildProjectName}*`,
           ],
         },
@@ -2614,10 +2614,10 @@ def handler(event, context):
       ]
     );
 
-    // Suppress OrchestratorRuntimeRole wildcards
+    // Suppress ExplorerRuntimeRole wildcards
     NagSuppressions.addResourceSuppressionsByPath(
       this,
-      `/${config.appName}-Agent/OrchestratorRuntimeRole/DefaultPolicy/Resource`,
+      `/${config.appName}-Agent/ExplorerRuntimeRole/DefaultPolicy/Resource`,
       [
         {
           id: 'AwsSolutions-IAM5',
@@ -2632,7 +2632,7 @@ def handler(event, context):
         {
           id: 'AwsSolutions-IAM5',
           reason: 'DynamoDB GSI access requires index/* pattern. Table ARN is imported from Foundation stack via CloudFormation export.',
-          appliesTo: ['Resource::mfg-thread-SystemRegistryTableArn/index/*'],
+          appliesTo: ['Resource::mfg-ukg-SystemRegistryTableArn/index/*'],
         },
         {
           id: 'AwsSolutions-IAM5',
@@ -2683,7 +2683,7 @@ def handler(event, context):
         {
           id: 'AwsSolutions-IAM5',
           reason: 'DynamoDB GSI access requires index/* pattern. Table ARN is imported from Foundation stack via CloudFormation export.',
-          appliesTo: ['Resource::mfg-thread-SystemRegistryTableArn/index/*'],
+          appliesTo: ['Resource::mfg-ukg-SystemRegistryTableArn/index/*'],
         },
         {
           id: 'AwsSolutions-IAM5',

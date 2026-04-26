@@ -10,8 +10,6 @@ from typing import Dict
 # Model pricing in USD per 1 million tokens
 # Format: {"model_id": {"input": rate, "output": rate}}
 MODEL_PRICING: Dict[str, Dict[str, float]] = {
-    "global.amazon.nova-2-lite-v1:0": {"input": 0.30, "output": 2.50},
-    "us.amazon.nova-pro-v1:0": {"input": 0.80, "output": 3.20},
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": {"input": 1.00, "output": 5.00},
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {"input": 3.00, "output": 15.00},
     "global.anthropic.claude-sonnet-4-6": {"input": 3.00, "output": 15.00},

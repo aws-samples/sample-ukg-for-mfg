@@ -1,6 +1,6 @@
 /**
  * Browser-side localStorage cache for frequently-fetched data.
- * Keys are prefixed with 'dt-cache:' to avoid collisions.
+ * Keys are prefixed with 'ukg-cache:' to avoid collisions.
  *
  * Cached resources:
  *   - templates  → /api/templates
@@ -11,7 +11,7 @@
  */
 
 var DataCache = (function() {
-    var PREFIX = 'dt-cache:';
+    var PREFIX = 'ukg-cache:';
 
     var ENDPOINTS = {
         templates:  '/api/templates',

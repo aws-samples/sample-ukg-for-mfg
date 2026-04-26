@@ -24,7 +24,7 @@ from app.routes.prompt_templates import router as templates_router, admin_router
 from app.routes.app_settings import api_router as settings_api_router, admin_router as settings_admin_router
 from app.routes.discovery import router as discovery_router
 from app.routes.registry import router as registry_router
-from app.routes.digital_thread import router as digital_thread_router
+from app.routes.ukg import ukg_router
 from app.routes.registry_graph import admin_router as graph_admin_router, api_router as graph_api_router
 from app.routes.workflows import router as workflows_router
 
@@ -116,7 +116,7 @@ app.include_router(settings_api_router)
 app.include_router(settings_admin_router)
 app.include_router(discovery_router)
 app.include_router(registry_router)
-app.include_router(digital_thread_router)
+app.include_router(ukg_router)
 app.include_router(graph_admin_router)
 app.include_router(graph_api_router)
 app.include_router(workflows_router)
@@ -148,7 +148,7 @@ async def root():
 
 @app.get("/home", response_class=HTMLResponse)
 async def home_page(request: Request):
-    """Home page — Digital Thread control panel."""
+    """Home page — Universal Knowledge Graph control panel."""
     user = getattr(request.state, "user", None)
     user_email = user.email if user else None
     is_admin = getattr(request.state, "is_admin", False)
@@ -159,8 +159,8 @@ async def home_page(request: Request):
     # Determine available agents (same logic as chat page)
     config = get_config()
     available_agents = []
-    if config.orchestrator_runtime_arn:
-        available_agents.append({"id": "orchestrator", "name": "Orchestrator", "description": "Dynamic Data Exploration"})
+    if config.explorer_runtime_arn:
+        available_agents.append({"id": "explorer", "name": "Data Explorer", "description": "Dynamic Data Exploration"})
     if config.discovery_runtime_arn and is_admin:
         available_agents.append({"id": "discovery", "name": "Discovery", "description": "Systems Discovery & Correlation"})
 
@@ -215,8 +215,8 @@ async def chat_page(request: Request):
     # Determine available agents for the agent selector
     config = get_config()
     available_agents = []
-    if config.orchestrator_runtime_arn:
-        available_agents.append({"id": "orchestrator", "name": "Orchestrator", "description": "Dynamic Data Exploration"})
+    if config.explorer_runtime_arn:
+        available_agents.append({"id": "explorer", "name": "Data Explorer", "description": "Dynamic Data Exploration"})
     if config.discovery_runtime_arn and is_admin:
         available_agents.append({"id": "discovery", "name": "Discovery", "description": "Systems Discovery & Correlation"})
     # Fallback: if no V2 runtimes configured, show nothing (v1 still works as default)

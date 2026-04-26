@@ -290,7 +290,7 @@ A knowledge graph (such as Amazon Neptune) can serve as a metadata layer that un
 - Enable cross-standard queries ("show me OEE for all CNC machines across all plants, regardless of whether they use OPC UA or MQTT")
 - Store schema mappings and semantic relationships that bridge the standards gap
 
-This is the approach used by the Digital Thread architecture — the Neptune knowledge graph catalogs systems from both ecosystems and the AI agent queries across them transparently.
+This is the approach used by the Universal Knowledge Graph architecture — the Neptune knowledge graph catalogs systems from both ecosystems and the AI agent queries across them transparently.
 
 ---
 

@@ -518,7 +518,7 @@ def list_s3tables_namespaces(bucket_name: str) -> str:
     to get the actual namespace names, then call inspect_athena_source for each.
 
     Args:
-        bucket_name: S3 Tables bucket name (e.g. "mfg-thread-manufacturing-136380264626-us-east-2").
+        bucket_name: S3 Tables bucket name (e.g. "mfg-ukg-manufacturing-136380264626-us-east-2").
 
     Returns:
         JSON string with list of namespace names. On failure, returns structured error JSON.
@@ -567,7 +567,7 @@ def inspect_athena_source(database: str, catalog: str = "AwsDataCatalog",
     Athena throughout.
 
     For S3 Tables, use catalog="s3tablescatalog/<bucket-name>" (e.g.
-    "s3tablescatalog/mfg-thread-manufacturing-123456789012-us-east-2").
+    "s3tablescatalog/mfg-ukg-manufacturing-123456789012-us-east-2").
 
     Args:
         database: Database/namespace name (e.g. "erp", "mes", "cmms").
@@ -588,7 +588,7 @@ def inspect_athena_source(database: str, catalog: str = "AwsDataCatalog",
         # Default output location
         if not output_location:
             account_id = boto3.client("sts").get_caller_identity()["Account"]
-            app_name = os.getenv("APP_NAME", "mfg-thread")
+            app_name = os.getenv("APP_NAME", "mfg-ukg")
             output_location = f"s3://athena-{account_id}-{region}/results/"
 
         is_s3tables = catalog.startswith("s3tablescatalog/")

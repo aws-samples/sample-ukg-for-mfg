@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Separate routers for admin pages and API
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
-api_router = APIRouter(prefix="/api/registry", tags=["digital_thread"])
+api_router = APIRouter(prefix="/api/registry", tags=["ukg"])
 
 # Color palette for systems (deterministic by index)
 _SYSTEM_COLORS = [

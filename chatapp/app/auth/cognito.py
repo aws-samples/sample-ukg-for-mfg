@@ -27,6 +27,12 @@ _jwks_cache: Optional[dict] = None
 _jwks_cache_time: float = 0
 JWKS_CACHE_TTL = 3600  # Cache JWKS for 1 hour
 
+# Module-level user-groups cache: username -> groups
+# Populated on first lookup after login and cleared on login/logout via
+# ``invalidate_user_groups_cache``. No TTL — entries live for the duration
+# of the user's session.
+_groups_cache: dict[str, list[str]] = {}
+
 
 class AuthenticationError(Exception):
     """Raised when authentication fails."""
@@ -404,26 +410,66 @@ def extract_user_id(token: str) -> str:
         raise TokenValidationError(f"Invalid token: {str(e)}")
 
 
+def invalidate_user_groups_cache(username: Optional[str] = None) -> None:
+    """Clear cached Cognito group memberships.
+
+    Called on login/logout so that group changes (e.g. a user being added
+    to or removed from ``Admin``) take effect on the next sign-in. The
+    cache itself has no TTL — entries persist until explicitly invalidated.
+
+    Args:
+        username: If provided, invalidate just that user. If ``None``, clear
+            the entire cache.
+    """
+    if username is None:
+        _groups_cache.clear()
+        return
+    _groups_cache.pop(username, None)
+
+
 async def get_user_groups(username: str) -> list[str]:
     """Get the groups a user belongs to in Cognito.
-    
+
+    Results are cached in-process for the lifetime of the user's session.
+    The cache is cleared on login and logout via
+    :func:`invalidate_user_groups_cache`, so group changes take effect the
+    next time the user signs in.
+
+    Transient lookup failures fall back to the last cached value (if any)
+    rather than ``[]``, which previously caused the admin menu to flicker
+    off on first load and back on after a refresh.
+
     Args:
         username: The user's username (email)
-        
+
     Returns:
         List of group names the user belongs to
     """
+    cached = _groups_cache.get(username)
+    if cached is not None:
+        return cached
+
     config = get_config()
-    client = boto3.client('cognito-idp', region_name=config.aws_region)
-    
-    try:
+
+    def _fetch() -> list[str]:
+        client = boto3.client('cognito-idp', region_name=config.aws_region)
         response = client.admin_list_groups_for_user(
             UserPoolId=config.cognito_user_pool_id,
             Username=username,
         )
         return [group['GroupName'] for group in response.get('Groups', [])]
+
+    try:
+        # boto3 is sync; run in a threadpool so we don't block the event loop
+        import asyncio
+        groups = await asyncio.to_thread(_fetch)
+        _groups_cache[username] = groups
+        return groups
     except ClientError as e:
         logger.warning(f"Failed to get groups for user {username}: {e}")
+        return []
+    except Exception as e:
+        logger.warning(f"Unexpected error getting groups for user {username}: {e}")
         return []
 
 
