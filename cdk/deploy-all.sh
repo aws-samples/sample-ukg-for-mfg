@@ -587,7 +587,7 @@ if [ "$DRY_RUN" != true ]; then
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo "  1. Create a user:    cd ../chatapp/scripts && ./create-user.sh <email> <password> --admin --region $AWS_REGION${AWS_PROFILE:+ --profile $AWS_PROFILE}"
+    echo "  1. Create a user:    ./create-user.sh <email> <password> --admin --region $AWS_REGION${AWS_PROFILE:+ --profile $AWS_PROFILE}"
     echo "  2. Access the application using the URL(s) shown above"
     echo ""
     echo -e "${YELLOW}Useful Commands:${NC}"

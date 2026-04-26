@@ -281,7 +281,7 @@ npm install -g aws-cdk
 
 4. **Create a test user** (add `--admin` for admin access):
    ```bash
-   cd ../chatapp/scripts
+   cd ../cdk
    ./create-user.sh --region us-east-1 --profile your-profile your-email@example.com YourPassword123@ --admin
    ```
 
@@ -606,9 +606,6 @@ mfg-ukg/
 │   │   ├── storage/              # DynamoDB storage services
 │   │   ├── static/js/            # Home page, chat, system explorer, cache
 │   │   └── templates/            # Jinja2 templates (home, chat, admin)
-│   ├── scripts/
-│   │   ├── create-user.sh        # User creation script
-│   │   └── generate_test_data.py # Test data generator
 │   └── sync-env.sh               # Sync .env from Secrets Manager
 │
 ├── cdk/                          # CDK infrastructure (TypeScript)
@@ -622,13 +619,11 @@ mfg-ukg/
 │   │   ├── chatapp-stack.ts      # ECS Express / Lambda Web Adapter
 │   │   └── config.ts             # Centralized naming and configuration
 │   ├── deploy-all.sh             # Full deployment script
-│   └── destroy-all.sh            # Full cleanup script
+│   ├── destroy-all.sh            # Full cleanup script
+│   └── create-user.sh            # Cognito user creation script
 │
 ├── data/
-│   ├── kb-docs/                  # Knowledge Base source documents
-│   ├── rds/                      # RDS seed SQL and loader
-│   ├── s3tables/                 # S3 Tables seed data
-│   └── seed/                     # DynamoDB seed scripts (templates, settings)
+│   └── kb-docs/                  # Knowledge Base source documents
 │
 ├── lambda/
 │   ├── registry-gateway/         # System Registry API (API Gateway handler)

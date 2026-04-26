@@ -98,9 +98,6 @@ chatapp/
 │           ├── guardrails.html  # Guardrail violations
 │           ├── templates.html   # Prompt templates management
 │           └── settings.html    # Application settings (branding, colors)
-├── scripts/
-│   ├── create-user.sh           # Test user creation
-│   └── generate_test_data.py    # Generate test data for admin dashboard
 ├── sync-env.sh                   # Sync .env from AWS Secrets Manager
 ├── Dockerfile                    # Container build
 ├── docker-compose.yml            # Local development

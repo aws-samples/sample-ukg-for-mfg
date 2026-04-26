@@ -94,7 +94,7 @@ if [ -z "$USER_POOL_ID" ]; then
     echo -e "${YELLOW}Tips:${NC}"
     echo "  - If you deployed to a different region, pass --region <region>"
     echo "  - If you're using a named profile, pass --profile <profile-name>"
-    echo "  - Verify the app was deployed: cd ../../cdk && ./deploy-all.sh --region <region>"
+    echo "  - Verify the app was deployed: ./deploy-all.sh --region <region>"
     exit 1
 fi
 
