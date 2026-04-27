@@ -164,24 +164,26 @@ class SystemExplorer {
         if (!body) return;
         body.innerHTML = '<div class="se-loading">Loading…</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
         try {
-            var resp = await fetch('/admin/registry/' + encodeURIComponent(sys.system_id));
-            var html = await resp.text();
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(html, 'text/html');
+            var resp = await fetch('/api/registry/systems/' + encodeURIComponent(sys.system_id));
+            if (!resp.ok) {
+                var status = resp.status;
+                throw new Error(status === 404 ? 'System not found' : ('HTTP ' + status));
+            }
+            var data = await resp.json();
 
+            // Pivot the flat field list into {table_name: [field, ...]}.
+            // API returns canonical data only — no HTML parsing, no leakage
+            // of equivalence endpoints masquerading as tables.
             var tables = {};
-            doc.querySelectorAll('table tbody tr').forEach(function(tr) {
-                var cells = tr.querySelectorAll('td');
-                if (cells.length >= 3) {
-                    var tbl = (cells[0].textContent || '').trim();
-                    var fld = (cells[1].textContent || '').trim();
-                    var dtype = (cells[2].textContent || '').trim();
-                    var concept = cells.length >= 4 ? (cells[3].textContent || '').trim() : '';
-                    if (tbl && fld) {
-                        if (!tables[tbl]) tables[tbl] = [];
-                        tables[tbl].push({ name: fld, data_type: dtype, concept: concept });
-                    }
-                }
+            (data.fields || []).forEach(function(f) {
+                var tbl = f.table_name || '';
+                if (!tbl || !f.field_name) return;
+                if (!tables[tbl]) tables[tbl] = [];
+                tables[tbl].push({
+                    name: f.field_name,
+                    data_type: f.data_type || '',
+                    concept: f.concept_id || '',
+                });
             });
 
             this.activeDetail = { tables: tables };

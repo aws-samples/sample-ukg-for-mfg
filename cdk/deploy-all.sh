@@ -598,9 +598,6 @@ if [ "$DRY_RUN" != true ]; then
     echo "  6. ${APP_NAME}-WorkflowScheduler (Lambda + EventBridge Scheduler)"
     
     echo ""
-    echo -e "${YELLOW}Test/Demo Data (deployed separately):${NC}"
-    echo "  npx cdk --app 'npx ts-node bin/testdata-app.ts' deploy"
-    echo ""
     echo -e "${BLUE}Application Endpoints:${NC}"
     
     if [ "$SKIP_CHATAPP" = true ]; then

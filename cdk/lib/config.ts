@@ -283,13 +283,6 @@ export const exportNames = {
   chatappRepositoryUri: `${config.appName}-ChatAppRepositoryUri`,
 
   // ========================================================================
-  // S3 Tables Stack exports
-  // ========================================================================
-
-  s3TablesBucketArn: `${config.appName}-S3TablesBucketArn`,
-  s3TablesBucketName: `${config.appName}-S3TablesBucketName`,
-
-  // ========================================================================
   // V2 Agent Stack exports (Explorer + Discovery)
   // ========================================================================
 

@@ -491,9 +491,6 @@ npx cdk synth
 # View stack outputs
 cat cdk/cdk-outputs.json
 
-# Deploy test/demo data stack
-npx cdk --app 'npx ts-node bin/testdata-app.ts' deploy
-
 # Update only the ChatApp (faster for UI changes)
 npx cdk deploy mfg-ukg-ChatApp --require-approval never
 ```
@@ -628,9 +625,6 @@ mfg-ukg/
 │   ├── registry-gateway/         # System Registry API (API Gateway handler)
 │   ├── s3tables/                 # S3 Tables query Lambda
 │   └── workflow-executor/        # Scheduled workflow executor
-│
-├── scripts/                      # Utility scripts
-│   └── cleanup-s3tables.sh       # S3 Tables cleanup
 │
 └── assets/                       # Documentation assets and design docs
 ```

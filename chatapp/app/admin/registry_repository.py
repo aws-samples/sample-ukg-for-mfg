@@ -156,11 +156,14 @@ class RegistryRepository:
                 if sk == "METADATA":
                     metadata = _parse_metadata(item)
                 elif sk.startswith("SCHEMA#"):
+                    _rc = item.get("row_count")
                     schemas.append(SchemaEntry(
                         table_name=item.get("table_name", sk.replace("SCHEMA#", "")),
                         schema_name=item.get("schema_name", ""),
                         description=item.get("description", ""),
-                        row_count=item.get("row_count"),
+                        # DDB returns numbers as Decimal; cast so ``asdict``
+                        # produces JSON-serializable primitives downstream.
+                        row_count=int(_rc) if _rc is not None else None,
                     ))
                 elif sk.startswith("FIELD#"):
                     fields.append(FieldEntry(

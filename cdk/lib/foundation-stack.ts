@@ -665,15 +665,30 @@ export class FoundationStack extends cdk.Stack {
       })
     );
 
-    // Read-only access to the KB sync-state table (created in Bedrock stack).
-    // Chatapp admin dashboard displays ingestion status; no write needed.
+    // Read + update access to the KB sync-state table (created in Bedrock stack).
+    // Chatapp admin dashboard reads it; the /api/feedback handler flips the
+    // dirty flag when a user submits a correction to the KB.
     this.taskRole.addToPolicy(
       new iam.PolicyStatement({
-        sid: 'KbSyncStateRead',
+        sid: 'KbSyncStateAccess',
         effect: iam.Effect.ALLOW,
-        actions: ['dynamodb:GetItem'],
+        actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
         resources: [
           `arn:aws:dynamodb:${this.region}:${this.account}:table/${config.kbSyncStateTableName}`,
+        ],
+      })
+    );
+
+    // Allow chatapp to write institutional-memory documents (gotchas) into
+    // the Bedrock KB source bucket. Scoped to the `documents/learned/` prefix
+    // so chatapp cannot clobber agent-authored content in other prefixes.
+    this.taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'KbLearnedWrite',
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:PutObject'],
+        resources: [
+          `arn:aws:s3:::${config.appName}-kb-${this.account}-${this.region}/documents/learned/*`,
         ],
       })
     );
@@ -1121,6 +1136,11 @@ export class FoundationStack extends cdk.Stack {
           id: 'AwsSolutions-IAM5',
           reason: 'AgentCore evaluation log groups have dynamic names. Scoped to evaluation log group prefix.',
           appliesTo: [`Resource::arn:aws:logs:${this.region}:${this.account}:log-group:/aws/bedrock-agentcore/evaluations/*`],
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          reason: 'Institutional-memory gotcha files are written under the documents/learned/ prefix with unpredictable per-feedback keys. Scoped to that prefix on the KB source bucket only — no access to other prefixes.',
+          appliesTo: [`Resource::arn:aws:s3:::${config.appName}-kb-${this.account}-${this.region}/documents/learned/*`],
         },
       ]
     );

@@ -31,7 +31,7 @@ const agentStack = new AgentStack(app, `${config.appName}-Agent`, { env, descrip
 agentStack.addDependency(bedrockStack);
 agentStack.addDependency(foundationStack);
 agentStack.addDependency(gatewayStack);
-const chatAppStack = new ChatAppStack(app, `${config.appName}-ChatApp`, { env, description: 'Universal Knowledge Graph: ECS Express Mode chat application', stackName: `${config.appName}-chatapp` });
+const chatAppStack = new ChatAppStack(app, `${config.appName}-ChatApp`, { env, description: 'Universal Knowledge Graph: ECS / Lambda chat application', stackName: `${config.appName}-chatapp` });
 chatAppStack.addDependency(foundationStack);
 chatAppStack.addDependency(agentStack);
 const workflowSchedulerStack = new WorkflowSchedulerStack(app, `${config.appName}-WorkflowScheduler`, { env, description: 'Universal Knowledge Graph: Workflow scheduler Lambda + EventBridge', stackName: `${config.appName}-workflow-scheduler` });

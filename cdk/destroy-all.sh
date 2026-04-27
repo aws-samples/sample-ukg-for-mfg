@@ -204,9 +204,6 @@ else
     echo "  3. ${APP_NAME}-Bedrock (Guardrail, Knowledge Base, Memory)"
     echo "  4. ${APP_NAME}-Foundation (Cognito, DynamoDB, IAM, Secrets, System Registry)"
     echo ""
-    echo -e "${YELLOW}Note: Test data stack (${APP_NAME}-S3Tables) is managed separately:${NC}"
-    echo "  npx cdk --app 'npx ts-node bin/testdata-app.ts' destroy"
-    echo ""
     
     # Destroy all stacks with force flag (no confirmation prompts)
     # CDK will handle the reverse dependency order automatically

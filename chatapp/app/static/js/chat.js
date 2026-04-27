@@ -2390,24 +2390,35 @@ function showFeedbackPrompt(messageId) {
             <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">Share your feedback</h3>
                 <p class="text-sm text-gray-600 mb-4">What would have made this response more helpful?</p>
-                <textarea 
-                    id="feedback-comment" 
+                <textarea
+                    id="feedback-comment"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                     rows="3"
                     placeholder="Your feedback helps us improve..."
                 ></textarea>
+                <p class="text-xs text-gray-500 mt-2">
+                    <strong>Correction</strong> saves your feedback to the
+                    agent's knowledge base so it learns for next time.
+                    <strong>Comment</strong> records the feedback for later review.
+                </p>
                 <div class="flex justify-end gap-3 mt-4">
-                    <button 
-                        onclick="closeFeedbackModal()" 
+                    <button
+                        onclick="closeFeedbackModal()"
                         class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                         Cancel
                     </button>
-                    <button 
-                        onclick="submitNegativeFeedback('${escapeHtml(messageId)}')" 
+                    <button
+                        onclick="submitNegativeFeedback('${escapeHtml(messageId)}', false)"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                        Comment
+                    </button>
+                    <button
+                        onclick="submitNegativeFeedback('${escapeHtml(messageId)}', true)"
                         class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                     >
-                        Submit
+                        Correction
                     </button>
                 </div>
             </div>
@@ -2460,37 +2471,41 @@ function closeFeedbackModal(event) {
 
 /**
  * Submit negative feedback from the modal.
- * 
+ *
  * @param {string} messageId - The message being rated
- * 
+ * @param {boolean} isCorrection - True if user flagged this as a correction
+ *     (triggers a KB write so the agent learns); false for plain comment
+ *
  * Requirements: 3.3, 3.5
  */
-function submitNegativeFeedback(messageId) {
+function submitNegativeFeedback(messageId, isCorrection) {
     const textarea = document.getElementById('feedback-comment');
     const comment = textarea ? textarea.value.trim() : '';
-    
+
     closeFeedbackModal();
-    submitFeedback(messageId, 'negative', comment || null);
+    submitFeedback(messageId, 'negative', comment || null, !!isCorrection);
 }
 
 /**
  * Submit feedback to the backend.
  * Collects message context and POSTs to /api/feedback endpoint.
  * Updates UI state on success.
- * 
+ *
  * @param {string} messageId - The message ID
  * @param {string} sentiment - 'positive' or 'negative'
  * @param {string|null} comment - Optional user comment
- * 
+ * @param {boolean} [isCorrection=false] - If true (with negative sentiment),
+ *     ask the backend to also persist this as a KB gotcha
+ *
  * Requirements: 2.1, 3.3
  */
-async function submitFeedback(messageId, sentiment, comment) {
+async function submitFeedback(messageId, sentiment, comment, isCorrection) {
     const context = messageContextStore.get(messageId);
     if (!context) {
         console.error('No context found for message:', messageId);
         return;
     }
-    
+
     const payload = {
         message_id: messageId,
         session_id: getSessionId(),
@@ -2498,7 +2513,8 @@ async function submitFeedback(messageId, sentiment, comment) {
         assistant_response: context.assistantResponse,
         tools_used: context.toolsUsed,
         sentiment: sentiment,
-        user_comment: comment
+        user_comment: comment,
+        is_correction: !!isCorrection,
     };
     
     try {

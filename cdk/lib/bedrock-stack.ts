@@ -18,6 +18,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as path from 'path';
 import * as bedrockagentcore from 'aws-cdk-lib/aws-bedrockagentcore';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -341,7 +342,10 @@ export class BedrockStack extends cdk.Stack {
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
+      // Enable PITR — the table is a single-item dirty flag, so the storage
+      // cost of continuous backups is negligible, and it satisfies cdk-nag
+      // AwsSolutions-DDB3.
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -351,7 +355,7 @@ export class BedrockStack extends cdk.Stack {
       handler: 'index.handler',
       timeout: cdk.Duration.seconds(60),
       memorySize: 128,
-      code: lambda.Code.fromAsset('lambda/kb-ingestion-tick'),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/kb-ingestion-tick')),
       environment: {
         KB_ID: this.knowledgeBase.attrKnowledgeBaseId,
         KB_DATA_SOURCE_ID: this.dataSource.attrDataSourceId,

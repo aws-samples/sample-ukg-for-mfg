@@ -465,7 +465,7 @@ function discMarkFeedback(fbWrap, sentiment) {
     if (btns[idx]) { btns[idx].style.opacity = '1'; btns[idx].dataset.selected = '1'; }
 }
 
-function discSubmitFeedback(msgId, sentiment, comment) {
+function discSubmitFeedback(msgId, sentiment, comment, isCorrection) {
     var ctx = discFeedbackStore.get(msgId) || {};
     fetch('/api/feedback', {
         method: 'POST',
@@ -477,7 +477,8 @@ function discSubmitFeedback(msgId, sentiment, comment) {
             assistant_response: ctx.assistantResponse || '',
             tools_used: [],
             sentiment: sentiment,
-            user_comment: comment
+            user_comment: comment,
+            is_correction: !!isCorrection
         })
     }).catch(function(e){ console.error('Feedback error:', e); });
 }
@@ -488,20 +489,24 @@ function discShowFeedbackModal(msgId, fbWrap) {
     var modal = document.createElement('div');
     modal.id = 'disc-feedback-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
-    modal.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:400px;width:90%;">' // nosemgrep: insecure-innerhtml, insecure-document-method
+    modal.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:440px;width:90%;">' // nosemgrep: insecure-innerhtml, insecure-document-method
         + '<h3 style="margin:0 0 0.5rem;color:var(--text);font-size:1rem;">Share your feedback</h3>'
         + '<textarea id="disc-fb-comment" rows="3" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);resize:none;font-family:inherit;" placeholder="What would have made this better?"></textarea>'
-        + '<div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.75rem;">'
+        + '<p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0;"><strong>Correction</strong> teaches the agent for next time. <strong>Comment</strong> records the feedback for review.</p>'
+        + '<div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">'
         + '<button onclick="document.getElementById(\'disc-feedback-modal\').remove()" style="padding:0.4rem 1rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text);cursor:pointer;">Cancel</button>'
-        + '<button id="disc-fb-submit" style="padding:0.4rem 1rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;">Submit</button>'
+        + '<button id="disc-fb-submit-comment" style="padding:0.4rem 1rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text);cursor:pointer;">Comment</button>'
+        + '<button id="disc-fb-submit-correction" style="padding:0.4rem 1rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;">Correction</button>'
         + '</div></div>';
     document.body.appendChild(modal);
     modal.onclick = function(e){ if(e.target === modal) modal.remove(); };
-    document.getElementById('disc-fb-submit').onclick = function(){
+    function _submit(isCorrection){
         var comment = (document.getElementById('disc-fb-comment').value || '').trim();
         modal.remove();
-        discSubmitFeedback(msgId, 'negative', comment || null);
+        discSubmitFeedback(msgId, 'negative', comment || null, isCorrection);
         discMarkFeedback(fbWrap, 'negative');
-    };
+    }
+    document.getElementById('disc-fb-submit-comment').onclick = function(){ _submit(false); };
+    document.getElementById('disc-fb-submit-correction').onclick = function(){ _submit(true); };
     document.getElementById('disc-fb-comment').focus();
 }

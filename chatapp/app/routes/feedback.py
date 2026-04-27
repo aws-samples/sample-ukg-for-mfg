@@ -17,6 +17,7 @@ from app.models.feedback import FeedbackRecord, FeedbackSubmission, FeedbackStat
 from app.storage.feedback import FeedbackStorageService
 from app.admin.feedback_repository import FeedbackRepository
 from app.auth.cognito import get_user_emails_by_ids
+from app.kb import write_gotcha_from_feedback
 from app.templates_config import templates
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,13 @@ class FeedbackRequest(BaseModel):
     tools_used: list[str] = Field(default_factory=list, description="Tools used")
     sentiment: str = Field(..., description="Sentiment: 'positive' or 'negative'")
     user_comment: Optional[str] = Field(default=None, description="Optional comment")
+    is_correction: bool = Field(
+        default=False,
+        description=(
+            "If true (and sentiment is negative), persist the comment to the "
+            "Bedrock KB as a gotcha so the agent learns from it next time."
+        ),
+    )
     
     @field_validator("sentiment")
     @classmethod
@@ -109,7 +117,27 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
     # Store feedback (fire-and-forget pattern)
     storage_service = FeedbackStorageService()
     await storage_service.store_feedback(record)
-    
+
+    # If the user flagged their negative feedback as a correction, persist
+    # it to the KB so the Explorer agent can retrieve it on future runs.
+    # Never let a KB failure break feedback submission — writer returns None
+    # on any error and logs it.
+    gotcha_key: Optional[str] = None
+    if (
+        body.sentiment == "negative"
+        and body.is_correction
+        and body.user_comment
+        and body.user_comment.strip()
+    ):
+        gotcha_key = write_gotcha_from_feedback(
+            feedback_id=body.message_id,
+            user_id=user_id,
+            session_id=body.session_id,
+            user_question=body.user_message,
+            agent_answer=body.assistant_response,
+            user_correction=body.user_comment.strip(),
+        )
+
     logger.info(
         "Feedback submitted",
         extra={
@@ -117,9 +145,11 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
             "session_id": body.session_id,
             "message_id": body.message_id,
             "sentiment": body.sentiment,
+            "is_correction": body.is_correction,
+            "gotcha_key": gotcha_key,
         },
     )
-    
+
     return JSONResponse(
         status_code=200,
         content={
@@ -127,6 +157,7 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
             "message": "Feedback recorded",
             "message_id": body.message_id,
             "sentiment": body.sentiment,
+            "gotcha_stored": bool(gotcha_key),
         },
     )
 

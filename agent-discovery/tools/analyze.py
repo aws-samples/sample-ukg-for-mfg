@@ -528,17 +528,21 @@ async def register_all(namespace: str = None) -> AsyncIterator:
         succeeded_meta, failed_meta = _batch_write_items(reg_client, reg_table, metadata_items)
         logger.info("register_all: metadata + %d schemas written", len(schemas))
 
-        # Step 2: Register fields table by table
-        total_fields_written = 0
-        total_fields_failed = 0
+        # Step 2: Register fields — accumulate across all tables into one
+        # batched write. _batch_write_items handles 25-item chunking + retry
+        # internally, so a single call is optimal regardless of field count.
+        all_field_items = []
         for tbl_name, fields in fields_by_table.items():
-            field_items = []
             for field in fields:
                 field["table_name"] = tbl_name
-                field_items.append(_build_field_item(system_id, field))
-            s, f = _batch_write_items(reg_client, reg_table, field_items)
-            total_fields_written += len(s)
-            total_fields_failed += len(f)
+                all_field_items.append(_build_field_item(system_id, field))
+
+        total_fields_written = 0
+        total_fields_failed = 0
+        if all_field_items:
+            succeeded_f, failed_f = _batch_write_items(reg_client, reg_table, all_field_items)
+            total_fields_written = len(succeeded_f)
+            total_fields_failed = len(failed_f)
 
         logger.info("register_all: %d fields written, %d failed", total_fields_written, total_fields_failed)
 

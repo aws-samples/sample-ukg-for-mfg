@@ -41,6 +41,57 @@ async def get_systems(request: Request):
     })
 
 
+@ukg_router.get("/systems/{system_id}")
+async def get_system_detail(request: Request, system_id: str):
+    """Get full detail for a single system — schemas, fields (with concept
+    mappings), and cross-system equivalences. Used by the sidebar's system
+    explorer to render the per-table field list without scraping the admin
+    page's HTML.
+    """
+    config = get_config()
+    if not config.registry_table_name:
+        return JSONResponse(
+            status_code=503,
+            content={"configured": False, "system_id": system_id},
+        )
+
+    repo = RegistryRepository()
+    detail = await repo.get_system_detail(system_id)
+    if not detail:
+        return JSONResponse(
+            status_code=404,
+            content={"configured": True, "system_id": system_id, "error": "not_found"},
+        )
+
+    # Equivalences come straight from DynamoDB and contain Decimal values
+    # (notably ``confidence``) which the default JSON encoder can't handle.
+    # Normalize to JSON-safe primitives, matching the shape exposed by
+    # GET /api/registry/equivalences.
+    normalized_equivs = [
+        {
+            "source_system": eq.get("source_system", ""),
+            "source_table": eq.get("source_table", ""),
+            "source_field": eq.get("source_field", ""),
+            "target_system": eq.get("target_system", ""),
+            "target_table": eq.get("target_table", ""),
+            "target_field": eq.get("target_field", ""),
+            "concept_id": eq.get("concept_id", ""),
+            "confidence": float(eq.get("confidence", 0)),
+            "transform": eq.get("transform", ""),
+            "inferred_at": eq.get("inferred_at", ""),
+        }
+        for eq in detail.equivalences
+    ]
+
+    return JSONResponse(content={
+        "configured": True,
+        "system": asdict(detail.metadata),
+        "schemas": [asdict(s) for s in detail.schemas],
+        "fields": [asdict(f) for f in detail.fields],
+        "equivalences": normalized_equivs,
+    })
+
+
 @ukg_router.get("/vocabulary")
 async def get_vocabulary(request: Request):
     """Get the canonical manufacturing vocabulary grouped by ISA-95 domain."""

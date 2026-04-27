@@ -1097,7 +1097,7 @@ function homeMarkFeedback(fbWrap, sentiment) {
     if (btns[idx]) { btns[idx].style.opacity = '1'; btns[idx].dataset.selected = '1'; }
 }
 
-function homeSubmitFeedback(msgId, sentiment, comment) {
+function homeSubmitFeedback(msgId, sentiment, comment, isCorrection) {
     var ctx = homeFeedbackStore.get(msgId) || {};
     var sessionId = localStorage.getItem(HOME_SESSION_KEY) || '';
     fetch('/api/feedback', {
@@ -1110,7 +1110,8 @@ function homeSubmitFeedback(msgId, sentiment, comment) {
             assistant_response: ctx.assistantResponse || '',
             tools_used: [],
             sentiment: sentiment,
-            user_comment: comment
+            user_comment: comment,
+            is_correction: !!isCorrection
         })
     }).catch(function(e){ console.error('Feedback error:', e); });
 }
@@ -1121,12 +1122,14 @@ function homeShowFeedbackModal(msgId, fbWrap) {
     var modal = document.createElement('div');
     modal.id = 'home-feedback-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
-    modal.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:400px;width:90%;">' // nosemgrep: insecure-innerhtml, insecure-document-method
+    modal.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:440px;width:90%;">' // nosemgrep: insecure-innerhtml, insecure-document-method
         + '<h3 style="margin:0 0 0.5rem;color:var(--text);font-size:1rem;">Share your feedback</h3>'
         + '<textarea id="home-fb-comment" rows="3" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);resize:none;font-family:inherit;" placeholder="What would have made this better?"></textarea>'
-        + '<div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.75rem;">'
+        + '<p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0;"><strong>Correction</strong> teaches the agent for next time. <strong>Comment</strong> records the feedback for review.</p>'
+        + '<div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">'
         + '<button onclick="document.getElementById(\'home-feedback-modal\').remove()" style="padding:0.4rem 1rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text);cursor:pointer;">Cancel</button>'
-        + '<button id="home-fb-submit" style="padding:0.4rem 1rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;">Submit</button>'
+        + '<button id="home-fb-submit-comment" style="padding:0.4rem 1rem;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text);cursor:pointer;">Comment</button>'
+        + '<button id="home-fb-submit-correction" style="padding:0.4rem 1rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;">Correction</button>'
         + '</div></div>';
     document.body.appendChild(modal);
     var _fbMouseDownOnBackdrop = false;
@@ -1135,12 +1138,14 @@ function homeShowFeedbackModal(msgId, fbWrap) {
         if(_fbMouseDownOnBackdrop && e.target === modal) modal.remove();
         _fbMouseDownOnBackdrop = false;
     });
-    document.getElementById('home-fb-submit').onclick = function(){
+    function _submit(isCorrection){
         var comment = (document.getElementById('home-fb-comment').value || '').trim();
         modal.remove();
-        homeSubmitFeedback(msgId, 'negative', comment || null);
+        homeSubmitFeedback(msgId, 'negative', comment || null, isCorrection);
         homeMarkFeedback(fbWrap, 'negative');
-    };
+    }
+    document.getElementById('home-fb-submit-comment').onclick = function(){ _submit(false); };
+    document.getElementById('home-fb-submit-correction').onclick = function(){ _submit(true); };
     document.getElementById('home-fb-comment').focus();
 }
 
