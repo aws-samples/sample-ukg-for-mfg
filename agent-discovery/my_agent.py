@@ -9,6 +9,7 @@ Architecture:
 - Memory — conversation persistence via AgentCore Memory
 """
 
+import asyncio
 import json
 import os
 import re
@@ -25,17 +26,55 @@ from config import DiscoveryConfig
 from guardrails import NotifyOnlyGuardrailsHook
 from logger import setup_logger
 from telemetry import is_telemetry_initialized, setup_telemetry
+import progress as progress_channel
 from tools.discovery_helpers import get_canonical_concepts
 from tools.inspect import inspect_api_spec, inspect_mcp_server, inspect_rds_schema, inspect_athena_source, list_s3tables_namespaces
 from tools.register import register_system_metadata, register_fields, register_equivalences, log_discovery_session
 from tools.state import save_phase_results, load_phase_results, load_table_schema
 from tools.analyze import analyze_schema, correlate_fields, register_all, discover_s3tables_bucket
+from tools.remember import remember_discovery
 
 # Gateway MCP client for shared registry tools
 from strands.tools.mcp import MCPClient
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 
-DISCOVERY_MODEL = "us.anthropic.claude-sonnet-4-6"
+DISCOVERY_MODEL = "global.anthropic.claude-sonnet-4-6"
+
+
+def _render_progress(payload: dict) -> str | None:
+    """Convert a sideband progress payload to chat-friendly markdown text.
+
+    Returns ``None`` if the payload type isn't one we know how to render, so
+    callers can choose to log and drop.
+    """
+    stype = payload.get("type", "")
+    if stype == "progress":
+        ns_list = ", ".join(payload.get("namespaces", []))
+        return (
+            f"\n\n🔍 Found **{payload.get('namespace_count', 0)} namespaces**: "
+            f"{ns_list}. Starting discovery…\n\n"
+        )
+    if stype == "phase_update":
+        return f"  ⏳ {payload.get('message', '')}\n"
+    if stype == "namespace_result":
+        ns = payload.get("namespace", "")
+        status = payload.get("status", "")
+        progress_marker = payload.get("progress", "")
+        duration = payload.get("duration_seconds", 0)
+        if status == "completed":
+            return (
+                f"✓ **{progress_marker}** Discovered **{ns}** — "
+                f"{payload.get('tables', 0)} tables, "
+                f"{payload.get('fields', 0)} fields, "
+                f"{payload.get('concepts_mapped', 0)} concepts mapped, "
+                f"{payload.get('equivalences', 0)} equivalences "
+                f"({duration}s)\n\n"
+            )
+        return (
+            f"✗ **{progress_marker}** Failed **{ns}** — "
+            f"{payload.get('error', 'unknown error')} ({duration}s)\n\n"
+        )
+    return None
 
 DISCOVERY_PROMPT = """\
 You are the Data Discovery Agent for a manufacturing universal knowledge graph platform. Your job is to \
@@ -46,7 +85,7 @@ cross-system equivalences, and register everything in the System Registry.
 your results. At the start of each phase (except Phase 1), call `load_phase_results` to \
 retrieve prior phase data. This prevents data loss when the conversation context is compressed.
 
-Follow this strict 5-phase workflow for every discovery request:
+Follow this strict 6-phase workflow for every discovery request:
 
 ## Phase 1: INSPECT
 
@@ -116,18 +155,35 @@ Call `register_all` — this sub-agent tool:
 Call `log_discovery_session` with the counts from Phase 4's result. \
 Set action to "registered" for new systems or "re-registered" if already in the registry.
 
+## Phase 6: REMEMBER
+
+Call `remember_discovery` with a concise markdown summary of what you learned. \
+This is your institutional memory — treat it as a note-to-future-self that the \
+Explorer agent will read next time someone asks about this system.
+
+Include:
+- Tables or endpoints discovered (with row counts if available)
+- Concept mappings that matter for query construction (field → canonical concept)
+- Cross-system equivalences registered in Phase 3
+- Observed enum values and what they mean (e.g. `status='closed'` means completed, not cancelled)
+- Gotchas: null semantics, timezone handling, composite keys, rate limits, anything non-obvious
+
+Keep the summary factual and grounded in what Phase 1–4 actually produced. Do not speculate. \
+The summary overwrites any prior summary for the same `system_id`, so re-discovery always \
+results in exactly one current memory per system.
+
 ## Important Rules
 
-- Always complete all 5 phases in order. Do not skip phases.
+- Always complete all 6 phases in order. Do not skip phases.
 - **S3 Tables exception**: For S3 Tables buckets, call `discover_s3tables_bucket` instead of \
-running the 5 phases manually. It handles all phases internally for every namespace and \
+running the 6 phases manually. It handles all phases internally for every namespace and \
 yields incremental progress per namespace. Relay each namespace result to the user as it \
 arrives. After the final summary yield, produce the detailed report. If only partial \
 results arrive, still report what was discovered.
 - Each phase is a single tool call — the sub-agents handle everything internally.
 - Never expose raw connection strings or credentials in your responses.
 - If inspection fails, report the error clearly and do not proceed.
-- **FINAL REPORT** — After Phase 5, output a detailed summary including:
+- **FINAL REPORT** — After Phase 6, output a detailed summary including:
   - System name and ID
   - Each table/endpoint group with field count
   - Number of concepts mapped
@@ -149,7 +205,13 @@ def get_config():
     global _config, _logger, _memory_client
     if _config is None:
         _config = DiscoveryConfig.from_env()
-        _logger = setup_logger(__name__, _config.log_level)
+        # Use a plain getLogger here — setup_logger() sets propagate=False,
+        # which prevents OpenTelemetry log instrumentation from capturing
+        # our log lines and forwarding them to CloudWatch. Plain getLogger
+        # lets the OTEL root handler see everything. (tools/*.py do the same.)
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.setLevel(getattr(_logging, _config.log_level.upper(), _logging.INFO))
         _memory_client = MemoryClient(region_name=_config.aws_region)
         if not is_telemetry_initialized():
             setup_telemetry(
@@ -271,6 +333,8 @@ async def invoke(payload, context):
         register_all,
         # Phase 5: LOG
         log_discovery_session,
+        # Phase 6: REMEMBER — write learnings to Bedrock KB institutional memory
+        remember_discovery,
         # Utilities (used by sub-agents internally, also available to orchestrator)
         get_canonical_concepts,
         save_phase_results,
@@ -340,93 +404,137 @@ async def invoke(payload, context):
     user_message = payload.get("prompt", "Hello! How can I help you today?")
     log.info(f"Processing (session={session_id}, user={user_id}): {user_message[:80]}...")
 
+    # Sideband progress channel: tools call emit_progress(payload), we drain
+    # here and forward each payload to the UI as a TextStreamEvent. This
+    # bypasses Strands' tool-stream-event wrapping, which has proven
+    # unreliable across versions for async-generator tools.
+    progress_queue: asyncio.Queue = asyncio.Queue()
+    progress_token = progress_channel.set_queue(progress_queue)
+
     try:
         agent_stream = agent.stream_async(user_message)
         seen_tool_uses: set[str] = set()
 
-        async for event in agent_stream:
-            if isinstance(event, dict) and "messages" in event:
-                for message in event.get("messages", []):
-                    if message.get("role") == "assistant":
-                        for block in message.get("content", []):
-                            if "toolUse" in block:
-                                tool_use = block["toolUse"]
-                                tool_id = tool_use.get("toolUseId")
-                                if tool_id and tool_id not in seen_tool_uses:
-                                    seen_tool_uses.add(tool_id)
-                                    yield {
-                                        "type": "tool_use",
-                                        "tool_name": tool_use.get("name", "unknown"),
-                                        "tool_input": tool_use.get("input", {}),
-                                        "tool_use_id": tool_id,
-                                    }
-                    elif message.get("role") == "user":
-                        for block in message.get("content", []):
-                            if "toolResult" in block:
-                                tool_result = block["toolResult"]
-                                tool_id = tool_result.get("toolUseId")
-                                if tool_id:
-                                    result_text = ""
-                                    for rc in tool_result.get("content", []):
-                                        if "text" in rc:
-                                            result_text = rc["text"]
-                                            break
-                                    yield {
-                                        "type": "tool_result",
-                                        "tool_name": tool_id,
-                                        "tool_result": result_text,
-                                        "tool_use_id": tool_id,
-                                    }
+        # Run the agent loop as a task so we can race it against queue.get().
+        # When the agent finishes, we flip a flag and drain any residual
+        # progress payloads before returning.
+        async def _next_event():
+            try:
+                return await agent_stream.__anext__()
+            except StopAsyncIteration:
+                return progress_channel.DONE
 
-            # Intercept tool_stream_event from discover_s3tables_bucket to
-            # emit real-time progress messages to the chat UI. Without this,
-            # the user sees nothing for the entire multi-minute tool execution.
-            if isinstance(event, dict):
-                tse = event.get("tool_stream_event", {})
-                tse_data = tse.get("data")
-                if isinstance(tse_data, str):
-                    try:
-                        streamed = json.loads(tse_data)
-                        stype = streamed.get("type", "")
-                        if stype == "progress":
-                            ns_list = ", ".join(streamed.get("namespaces", []))
-                            yield {
-                                "type": "TextStreamEvent",
-                                "text": f"\n\n🔍 Found **{streamed.get('namespace_count', 0)} namespaces**: {ns_list}. Starting discovery…\n\n",
-                            }
-                        elif stype == "phase_update":
-                            yield {
-                                "type": "TextStreamEvent",
-                                "text": f"  ⏳ {streamed.get('message', '')}\n",
-                            }
-                        elif stype == "namespace_result":
-                            ns = streamed.get("namespace", "")
-                            status = streamed.get("status", "")
-                            if status == "completed":
-                                yield {
-                                    "type": "TextStreamEvent",
-                                    "text": (
-                                        f"✓ **{streamed.get('progress', '')}** Discovered **{ns}** — "
-                                        f"{streamed.get('tables', 0)} tables, "
-                                        f"{streamed.get('fields', 0)} fields, "
-                                        f"{streamed.get('concepts_mapped', 0)} concepts mapped, "
-                                        f"{streamed.get('equivalences', 0)} equivalences "
-                                        f"({streamed.get('duration_seconds', 0)}s)\n\n"
-                                    ),
-                                }
-                            else:
-                                yield {
-                                    "type": "TextStreamEvent",
-                                    "text": (
-                                        f"✗ **{streamed.get('progress', '')}** Failed **{ns}** — "
-                                        f"{streamed.get('error', 'unknown error')} "
-                                        f"({streamed.get('duration_seconds', 0)}s)\n\n"
-                                    ),
-                                }
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+        agent_task = asyncio.create_task(_next_event())
+        progress_task = asyncio.create_task(progress_queue.get())
+        agent_done = False
 
-            yield event
+        while True:
+            pending = {agent_task, progress_task} - {None}
+            if not pending:
+                break
+            done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+            if progress_task in done:
+                try:
+                    payload = progress_task.result()
+                except Exception as e:
+                    log.warning("progress queue drain error: %s", e)
+                    payload = None
+                if payload is progress_channel.DONE:
+                    progress_task = None  # stop draining
+                elif isinstance(payload, dict):
+                    text = _render_progress(payload)
+                    if text:
+                        log.info(
+                            "emitting TextStreamEvent from sideband: type=%s ns=%s len=%d",
+                            payload.get("type"),
+                            payload.get("namespace", ""),
+                            len(text),
+                        )
+                        yield {"type": "TextStreamEvent", "text": text}
+                    else:
+                        log.debug("sideband payload with unknown type dropped: %r", payload)
+                    # Re-arm next queue.get()
+                    if not agent_done:
+                        progress_task = asyncio.create_task(progress_queue.get())
+                    else:
+                        # Agent is done; drain anything else that's already
+                        # in the queue without blocking.
+                        if not progress_queue.empty():
+                            progress_task = asyncio.create_task(progress_queue.get())
+                        else:
+                            progress_task = None
+
+            if agent_task in done:
+                try:
+                    event = agent_task.result()
+                except Exception as e:
+                    log.error("agent stream error: %s", e, exc_info=True)
+                    raise
+
+                if event is progress_channel.DONE:
+                    agent_done = True
+                    agent_task = None
+                    # Agent finished. If a progress_task is still blocking on
+                    # an empty queue, cancel it so we don't hang forever.
+                    if progress_task is not None and progress_queue.empty():
+                        progress_task.cancel()
+                        try:
+                            await progress_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+                        progress_task = None
+                    continue
+
+                # Existing event handling — unchanged logic, just lives inside
+                # the new multiplexed loop.
+                if log.isEnabledFor(10) and isinstance(event, dict):
+                    log.debug("agent stream event keys=%s", list(event.keys()))
+
+                if isinstance(event, dict) and "messages" in event:
+                    for message in event.get("messages", []):
+                        if message.get("role") == "assistant":
+                            for block in message.get("content", []):
+                                if "toolUse" in block:
+                                    tool_use = block["toolUse"]
+                                    tool_id = tool_use.get("toolUseId")
+                                    tool_name = tool_use.get("name", "unknown")
+                                    if tool_name == "discover_s3tables_bucket":
+                                        log.info(
+                                            "discover_s3tables_bucket invoked (tool_use_id=%s). "
+                                            "Progress will arrive via sideband channel.",
+                                            tool_id,
+                                        )
+                                    if tool_id and tool_id not in seen_tool_uses:
+                                        seen_tool_uses.add(tool_id)
+                                        yield {
+                                            "type": "tool_use",
+                                            "tool_name": tool_name,
+                                            "tool_input": tool_use.get("input", {}),
+                                            "tool_use_id": tool_id,
+                                        }
+                        elif message.get("role") == "user":
+                            for block in message.get("content", []):
+                                if "toolResult" in block:
+                                    tool_result = block["toolResult"]
+                                    tool_id = tool_result.get("toolUseId")
+                                    if tool_id:
+                                        result_text = ""
+                                        for rc in tool_result.get("content", []):
+                                            if "text" in rc:
+                                                result_text = rc["text"]
+                                                break
+                                        yield {
+                                            "type": "tool_result",
+                                            "tool_name": tool_id,
+                                            "tool_result": result_text,
+                                            "tool_use_id": tool_id,
+                                        }
+
+                yield event
+
+                # Re-arm next agent stream pull
+                agent_task = asyncio.create_task(_next_event())
 
         for violation in guardrails_hook.get_and_clear_violations():
             yield violation
@@ -437,6 +545,8 @@ async def invoke(payload, context):
         log.error(f"Agent error: {e}", exc_info=True)
         yield {"error": True, "message": str(e)}
         raise
+    finally:
+        progress_channel.reset_queue(progress_token)
 
 
 if __name__ == "__main__":

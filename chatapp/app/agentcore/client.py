@@ -225,7 +225,8 @@ class AgentCoreClient:
             
             # Handle TextStreamEvent
             if data.get('type') == 'TextStreamEvent' and data.get('text'):
-                filtered = thinking_filter.filter(data['text'])
+                text = data['text']
+                filtered = thinking_filter.filter(text)
                 if filtered:
                     return MessageEvent(content=filtered)
                 return None
@@ -291,17 +292,14 @@ class AgentCoreClient:
                 if text_parts:
                     full_text = ''.join(text_parts)
                     already_sent_len = thinking_filter._sent_length
-                    print(f"[DEBUG client.py] final_message: full_text_len={len(full_text)}, already_sent_len={already_sent_len}, delta={len(full_text) - already_sent_len}", flush=True)
                     if len(full_text) > already_sent_len:
                         new_tail = full_text[already_sent_len:]
-                        print(f"[DEBUG client.py] final_message: emitting {len(new_tail)} chars, starts_with={new_tail[:100]!r}", flush=True)
                         if new_tail.strip():
                             return MessageEvent(content=new_tail)
                     else:
                         # This marks the end of an agent turn — the streamed text
                         # already covered this turn's content. Emit a paragraph
                         # break to visually separate reasoning steps in the UI.
-                        print(f"[DEBUG client.py] final_message: no new content (already_sent >= full_text)", flush=True)
                         return MessageEvent(content="\n\n")
                 return None
             
@@ -409,7 +407,21 @@ class AgentCoreClient:
             # Read chunks from the stream - StreamingBody yields bytes directly
             chunk_count = 0
             total_bytes = 0
+            import time as _timing
+            _stream_start = _timing.time()
+            _last_log = _stream_start
             for chunk in stream:
+                # Diagnostic: log first-chunk latency once per stream, then
+                # periodic heartbeats at DEBUG only (avoid log spam in prod).
+                _now = _timing.time()
+                if chunk_count == 0:
+                    logger.info("first chunk received after %.2fs", _now - _stream_start)
+                elif _now - _last_log > 2.0:
+                    logger.debug(
+                        "chunk %d @ t=%.2fs (total_bytes=%d)",
+                        chunk_count, _now - _stream_start, total_bytes,
+                    )
+                    _last_log = _now
                 # Handle different chunk formats and get raw bytes
                 raw_bytes = None
                 if isinstance(chunk, bytes):
@@ -504,17 +516,17 @@ class AgentCoreClient:
                     buffer = json_accumulator + '\n' + buffer
             
             # Flush any remaining bytes in the decoder
-            print(f"[DEBUG client.py] stream_complete: {chunk_count} chunks, {total_bytes} total bytes, sent_length={thinking_filter._sent_length}", flush=True)
+            logger.debug("stream_complete: %d chunks, %d total bytes, sent_length=%d",
+                         chunk_count, total_bytes, thinking_filter._sent_length)
             final_text = utf8_decoder.decode(b'', final=True)
             if final_text:
                 buffer += final_text
-            
+
             # Process remaining buffer
             if buffer.strip():
-                print(f"[DEBUG client.py] remaining_buffer: len={len(buffer)}, preview={buffer[:200]!r}", flush=True)
+                logger.debug("remaining_buffer: len=%d", len(buffer))
                 event = self._parse_ndjson_line(buffer, thinking_filter)
                 if event:
-                    print(f"[DEBUG client.py] remaining_buffer: parsed event type={type(event).__name__}", flush=True)
                     yield event
                 
                 # Emit any remaining tool events
@@ -530,28 +542,29 @@ class AgentCoreClient:
             yield DoneEvent()
             
         except self._client.exceptions.ValidationException as e:
-            print(f"[DEBUG client.py] EXCEPTION ValidationException: {e}", flush=True)
+            logger.error("ValidationException invoking AgentCore: %s", e)
             yield ErrorEvent(
                 message='Invalid request to AgentCore',
                 details=str(e),
             )
             yield DoneEvent()
         except self._client.exceptions.ThrottlingException as e:
-            print(f"[DEBUG client.py] EXCEPTION ThrottlingException: {e}", flush=True)
+            logger.warning("ThrottlingException invoking AgentCore: %s", e)
             yield ErrorEvent(
                 message='Request throttled by AgentCore',
                 details=str(e),
             )
             yield DoneEvent()
         except self._client.exceptions.InternalServerException as e:
-            print(f"[DEBUG client.py] EXCEPTION InternalServerException: {e}", flush=True)
+            logger.error("InternalServerException from AgentCore: %s", e)
             yield ErrorEvent(
                 message='AgentCore internal error',
                 details=str(e),
             )
             yield DoneEvent()
         except Exception as e:
-            print(f"[DEBUG client.py] EXCEPTION {type(e).__name__}: {e}", flush=True)
+            logger.error("Unexpected error invoking AgentCore: %s: %s",
+                         type(e).__name__, e, exc_info=True)
             
             is_stream_error = 'StreamingError' in type(e).__name__ or 'IncompleteRead' in str(e)
             if not is_stream_error:

@@ -11,8 +11,9 @@ class DiscoveryConfig:
     Attributes:
         registry_table_name: DynamoDB System Registry table name
         aws_region: AWS region for all AWS services
-        kb_id: Bedrock Knowledge Base ID for sync_master_data_to_kb
-        kb_source_bucket: S3 bucket for KB data export
+        kb_id: Bedrock Knowledge Base ID (read by the tick Lambda, not the agent)
+        kb_source_bucket: S3 bucket where ``remember_discovery`` writes learnings
+        kb_sync_state_table: DynamoDB table holding the KB ingestion dirty flag
         guardrail_id: Bedrock guardrail identifier (optional)
         guardrail_version: Bedrock guardrail version
         guardrail_enabled: Whether guardrail evaluation is enabled
@@ -28,6 +29,7 @@ class DiscoveryConfig:
     aws_region: str
     kb_id: str
     kb_source_bucket: str
+    kb_sync_state_table: str
     # Optional fields with defaults
     guardrail_id: Optional[str] = None
     guardrail_version: str = "DRAFT"
@@ -76,6 +78,13 @@ class DiscoveryConfig:
                 "Set it in your .env file or deploy the Bedrock stack via CDK."
             )
 
+        kb_sync_state_table = os.getenv("KB_SYNC_STATE_TABLE")
+        if not kb_sync_state_table:
+            raise ValueError(
+                "KB_SYNC_STATE_TABLE environment variable is required. "
+                "Set it in your .env file or deploy the Bedrock stack via CDK."
+            )
+
         guardrail_id = os.getenv("GUARDRAIL_ID")
         guardrail_version = os.getenv("GUARDRAIL_VERSION", "DRAFT")
         guardrail_enabled = os.getenv("GUARDRAIL_ENABLED", "true").lower() in ("true", "1", "yes")
@@ -95,6 +104,7 @@ class DiscoveryConfig:
             aws_region=aws_region,
             kb_id=kb_id,
             kb_source_bucket=kb_source_bucket,
+            kb_sync_state_table=kb_sync_state_table,
             guardrail_id=guardrail_id,
             guardrail_version=guardrail_version,
             guardrail_enabled=guardrail_enabled,

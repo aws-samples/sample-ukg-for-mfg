@@ -354,7 +354,7 @@ export class FoundationStack extends cdk.Stack {
                 PutRequest: {
                   Item: {
                     setting_key: { S: 'app_subtitle' },
-                    setting_value: { S: 'AI-Powered Virtual Knowledge Graph on AWS' },
+                    setting_value: { S: 'Agentic Virtual Knowledge Graph on AWS' },
                     setting_type: { S: 'text' },
                     description: { S: 'Application subtitle displayed in header' },
                     updated_at: { S: '2025-01-01T00:00:00.000Z' },
@@ -665,6 +665,19 @@ export class FoundationStack extends cdk.Stack {
       })
     );
 
+    // Read-only access to the KB sync-state table (created in Bedrock stack).
+    // Chatapp admin dashboard displays ingestion status; no write needed.
+    this.taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'KbSyncStateRead',
+        effect: iam.Effect.ALLOW,
+        actions: ['dynamodb:GetItem'],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${config.kbSyncStateTableName}`,
+        ],
+      })
+    );
+
     // Bedrock model invocation
     this.taskRole.addToPolicy(
       new iam.PolicyStatement({
@@ -835,12 +848,13 @@ export class FoundationStack extends cdk.Stack {
         // resources that run AFTER this stack in the deploy order.
         // NOTE: secretObjectValue replaces the ENTIRE secret on every deploy,
         // so these MUST be listed here even though downstream stacks own them.
-        agentcore_runtime_arn: cdk.SecretValue.unsafePlainText(''),  // Legacy — needed for rollback compat
         explorer_runtime_arn: cdk.SecretValue.unsafePlainText(''),
-        discovery_runtime_arn: cdk.SecretValue.unsafePlainText(''),        memory_id: cdk.SecretValue.unsafePlainText(''),
+        discovery_runtime_arn: cdk.SecretValue.unsafePlainText(''),
+        memory_id: cdk.SecretValue.unsafePlainText(''),
         guardrail_id: cdk.SecretValue.unsafePlainText(''),
         guardrail_version: cdk.SecretValue.unsafePlainText(''),
         kb_id: cdk.SecretValue.unsafePlainText(''),
+        kb_sync_state_table_name: cdk.SecretValue.unsafePlainText(''),
         registry_gateway_id: cdk.SecretValue.unsafePlainText(''),
         workflow_executor_arn: cdk.SecretValue.unsafePlainText(''),
         workflow_scheduler_group: cdk.SecretValue.unsafePlainText(''),
@@ -1142,6 +1156,8 @@ export class FoundationStack extends cdk.Stack {
         actions: [
           'bedrock:Retrieve',
           'bedrock:RetrieveAndGenerate',
+          // Admin dashboard reads the last ingestion job status for the KB sync tile.
+          'bedrock:GetIngestionJob',
         ],
         resources: [knowledgeBaseArn],
       })

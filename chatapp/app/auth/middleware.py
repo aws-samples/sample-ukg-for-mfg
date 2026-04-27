@@ -36,6 +36,10 @@ PUBLIC_ROUTES = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    # Streaming diagnostic endpoint — emits 10 SSE chunks over 10s with no
+    # auth required. Used to isolate where stream buffering happens between
+    # origin → Lambda Web Adapter → CloudFront → browser.
+    "/api/test-stream",
 }
 
 # Route prefixes that don't require authentication

@@ -599,6 +599,10 @@ def handler(event, context):
             valueFrom: `${secretArn}:kb_id::`,
           },
           {
+            name: 'KB_SYNC_STATE_TABLE_NAME',
+            valueFrom: `${secretArn}:kb_sync_state_table_name::`,
+          },
+          {
             name: 'APP_SETTINGS_TABLE_NAME',
             valueFrom: `${secretArn}:app_settings_table_name::`,
           },
@@ -975,7 +979,7 @@ def handler(event, context):
     
     // Add environment variables from Secrets Manager using dynamic references
     // These resolve at deploy time, not synthesis time, so they pick up values
-    // written by other stacks (e.g. agentcore_runtime_arn from Agent stack)
+    // written by other stacks (e.g. explorer_runtime_arn from Agent stack)
     const secretFields: { [key: string]: string } = {
       'COGNITO_USER_POOL_ID': 'cognito_user_pool_id',
       'COGNITO_CLIENT_ID': 'cognito_client_id',
@@ -990,6 +994,7 @@ def handler(event, context):
       'GUARDRAIL_ID': 'guardrail_id',
       'GUARDRAIL_VERSION': 'guardrail_version',
       'KB_ID': 'kb_id',
+      'KB_SYNC_STATE_TABLE_NAME': 'kb_sync_state_table_name',
       'REGISTRY_TABLE_NAME': 'registry_table_name',
       'EXPLORER_RUNTIME_ARN': 'explorer_runtime_arn',
       'DISCOVERY_RUNTIME_ARN': 'discovery_runtime_arn',

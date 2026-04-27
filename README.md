@@ -527,7 +527,7 @@ aws bedrock-agentcore invoke-agent-runtime \
 | `COGNITO_USER_POOL_ID` | Yes | Cognito User Pool ID |
 | `COGNITO_CLIENT_ID` | Yes | Cognito App Client ID |
 | `COGNITO_CLIENT_SECRET` | Yes | Cognito App Client Secret |
-| `AGENTCORE_RUNTIME_ARN` | Yes | Explorer AgentCore Runtime ARN |
+| `EXPLORER_RUNTIME_ARN` | Yes | Explorer AgentCore Runtime ARN |
 | `DISCOVERY_RUNTIME_ARN` | Yes | Discovery AgentCore Runtime ARN |
 | `MEMORY_ID` | Yes | Explorer AgentCore Memory ID |
 | `DISCOVERY_MEMORY_ID` | Yes | Discovery AgentCore Memory ID |
@@ -618,12 +618,11 @@ mfg-ukg/
 │   │   ├── workflow-scheduler-stack.ts # EventBridge + Lambda
 │   │   ├── chatapp-stack.ts      # ECS Express / Lambda Web Adapter
 │   │   └── config.ts             # Centralized naming and configuration
+│   ├── lambda/
+│   │   └── kb-ingestion-tick/    # Debounced Bedrock KB ingestion trigger
 │   ├── deploy-all.sh             # Full deployment script
 │   ├── destroy-all.sh            # Full cleanup script
 │   └── create-user.sh            # Cognito user creation script
-│
-├── data/
-│   └── kb-docs/                  # Knowledge Base source documents
 │
 ├── lambda/
 │   ├── registry-gateway/         # System Registry API (API Gateway handler)

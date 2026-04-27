@@ -284,8 +284,9 @@ async def _stream_chat_response(
         except (asyncio.CancelledError, Exception):
             pass
 
-    print(f"[DEBUG chat.py] stream_done: {msg_event_count} message events, {msg_total_chars} total chars sent to client", flush=True)
-    
+    logger.debug("stream_done: %d message events, %d total chars sent to client",
+                 msg_event_count, msg_total_chars)
+
     # Handle any remaining pending tool uses (tools that started but never completed)
     # Mark them as errors since they didn't produce a result
     for tool_use_id, tool_info in pending_tool_uses.items():

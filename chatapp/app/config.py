@@ -29,7 +29,6 @@ class AppConfig:
         cognito_user_pool_id: The Cognito User Pool ID
         cognito_client_id: The Cognito app client ID
         cognito_client_secret: The Cognito app client secret
-        agentcore_runtime_arn: (DEPRECATED) Use explorer_runtime_arn instead
         aws_region: The AWS region for services
         memory_id: The AgentCore Memory ID
         app_url: The application URL (optional)

@@ -5,7 +5,7 @@
 **Framework**: Strands Agents with Bedrock AgentCore SDK
 **Runtime**: Python 3.11+
 **Dependencies**: `bedrock-agentcore`, `strands-agents`
-**Model**: `us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+**Model**: `global.anthropic.claude-4-6-sonnet`
 
 ### Configuration
 - Environment variables via `.env` file (gitignored)

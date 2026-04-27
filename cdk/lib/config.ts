@@ -46,6 +46,8 @@ export interface AppConfig {
   workflowsTableName: string;
   /** Workflow results table name */
   workflowResultsTableName: string;
+  /** KB ingestion sync-state table name (dirty flag) */
+  kbSyncStateTableName: string;
 
   // Bedrock configuration
   /** Bedrock Guardrail name */
@@ -165,6 +167,7 @@ export const config: AppConfig = {
   discoveryHistoryTableName: getEnvOrDefault('DISCOVERY_HISTORY_TABLE_NAME', `${appName}-discovery-history`),
   workflowsTableName: getEnvOrDefault('WORKFLOWS_TABLE_NAME', `${appName}-saved-workflows`),
   workflowResultsTableName: getEnvOrDefault('WORKFLOW_RESULTS_TABLE_NAME', `${appName}-workflow-results`),
+  kbSyncStateTableName: getEnvOrDefault('KB_SYNC_STATE_TABLE_NAME', `${appName}-kb-sync-state`),
 
   // Bedrock configuration
   guardrailName: getEnvOrDefault('GUARDRAIL_NAME', `${appName}-guardrail`),
@@ -241,6 +244,8 @@ export const exportNames = {
   guardrailVersion: `${config.appName}-GuardrailVersion`,
   /** Bedrock Knowledge Base ID - used by Agent Runtime for semantic search */
   knowledgeBaseId: `${config.appName}-KnowledgeBaseId`,
+  /** KB ingestion sync-state table name - exported for Agent Stack to inject into discovery runtime env */
+  kbSyncStateTableName: `${config.appName}-KbSyncStateTableName`,
   /** AgentCore Memory ID - used by Agent Runtime for conversation persistence */
   memoryId: `${config.appName}-MemoryId`,
   /** AgentCore Memory ARN - used by Agent Stack for observability setup */

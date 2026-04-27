@@ -111,6 +111,7 @@ RUNTIME_USAGE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.runtime_usage_table_na
 GUARDRAIL_ID=$(echo "$SECRET_VALUE" | jq -r '.guardrail_id // empty')
 GUARDRAIL_VERSION=$(echo "$SECRET_VALUE" | jq -r '.guardrail_version // empty')
 KB_ID=$(echo "$SECRET_VALUE" | jq -r '.kb_id // empty')
+KB_SYNC_STATE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.kb_sync_state_table_name // empty')
 EXPLORER_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.explorer_runtime_arn // empty')
 DISCOVERY_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.discovery_runtime_arn // empty')
 REGISTRY_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.registry_table_name // empty')
@@ -177,6 +178,7 @@ GUARDRAIL_ENABLED=true
 
 # Knowledge Base Configuration
 KB_ID=$KB_ID
+KB_SYNC_STATE_TABLE_NAME=$KB_SYNC_STATE_TABLE_NAME
 
 # DynamoDB Configuration
 USAGE_TABLE_NAME=$USAGE_TABLE_NAME

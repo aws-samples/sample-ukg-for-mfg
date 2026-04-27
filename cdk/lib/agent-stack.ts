@@ -52,6 +52,7 @@ export class AgentStack extends cdk.Stack {
     const guardrailId = cdk.Fn.importValue(exportNames.guardrailId);
     const guardrailVersion = cdk.Fn.importValue(exportNames.guardrailVersion);
     const knowledgeBaseId = cdk.Fn.importValue(exportNames.knowledgeBaseId);
+    const kbSyncStateTableName = cdk.Fn.importValue(exportNames.kbSyncStateTableName);
     const memoryId = cdk.Fn.importValue(exportNames.memoryId);
     const memoryArn = cdk.Fn.importValue(exportNames.memoryArn);
     const discoveryMemoryId = cdk.Fn.importValue(exportNames.discoveryMemoryId);
@@ -1052,20 +1053,31 @@ def handler(event, context):
       })
     );
 
-    // Bedrock KB ingestion (Req 10.9)
+    // Bedrock KB retrieval access (agent never starts ingestion jobs directly;
+    // the scheduled tick Lambda in the Bedrock stack debounces that).
     discoveryRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
-        sid: 'BedrockKBIngestion',
+        sid: 'BedrockKBRetrieve',
         effect: iam.Effect.ALLOW,
         actions: [
-          'bedrock:StartIngestionJob',
-          'bedrock:GetIngestionJob',
-          'bedrock:ListIngestionJobs',
           'bedrock:Retrieve',
           'bedrock:RetrieveAndGenerate',
         ],
         resources: [
           `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
+        ],
+      })
+    );
+
+    // Flip the dirty flag after writing learned memories to the KB source bucket.
+    // The table is created in the Bedrock stack; we import its name above.
+    discoveryRuntimeRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'KbSyncStateWrite',
+        effect: iam.Effect.ALLOW,
+        actions: ['dynamodb:UpdateItem', 'dynamodb:PutItem', 'dynamodb:GetItem'],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${config.kbSyncStateTableName}`,
         ],
       })
     );
@@ -1352,6 +1364,7 @@ def handler(event, context):
         MEMORY_ID: discoveryMemoryId,
         KB_ID: knowledgeBaseId,
         KB_SOURCE_BUCKET: `${config.appName}-kb-${this.account}-${this.region}`,
+        KB_SYNC_STATE_TABLE: kbSyncStateTableName,
         LOG_LEVEL: 'INFO',
       },
       tags: {

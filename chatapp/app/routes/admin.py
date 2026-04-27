@@ -20,6 +20,7 @@ from app.admin.feedback_repository import FeedbackRepository
 from app.admin.runtime_usage_repository import RuntimeUsageRepository
 from app.admin.discovery_history_repository import DiscoveryHistoryRepository
 from app.admin.evaluation_repository import EvaluationRepository
+from app.admin.kb_sync_repository import KbSyncRepository, format_timestamp
 from app.auth.cognito import get_user_emails_by_ids
 from app.templates_config import templates
 
@@ -135,6 +136,9 @@ async def dashboard(
     # Fetch guardrails and feedback stats (separate tables)
     guardrail_stats = await guardrail_repo.get_aggregate_stats(start_dt, end_dt)
     feedback_stats = await feedback_repo.get_feedback_stats(start_dt, end_dt)
+
+    # Fetch KB ingestion sync status (never blocks the dashboard on failure)
+    kb_sync_status = await KbSyncRepository().get_status()
     
     # Calculate tool totals for summary card
     total_tool_calls = sum(t.call_count for t in tool_stats)
@@ -166,6 +170,9 @@ async def dashboard(
             "top_models": sorted_models,
             "guardrail_stats": guardrail_stats,
             "feedback_stats": feedback_stats,
+            "kb_sync": kb_sync_status,
+            "kb_sync_marked_at_display": format_timestamp(kb_sync_status.marked_at),
+            "kb_sync_job_started_display": format_timestamp(kb_sync_status.last_ingestion_started_at),
             "total_tool_calls": total_tool_calls,
             "total_tool_success": total_tool_success,
             "total_tool_errors": total_tool_errors,

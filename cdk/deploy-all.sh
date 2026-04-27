@@ -384,6 +384,97 @@ else:
 fi
 
 # ============================================================================
+# STEP 4.5: Force AgentCore Runtimes to re-pull their :latest images
+# ----------------------------------------------------------------------------
+# CDK pins both Explorer and Discovery runtimes to ECR's `:latest` tag. Pushing
+# a new image to `:latest` does NOT trigger AgentCore to re-pull — the runtime
+# keeps serving whatever digest it cached on first load. Because the
+# `containerUri` string inside the CloudFormation template is literally
+# "...:latest" and never changes, `cdk deploy` also sees no drift and skips
+# the UpdateAgentRuntime call. Net effect: code changes silently don't land.
+#
+# This step forces an explicit UpdateAgentRuntime with the same URI, which
+# makes AgentCore re-resolve the tag and pull the current image digest.
+# ============================================================================
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}Step 4.5: Refresh AgentCore Runtimes (force re-pull of :latest)${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${CYAN}[DRY RUN] Would call UpdateAgentRuntime for Explorer and Discovery${NC}"
+else
+    AGENT_STACK_KEY="${APP_NAME}-agent"
+
+    for RUNTIME_LABEL in Explorer Discovery; do
+        ARN_KEY="${RUNTIME_LABEL}RuntimeArn"
+        REPO_KEY="${RUNTIME_LABEL}RepositoryUri"
+
+        RUNTIME_ARN=$(jq -r --arg key "$AGENT_STACK_KEY" --arg k "$ARN_KEY" '.[$key][$k] // ""' cdk-outputs.json 2>/dev/null)
+        REPO_URI=$(jq -r --arg key "$AGENT_STACK_KEY" --arg k "$REPO_KEY" '.[$key][$k] // ""' cdk-outputs.json 2>/dev/null)
+
+        if [ -z "$RUNTIME_ARN" ] || [ "$RUNTIME_ARN" = "null" ]; then
+            echo -e "${YELLOW}  ${RUNTIME_LABEL}: runtime ARN not found in cdk-outputs, skipping${NC}"
+            continue
+        fi
+        if [ -z "$REPO_URI" ] || [ "$REPO_URI" = "null" ]; then
+            echo -e "${YELLOW}  ${RUNTIME_LABEL}: repository URI not found in cdk-outputs, skipping${NC}"
+            continue
+        fi
+
+        # Runtime ID is the last segment of the ARN
+        RUNTIME_ID="${RUNTIME_ARN##*/}"
+        CONTAINER_URI="${REPO_URI}:latest"
+
+        echo -e "${YELLOW}  ${RUNTIME_LABEL} (${RUNTIME_ID}): refreshing → ${CONTAINER_URI}${NC}"
+
+        # Fetch the existing runtime config so we can re-supply the required
+        # fields (role ARN, network config, protocol, env vars) that
+        # update-agent-runtime demands. We only change the container URI
+        # here — same value, but the update itself forces a re-pull.
+        EXISTING=$(aws bedrock-agentcore-control get-agent-runtime \
+            --agent-runtime-id "$RUNTIME_ID" \
+            --region "$AWS_REGION" \
+            --output json 2>/dev/null)
+
+        if [ -z "$EXISTING" ]; then
+            echo -e "${RED}    Failed to fetch existing runtime config — skipping${NC}"
+            continue
+        fi
+
+        ROLE_ARN=$(echo "$EXISTING" | jq -r '.roleArn // ""')
+        NETWORK_CFG=$(echo "$EXISTING" | jq -c '.networkConfiguration // {"networkMode":"PUBLIC"}')
+        PROTOCOL_CFG=$(echo "$EXISTING" | jq -c '.protocolConfiguration // {"serverProtocol":"HTTP"}')
+        ENV_VARS=$(echo "$EXISTING" | jq -c '.environmentVariables // {}')
+        ARTIFACT=$(jq -n --arg uri "$CONTAINER_URI" '{containerConfiguration:{containerUri:$uri}}')
+
+        # UpdateAgentRuntime is a full replacement — we must re-supply every
+        # field we want to preserve (env vars, protocol, etc.), using the
+        # values already on the runtime (fetched above). Only the artifact
+        # URI change matters for forcing the image re-pull.
+        UPDATE_OUTPUT=$(aws bedrock-agentcore-control update-agent-runtime \
+            --agent-runtime-id "$RUNTIME_ID" \
+            --agent-runtime-artifact "$ARTIFACT" \
+            --role-arn "$ROLE_ARN" \
+            --network-configuration "$NETWORK_CFG" \
+            --protocol-configuration "$PROTOCOL_CFG" \
+            --environment-variables "$ENV_VARS" \
+            --region "$AWS_REGION" \
+            --query 'agentRuntimeVersion' \
+            --output text 2>&1)
+
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}    Updated to runtime version ${UPDATE_OUTPUT}${NC}"
+        else
+            echo -e "${RED}    UpdateAgentRuntime failed:${NC}"
+            echo "$UPDATE_OUTPUT" | sed 's/^/      /'
+        fi
+    done
+
+    echo -e "${GREEN}AgentCore Runtimes refreshed${NC}"
+fi
+
+# ============================================================================
 # STEP 5: Force ECS deployment (if needed)
 # ============================================================================
 echo ""

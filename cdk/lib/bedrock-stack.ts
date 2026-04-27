@@ -15,16 +15,18 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as bedrockagentcore from 'aws-cdk-lib/aws-bedrockagentcore';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { config, exportNames } from './config';
-import { applyCommonSuppressions, applyBucketDeploymentSuppressions } from './nag-suppressions';
+import { applyCommonSuppressions } from './nag-suppressions';
 
 export class BedrockStack extends cdk.Stack {
   // Guardrail resources
@@ -322,12 +324,61 @@ export class BedrockStack extends cdk.Stack {
     // Ensure data source is created after KB
     this.dataSource.addDependency(this.knowledgeBase);
 
-    // Deploy KB source documents to S3 (under documents/ prefix to match data source inclusion)
-    new s3deploy.BucketDeployment(this, 'KBDocsDeployment', {
-      sources: [s3deploy.Source.asset('../data/kb-docs')],
-      destinationBucket: this.sourceBucket,
-      destinationKeyPrefix: 'documents/',
+    // ========================================================================
+    // KB INGESTION SYNC STATE + DEBOUNCED TICK LAMBDA
+    // ========================================================================
+    // The KB source bucket is agent-authored: the Discovery agent writes
+    // learned summaries into documents/learned/*. Rather than calling
+    // StartIngestionJob on every write (rate-limited, slow, costly), writers
+    // flip a single "dirty" flag in DynamoDB. A 5-minute EventBridge tick
+    // invokes a tiny Lambda that, if dirty and no job is in flight, starts
+    // one ingestion job and clears the flag. New memories become retrievable
+    // within ~5 minutes of being written, which is fine because retrieval
+    // happens in the next conversation, not the current one.
+
+    const kbSyncStateTable = new dynamodb.Table(this, 'KbSyncStateTable', {
+      tableName: config.kbSyncStateTableName,
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+
+    const kbTickLambda = new lambda.Function(this, 'KbIngestionTickFunction', {
+      functionName: `${config.appName}-kb-ingestion-tick`,
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'index.handler',
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 128,
+      code: lambda.Code.fromAsset('lambda/kb-ingestion-tick'),
+      environment: {
+        KB_ID: this.knowledgeBase.attrKnowledgeBaseId,
+        KB_DATA_SOURCE_ID: this.dataSource.attrDataSourceId,
+        KB_SYNC_STATE_TABLE: kbSyncStateTable.tableName,
+      },
+      description: 'Debounced Bedrock KB ingestion trigger; invoked every 5 min via EventBridge.',
+    });
+
+    kbSyncStateTable.grantReadWriteData(kbTickLambda);
+
+    kbTickLambda.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'BedrockKBIngestion',
+      effect: iam.Effect.ALLOW,
+      actions: ['bedrock:StartIngestionJob', 'bedrock:GetIngestionJob'],
+      resources: [
+        `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/${this.knowledgeBase.attrKnowledgeBaseId}`,
+      ],
+    }));
+
+    new events.Rule(this, 'KbIngestionTickRule', {
+      description: 'Fires every 5 minutes to debounce Bedrock KB ingestion jobs.',
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      targets: [new eventsTargets.LambdaFunction(kbTickLambda)],
+    });
+
+    // Note: the KB source bucket starts empty. It gets populated by the
+    // Discovery agent's `remember_discovery` tool once systems are registered.
 
     // ========================================================================
     // MEMORY SECTION
@@ -505,6 +556,7 @@ def handler(event, context):
           guardrail_id: this.guardrail.attrGuardrailId,
           guardrail_version: this.guardrailVersion.attrVersion,
           kb_id: this.knowledgeBase.attrKnowledgeBaseId,
+          kb_sync_state_table_name: kbSyncStateTable.tableName,
           memory_id: this.memory.attrMemoryId,
         }),
         // Force re-execution every deploy so values are restored after
@@ -543,6 +595,12 @@ def handler(event, context):
       value: this.knowledgeBase.attrKnowledgeBaseId,
       description: 'Bedrock Knowledge Base ID',
       exportName: exportNames.knowledgeBaseId,
+    });
+
+    new cdk.CfnOutput(this, 'KbSyncStateTableName', {
+      value: kbSyncStateTable.tableName,
+      description: 'KB ingestion sync-state DynamoDB table (holds the dirty flag and last job id)',
+      exportName: exportNames.kbSyncStateTableName,
     });
 
     new cdk.CfnOutput(this, 'MemoryId', {
@@ -606,7 +664,6 @@ def handler(event, context):
     // ========================================================================
     
     applyCommonSuppressions(this);
-    applyBucketDeploymentSuppressions(this);
 
     // Suppress S3 vectors custom resource wildcards
     NagSuppressions.addResourceSuppressionsByPath(

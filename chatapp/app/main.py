@@ -1,5 +1,6 @@
 """Main FastAPI application entry point for HTMX ChatApp."""
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -12,6 +13,12 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Load environment variables from .env file (override shell env vars)
 load_dotenv(override=True)
+
+# Ensure our own loggers emit at INFO by default. Uvicorn's logger config
+# only configures the `uvicorn.*` loggers; ours would inherit WARNING from
+# the root logger and drop informational messages. Force INFO on app.*.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+logging.getLogger("app").setLevel(logging.INFO)
 
 from app.config import get_config, ConfigurationError
 from app.auth.middleware import AuthMiddleware
@@ -102,6 +109,43 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Streaming diagnostic endpoint
+# ────────────────────────────────────────────────────────────────────────────
+# Emits a timestamped SSE event every second for 10 seconds. Use this to
+# isolate whether the chatapp's streaming plumbing (FastAPI → Lambda Web
+# Adapter → CloudFront → browser) actually delivers chunks as they're
+# written, or buffers the whole response to end-of-stream.
+#
+# Expected behavior: curl -N {url}/api/test-stream should print a new line
+# roughly every second. If all 10 lines appear at once after 10s, the
+# streaming path is buffered somewhere downstream of FastAPI.
+@app.get("/api/test-stream")
+async def test_stream():
+    import asyncio as _asyncio
+    import time as _time
+    from fastapi.responses import StreamingResponse
+
+    async def _generate():
+        start = _time.time()
+        for i in range(10):
+            elapsed = _time.time() - start
+            yield f"data: {{\"chunk\": {i}, \"elapsed_sec\": {elapsed:.2f}}}\n\n"
+            await _asyncio.sleep(1)
+        yield "data: {\"done\": true}\n\n"
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 # Include routers
 app.include_router(auth_router)

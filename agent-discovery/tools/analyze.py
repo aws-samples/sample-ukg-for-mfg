@@ -22,6 +22,7 @@ from concepts import CANONICAL_CONCEPTS, get_all_concepts_serializable
 from tools.inspect import inspect_athena_source, list_s3tables_namespaces
 from tools.register import log_discovery_session
 from tools.state import save_state, _get_client, _get_table_name
+from progress import emit_progress
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ async def analyze_schema(namespace: str = None) -> AsyncIterator:
 
     # Create a sub-agent with its own clean context
     sub_model = BedrockModel(
-        model_id=os.getenv("ANALYSIS_MODEL_ID", "us.anthropic.claude-sonnet-4-6"),
+        model_id=os.getenv("ANALYSIS_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
         max_tokens=32000,
     )
 
@@ -363,7 +364,7 @@ async def correlate_fields(namespace: str = None) -> AsyncIterator:
 
         # Invoke sub-agent
         sub_model = BedrockModel(
-            model_id=os.getenv("ANALYSIS_MODEL_ID", "us.anthropic.claude-sonnet-4-6"),
+            model_id=os.getenv("ANALYSIS_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
             max_tokens=16000,
         )
         sub_agent = Agent(model=sub_model, system_prompt=_CORRELATE_PROMPT, callback_handler=None)
@@ -607,6 +608,13 @@ async def discover_s3tables_bucket(
     """
     import time as _time
 
+    def _emit(payload: dict) -> str:
+        """Push ``payload`` to the sideband progress channel AND return it as
+        JSON for Strands to stream. Using both channels guarantees the UI gets
+        updates regardless of how Strands wraps generator yields."""
+        emit_progress(payload)
+        return json.dumps(payload)
+
     overall_start = _time.time()
     catalog = f"s3tablescatalog/{bucket_name}"
 
@@ -640,7 +648,8 @@ async def discover_s3tables_bucket(
     logger.info("discover_s3tables_bucket: found %d namespaces: %s", len(namespaces), namespaces)
 
     # Yield initial progress message so the agent can relay namespace list to the user
-    yield json.dumps({
+    logger.info("discover_s3tables_bucket: yielding 'progress' event (namespace_count=%d)", len(namespaces))
+    yield _emit({
         "type": "progress",
         "message": f"Found {len(namespaces)} namespaces: {', '.join(namespaces)}. Starting discovery...",
         "namespace_count": len(namespaces),
@@ -666,7 +675,7 @@ async def discover_s3tables_bucket(
             try:
                 # Phase 1: INSPECT — sync @tool function, call directly
                 logger.info("discover_s3tables_bucket: [%s] Phase 1 — INSPECT", ns)
-                yield json.dumps({
+                yield _emit({
                     "type": "phase_update",
                     "namespace": ns,
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
@@ -684,7 +693,7 @@ async def discover_s3tables_bucket(
                 if not inspect_result.get("success"):
                     ns_result_entry["error"] = f"Inspect failed: {inspect_result.get('error', 'unknown')}"
                     results.append(ns_result_entry)
-                    yield json.dumps({
+                    yield _emit({
                         "type": "namespace_result",
                         "progress": f"{len(results)}/{len(namespaces)}",
                         "namespace": ns,
@@ -703,7 +712,7 @@ async def discover_s3tables_bucket(
 
                 # Phase 2: UNDERSTAND — async generator, consume to get result
                 logger.info("discover_s3tables_bucket: [%s] Phase 2 — UNDERSTAND", ns)
-                yield json.dumps({
+                yield _emit({
                     "type": "phase_update",
                     "namespace": ns,
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
@@ -718,7 +727,7 @@ async def discover_s3tables_bucket(
                 if not analyze_result.get("success"):
                     ns_result_entry["error"] = f"Analyze failed: {analyze_result.get('error', 'unknown')}"
                     results.append(ns_result_entry)
-                    yield json.dumps({
+                    yield _emit({
                         "type": "namespace_result",
                         "progress": f"{len(results)}/{len(namespaces)}",
                         "namespace": ns,
@@ -739,7 +748,7 @@ async def discover_s3tables_bucket(
 
                 # Phase 3: CORRELATE — async generator, consume to get result
                 logger.info("discover_s3tables_bucket: [%s] Phase 3 — CORRELATE", ns)
-                yield json.dumps({
+                yield _emit({
                     "type": "phase_update",
                     "namespace": ns,
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
@@ -755,7 +764,7 @@ async def discover_s3tables_bucket(
 
                 # Phase 4: REGISTER — async generator, consume to get result
                 logger.info("discover_s3tables_bucket: [%s] Phase 4 — REGISTER", ns)
-                yield json.dumps({
+                yield _emit({
                     "type": "phase_update",
                     "namespace": ns,
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
@@ -770,7 +779,7 @@ async def discover_s3tables_bucket(
                 if not register_result.get("success"):
                     ns_result_entry["error"] = f"Register failed: {register_result.get('error', 'unknown')}"
                     results.append(ns_result_entry)
-                    yield json.dumps({
+                    yield _emit({
                         "type": "namespace_result",
                         "progress": f"{len(results)}/{len(namespaces)}",
                         "namespace": ns,
@@ -789,7 +798,7 @@ async def discover_s3tables_bucket(
 
                 # Phase 5: LOG — sync @tool function, call directly
                 logger.info("discover_s3tables_bucket: [%s] Phase 5 — LOG", ns)
-                yield json.dumps({
+                yield _emit({
                     "type": "phase_update",
                     "namespace": ns,
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
@@ -825,7 +834,14 @@ async def discover_s3tables_bucket(
                 ns_result_entry["error"] = f"{type(e).__name__}: {e}"
 
             results.append(ns_result_entry)
-            yield json.dumps({
+            logger.info(
+                "discover_s3tables_bucket: yielding 'namespace_result' ns=%s status=%s (%d/%d)",
+                ns,
+                ns_result_entry["status"],
+                len(results),
+                len(namespaces),
+            )
+            yield _emit({
                 "type": "namespace_result",
                 "progress": f"{len(results)}/{len(namespaces)}",
                 "namespace": ns,
