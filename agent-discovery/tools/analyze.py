@@ -22,7 +22,6 @@ from concepts import CANONICAL_CONCEPTS, get_all_concepts_serializable
 from tools.inspect import inspect_athena_source, list_s3tables_namespaces
 from tools.register import log_discovery_session
 from tools.state import save_state, _get_client, _get_table_name
-from progress import emit_progress
 
 logger = logging.getLogger(__name__)
 
@@ -609,10 +608,10 @@ async def discover_s3tables_bucket(
     import time as _time
 
     def _emit(payload: dict) -> str:
-        """Push ``payload`` to the sideband progress channel AND return it as
-        JSON for Strands to stream. Using both channels guarantees the UI gets
-        updates regardless of how Strands wraps generator yields."""
-        emit_progress(payload)
+        """Serialize a progress payload for Strands to stream back to the
+        orchestrator as a ``tool_stream_event``. The orchestrator's invoke
+        loop parses each of these and re-emits them as ``TextStreamEvent``
+        markdown for the chat UI."""
         return json.dumps(payload)
 
     overall_start = _time.time()

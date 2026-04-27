@@ -9,7 +9,6 @@ Architecture:
 - Memory — conversation persistence via AgentCore Memory
 """
 
-import asyncio
 import json
 import os
 import re
@@ -26,7 +25,6 @@ from config import DiscoveryConfig
 from guardrails import NotifyOnlyGuardrailsHook
 from logger import setup_logger
 from telemetry import is_telemetry_initialized, setup_telemetry
-import progress as progress_channel
 from tools.discovery_helpers import get_canonical_concepts
 from tools.inspect import inspect_api_spec, inspect_mcp_server, inspect_rds_schema, inspect_athena_source, list_s3tables_namespaces
 from tools.register import register_system_metadata, register_fields, register_equivalences, log_discovery_session
@@ -404,137 +402,64 @@ async def invoke(payload, context):
     user_message = payload.get("prompt", "Hello! How can I help you today?")
     log.info(f"Processing (session={session_id}, user={user_id}): {user_message[:80]}...")
 
-    # Sideband progress channel: tools call emit_progress(payload), we drain
-    # here and forward each payload to the UI as a TextStreamEvent. This
-    # bypasses Strands' tool-stream-event wrapping, which has proven
-    # unreliable across versions for async-generator tools.
-    progress_queue: asyncio.Queue = asyncio.Queue()
-    progress_token = progress_channel.set_queue(progress_queue)
-
     try:
         agent_stream = agent.stream_async(user_message)
         seen_tool_uses: set[str] = set()
 
-        # Run the agent loop as a task so we can race it against queue.get().
-        # When the agent finishes, we flip a flag and drain any residual
-        # progress payloads before returning.
-        async def _next_event():
-            try:
-                return await agent_stream.__anext__()
-            except StopAsyncIteration:
-                return progress_channel.DONE
+        async for event in agent_stream:
+            # ── Assistant tool_use / tool_result markers ──────────────────
+            if isinstance(event, dict) and "messages" in event:
+                for message in event.get("messages", []):
+                    if message.get("role") == "assistant":
+                        for block in message.get("content", []):
+                            if "toolUse" in block:
+                                tool_use = block["toolUse"]
+                                tool_id = tool_use.get("toolUseId")
+                                tool_name = tool_use.get("name", "unknown")
+                                if tool_id and tool_id not in seen_tool_uses:
+                                    seen_tool_uses.add(tool_id)
+                                    yield {
+                                        "type": "tool_use",
+                                        "tool_name": tool_name,
+                                        "tool_input": tool_use.get("input", {}),
+                                        "tool_use_id": tool_id,
+                                    }
+                    elif message.get("role") == "user":
+                        for block in message.get("content", []):
+                            if "toolResult" in block:
+                                tool_result = block["toolResult"]
+                                tool_id = tool_result.get("toolUseId")
+                                if tool_id:
+                                    result_text = ""
+                                    for rc in tool_result.get("content", []):
+                                        if "text" in rc:
+                                            result_text = rc["text"]
+                                            break
+                                    yield {
+                                        "type": "tool_result",
+                                        "tool_name": tool_id,
+                                        "tool_result": result_text,
+                                        "tool_use_id": tool_id,
+                                    }
 
-        agent_task = asyncio.create_task(_next_event())
-        progress_task = asyncio.create_task(progress_queue.get())
-        agent_done = False
+            # ── Real-time progress from `discover_s3tables_bucket` ────────
+            # Strands wraps each intermediate `yield` from an async-generator
+            # tool as a `tool_stream_event`. We parse those payloads and
+            # re-emit them as `TextStreamEvent` markdown so the user sees
+            # per-namespace progress during the multi-minute S3 Tables run.
+            if isinstance(event, dict):
+                tse = event.get("tool_stream_event", {})
+                tse_data = tse.get("data")
+                if isinstance(tse_data, str):
+                    try:
+                        streamed = json.loads(tse_data)
+                        text = _render_progress(streamed)
+                        if text:
+                            yield {"type": "TextStreamEvent", "text": text}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
 
-        while True:
-            pending = {agent_task, progress_task} - {None}
-            if not pending:
-                break
-            done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-
-            if progress_task in done:
-                try:
-                    payload = progress_task.result()
-                except Exception as e:
-                    log.warning("progress queue drain error: %s", e)
-                    payload = None
-                if payload is progress_channel.DONE:
-                    progress_task = None  # stop draining
-                elif isinstance(payload, dict):
-                    text = _render_progress(payload)
-                    if text:
-                        log.info(
-                            "emitting TextStreamEvent from sideband: type=%s ns=%s len=%d",
-                            payload.get("type"),
-                            payload.get("namespace", ""),
-                            len(text),
-                        )
-                        yield {"type": "TextStreamEvent", "text": text}
-                    else:
-                        log.debug("sideband payload with unknown type dropped: %r", payload)
-                    # Re-arm next queue.get()
-                    if not agent_done:
-                        progress_task = asyncio.create_task(progress_queue.get())
-                    else:
-                        # Agent is done; drain anything else that's already
-                        # in the queue without blocking.
-                        if not progress_queue.empty():
-                            progress_task = asyncio.create_task(progress_queue.get())
-                        else:
-                            progress_task = None
-
-            if agent_task in done:
-                try:
-                    event = agent_task.result()
-                except Exception as e:
-                    log.error("agent stream error: %s", e, exc_info=True)
-                    raise
-
-                if event is progress_channel.DONE:
-                    agent_done = True
-                    agent_task = None
-                    # Agent finished. If a progress_task is still blocking on
-                    # an empty queue, cancel it so we don't hang forever.
-                    if progress_task is not None and progress_queue.empty():
-                        progress_task.cancel()
-                        try:
-                            await progress_task
-                        except (asyncio.CancelledError, Exception):
-                            pass
-                        progress_task = None
-                    continue
-
-                # Existing event handling — unchanged logic, just lives inside
-                # the new multiplexed loop.
-                if log.isEnabledFor(10) and isinstance(event, dict):
-                    log.debug("agent stream event keys=%s", list(event.keys()))
-
-                if isinstance(event, dict) and "messages" in event:
-                    for message in event.get("messages", []):
-                        if message.get("role") == "assistant":
-                            for block in message.get("content", []):
-                                if "toolUse" in block:
-                                    tool_use = block["toolUse"]
-                                    tool_id = tool_use.get("toolUseId")
-                                    tool_name = tool_use.get("name", "unknown")
-                                    if tool_name == "discover_s3tables_bucket":
-                                        log.info(
-                                            "discover_s3tables_bucket invoked (tool_use_id=%s). "
-                                            "Progress will arrive via sideband channel.",
-                                            tool_id,
-                                        )
-                                    if tool_id and tool_id not in seen_tool_uses:
-                                        seen_tool_uses.add(tool_id)
-                                        yield {
-                                            "type": "tool_use",
-                                            "tool_name": tool_name,
-                                            "tool_input": tool_use.get("input", {}),
-                                            "tool_use_id": tool_id,
-                                        }
-                        elif message.get("role") == "user":
-                            for block in message.get("content", []):
-                                if "toolResult" in block:
-                                    tool_result = block["toolResult"]
-                                    tool_id = tool_result.get("toolUseId")
-                                    if tool_id:
-                                        result_text = ""
-                                        for rc in tool_result.get("content", []):
-                                            if "text" in rc:
-                                                result_text = rc["text"]
-                                                break
-                                        yield {
-                                            "type": "tool_result",
-                                            "tool_name": tool_id,
-                                            "tool_result": result_text,
-                                            "tool_use_id": tool_id,
-                                        }
-
-                yield event
-
-                # Re-arm next agent stream pull
-                agent_task = asyncio.create_task(_next_event())
+            yield event
 
         for violation in guardrails_hook.get_and_clear_violations():
             yield violation
@@ -545,8 +470,6 @@ async def invoke(payload, context):
         log.error(f"Agent error: {e}", exc_info=True)
         yield {"error": True, "message": str(e)}
         raise
-    finally:
-        progress_channel.reset_queue(progress_token)
 
 
 if __name__ == "__main__":
