@@ -1,0 +1,222 @@
+#!/bin/bash
+# Sync .env file from CDK deployment outputs
+# This script fetches configuration from AWS Secrets Manager and generates a .env file
+# for local development.
+#
+# Usage: ./sync-env.sh [options]
+#   --region <region>    AWS region (default: us-east-1)
+#   --profile <profile>  AWS CLI profile to use
+#   --dev-mode           Enable DEV_MODE (bypasses Cognito auth)
+#   -h, --help           Show this help message
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CDK_DIR="$(dirname "$SCRIPT_DIR")/cdk"
+
+# Default configuration
+AWS_REGION="${AWS_REGION:-us-east-1}"
+DEV_MODE=false
+APP_NAME="${APP_NAME:-mfg-ukg}"
+SECRET_NAME="${SECRET_NAME:-${APP_NAME}/appconfig}"
+PROFILE_OVERRIDE=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --region)
+            AWS_REGION="$2"
+            shift 2
+            ;;
+        --profile)
+            PROFILE_OVERRIDE="$2"
+            shift 2
+            ;;
+        --dev-mode)
+            DEV_MODE=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: ./sync-env.sh [options]"
+            echo ""
+            echo "Syncs .env file from AWS Secrets Manager after CDK deployment."
+            echo ""
+            echo "Options:"
+            echo "  --region <region>    AWS region (default: us-east-1)"
+            echo "  --profile <profile>  AWS CLI profile to use"
+            echo "  --dev-mode           Enable DEV_MODE (bypasses Cognito auth)"
+            echo "  -h, --help           Show this help message"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+echo -e "${CYAN}Syncing .env from AWS Secrets Manager...${NC}"
+echo ""
+
+# Set AWS profile if explicitly provided via --profile flag
+if [ -n "$PROFILE_OVERRIDE" ]; then
+    export AWS_PROFILE="$PROFILE_OVERRIDE"
+    echo -e "${YELLOW}Using AWS Profile: $AWS_PROFILE${NC}"
+elif [ -n "$AWS_PROFILE" ]; then
+    echo -e "${YELLOW}Using AWS Profile from environment: $AWS_PROFILE${NC}"
+fi
+
+# Disable AWS CLI pager
+export AWS_PAGER=""
+
+# Fetch secret from AWS Secrets Manager
+echo -e "${YELLOW}Fetching secret: $SECRET_NAME${NC}"
+SECRET_VALUE=""
+if ! SECRET_VALUE=$(aws secretsmanager get-secret-value \
+    --secret-id "$SECRET_NAME" \
+    --region "$AWS_REGION" \
+    --query 'SecretString' \
+    --output text 2>&1); then
+    echo -e "${RED}Error: Could not fetch secret '$SECRET_NAME' from region '$AWS_REGION'${NC}"
+    echo -e "${RED}AWS Error: $SECRET_VALUE${NC}"
+    echo -e "${YELLOW}Make sure you have deployed the CDK stacks first:${NC}"
+    echo "  cd ../cdk && ./deploy-all.sh --region $AWS_REGION"
+    exit 1
+fi
+
+if [ -z "$SECRET_VALUE" ]; then
+    echo -e "${RED}Error: Secret '$SECRET_NAME' returned empty value${NC}"
+    exit 1
+fi
+
+# Parse secret values using jq
+COGNITO_USER_POOL_ID=$(echo "$SECRET_VALUE" | jq -r '.cognito_user_pool_id // empty')
+COGNITO_CLIENT_ID=$(echo "$SECRET_VALUE" | jq -r '.cognito_client_id // empty')
+COGNITO_CLIENT_SECRET=$(echo "$SECRET_VALUE" | jq -r '.cognito_client_secret // empty')
+MEMORY_ID=$(echo "$SECRET_VALUE" | jq -r '.memory_id // empty')
+USAGE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.usage_table_name // empty')
+FEEDBACK_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.feedback_table_name // empty')
+GUARDRAIL_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.guardrail_table_name // empty')
+PROMPT_TEMPLATES_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.prompt_templates_table_name // empty')
+APP_SETTINGS_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.app_settings_table_name // empty')
+RUNTIME_USAGE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.runtime_usage_table_name // empty')
+GUARDRAIL_ID=$(echo "$SECRET_VALUE" | jq -r '.guardrail_id // empty')
+GUARDRAIL_VERSION=$(echo "$SECRET_VALUE" | jq -r '.guardrail_version // empty')
+KB_ID=$(echo "$SECRET_VALUE" | jq -r '.kb_id // empty')
+KB_SYNC_STATE_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.kb_sync_state_table_name // empty')
+EXPLORER_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.explorer_runtime_arn // empty')
+DISCOVERY_RUNTIME_ARN=$(echo "$SECRET_VALUE" | jq -r '.discovery_runtime_arn // empty')
+REGISTRY_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.registry_table_name // empty')
+DISCOVERY_HISTORY_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.discovery_history_table_name // empty')
+REGISTRY_GATEWAY_ID=$(echo "$SECRET_VALUE" | jq -r '.registry_gateway_id // empty')
+WORKFLOW_EXECUTOR_ARN=$(echo "$SECRET_VALUE" | jq -r '.workflow_executor_arn // empty')
+WORKFLOW_SCHEDULER_GROUP=$(echo "$SECRET_VALUE" | jq -r '.workflow_scheduler_group // empty')
+WORKFLOW_SCHEDULER_ROLE_ARN=$(echo "$SECRET_VALUE" | jq -r '.workflow_scheduler_role_arn // empty')
+WORKFLOW_RESULTS_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.workflow_results_table_name // empty')
+WORKFLOWS_TABLE_NAME=$(echo "$SECRET_VALUE" | jq -r '.workflows_table_name // empty')
+EXPLORER_EVAL_CONFIG_ID=$(echo "$SECRET_VALUE" | jq -r '.explorer_eval_config_id // empty')
+DISCOVERY_EVAL_CONFIG_ID=$(echo "$SECRET_VALUE" | jq -r '.discovery_eval_config_id // empty')
+
+# Validate required values
+if [ -z "$EXPLORER_RUNTIME_ARN" ]; then
+    echo -e "${RED}Error: EXPLORER_RUNTIME_ARN is empty. Agent stack may not be fully deployed.${NC}"
+    exit 1
+fi
+
+if [ -z "$MEMORY_ID" ]; then
+    echo -e "${RED}Error: MEMORY_ID is empty. Bedrock stack may not be fully deployed.${NC}"
+    exit 1
+fi
+
+# Generate .env file
+ENV_FILE="$SCRIPT_DIR/.env"
+
+cat > "$ENV_FILE" << EOF
+# HTMX ChatApp Environment Configuration
+# Generated by sync-env.sh on $(date)
+# Source: AWS Secrets Manager ($SECRET_NAME)
+
+# Development Mode
+DEV_MODE=$DEV_MODE
+DEV_USER_ID=dev-user-001
+
+# AWS Configuration
+AWS_REGION=$AWS_REGION
+
+# Application Configuration
+APP_URL=http://localhost:8080
+
+# AWS Cognito Configuration
+COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID
+COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID
+COGNITO_CLIENT_SECRET=$COGNITO_CLIENT_SECRET
+
+# AgentCore Configuration
+EXPLORER_RUNTIME_ARN=$EXPLORER_RUNTIME_ARN
+DISCOVERY_RUNTIME_ARN=$DISCOVERY_RUNTIME_ARN
+MEMORY_ID=$MEMORY_ID
+
+# AgentCore Evaluation Configuration
+EXPLORER_EVAL_CONFIG_ID=$EXPLORER_EVAL_CONFIG_ID
+DISCOVERY_EVAL_CONFIG_ID=$DISCOVERY_EVAL_CONFIG_ID
+
+# AgentCore Gateway Configuration
+REGISTRY_GATEWAY_ID=$REGISTRY_GATEWAY_ID
+
+# Guardrail Configuration
+GUARDRAIL_ID=$GUARDRAIL_ID
+GUARDRAIL_VERSION=$GUARDRAIL_VERSION
+GUARDRAIL_ENABLED=true
+
+# Knowledge Base Configuration
+KB_ID=$KB_ID
+KB_SYNC_STATE_TABLE_NAME=$KB_SYNC_STATE_TABLE_NAME
+
+# DynamoDB Configuration
+USAGE_TABLE_NAME=$USAGE_TABLE_NAME
+FEEDBACK_TABLE_NAME=$FEEDBACK_TABLE_NAME
+GUARDRAIL_TABLE_NAME=$GUARDRAIL_TABLE_NAME
+PROMPT_TEMPLATES_TABLE_NAME=$PROMPT_TEMPLATES_TABLE_NAME
+APP_SETTINGS_TABLE_NAME=$APP_SETTINGS_TABLE_NAME
+RUNTIME_USAGE_TABLE_NAME=$RUNTIME_USAGE_TABLE_NAME
+REGISTRY_TABLE_NAME=$REGISTRY_TABLE_NAME
+DISCOVERY_HISTORY_TABLE_NAME=$DISCOVERY_HISTORY_TABLE_NAME
+
+# Workflow Scheduler Configuration
+WORKFLOWS_TABLE_NAME=$WORKFLOWS_TABLE_NAME
+WORKFLOW_EXECUTOR_ARN=$WORKFLOW_EXECUTOR_ARN
+WORKFLOW_SCHEDULER_GROUP=$WORKFLOW_SCHEDULER_GROUP
+WORKFLOW_SCHEDULER_ROLE_ARN=$WORKFLOW_SCHEDULER_ROLE_ARN
+WORKFLOW_RESULTS_TABLE_NAME=$WORKFLOW_RESULTS_TABLE_NAME
+EOF
+
+echo -e "${GREEN}✓ Generated .env file${NC}"
+echo ""
+echo -e "${CYAN}Configuration:${NC}"
+echo "  AWS Region: $AWS_REGION"
+echo "  DEV_MODE: $DEV_MODE"
+echo "  Explorer ARN: ${EXPLORER_RUNTIME_ARN:-not configured}"
+echo "  Discovery ARN: ${DISCOVERY_RUNTIME_ARN:-not configured}"
+echo "  Gateway ID: ${REGISTRY_GATEWAY_ID:-not configured}"
+echo "  Memory ID: $MEMORY_ID"
+echo ""
+
+if [ "$DEV_MODE" = true ]; then
+    echo -e "${YELLOW}DEV_MODE is enabled - Cognito authentication will be bypassed${NC}"
+    echo ""
+fi
+
+echo -e "${GREEN}To start local development:${NC}"
+echo "  source .venv/bin/activate  # if not already activated"
+echo "  uvicorn app.main:app --reload --port 8080"
+echo ""
+echo "  Chat: http://localhost:8080"
+echo "  Admin: http://localhost:8080/admin"

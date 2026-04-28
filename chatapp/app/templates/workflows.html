@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}Workflows — {{ app_title if app_title is defined else 'Universal Knowledge Graph' }}{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% include "components/header.html" %}
+
+    <main class="wf-main">
+        <div class="wf-container">
+        <!-- LEFT: Workflow list -->
+        <aside class="wf-sidebar">
+            <div class="wf-sidebar-header">
+                <span class="wf-sidebar-title" onclick="deselectWorkflow()" style="cursor:pointer;" title="Back to dashboard">Workflows</span>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                    <span class="wf-sidebar-count">{{ workflows|length }}</span>
+                    <button onclick="openCreate()" class="wf-act" style="padding:0.25rem 0.45rem;" title="Create workflow">
+                        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="wf-sidebar-list">
+                {% if workflows %}
+                {% for wf in workflows %}
+                <div class="wf-item" data-id="{{ wf.workflow_id }}" onclick="selectWorkflow('{{ wf.workflow_id }}', this)">
+                    <div class="wf-item-top">
+                        <span class="wf-item-title">{{ wf.title }}</span>
+                        {% if wf.enabled %}
+                        <span class="wf-item-badge active">Active</span>
+                        {% else %}
+                        <span class="wf-item-badge">Off</span>
+                        {% endif %}
+                    </div>
+                    <div class="wf-item-prompt">{{ wf.prompt[:80] }}{% if wf.prompt|length > 80 %}…{% endif %}</div>
+                    <div class="wf-item-meta">
+                        <span>{{ wf.schedule_display }}</span>
+                        <span>{{ wf.created_at[:10].split('-')[1] }}/{{ wf.created_at[:10].split('-')[2] }}/{{ wf.created_at[:10].split('-')[0] if wf.created_at else '' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="wf-empty-list">
+                    <p>No workflows yet</p>
+                    <p style="font-size:0.72rem;opacity:0.6;">Create one from the chat</p>
+                </div>
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- RIGHT: Detail + Results -->
+        <section class="wf-detail" id="wf-detail">
+            <div class="wf-detail-empty" id="wf-detail-empty">
+                <!-- Dashboard home view -->
+                <div style="width:100%;max-width:600px;padding:1.5rem;">
+                    <!-- Stats cards -->
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.5rem;">
+                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:var(--text);font-family:'IBM Plex Mono',monospace;">{{ workflows|length }}</div>
+                            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-family:'IBM Plex Mono',monospace;">Workflows</div>
+                        </div>
+                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace;">{{ active_count }}</div>
+                            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-family:'IBM Plex Mono',monospace;">Scheduled</div>
+                        </div>
+                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:var(--accent);font-family:'IBM Plex Mono',monospace;">{{ total_results }}</div>
+                            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-family:'IBM Plex Mono',monospace;">Total Runs</div>
+                        </div>
+                    </div>
+
+                    <!-- How it works -->
+                    <div style="font-size:0.82rem;color:var(--text2);line-height:1.7;">
+                        <h3 style="font-family:'IBM Plex Mono',monospace;font-size:0.85rem;font-weight:600;color:var(--text);margin:0 0 0.5rem;">How Workflows Work</h3>
+                        <p style="margin:0 0 0.6rem;">Workflows let you run agent prompts on a schedule and track results over time. Each run invokes the Data Explorer Agent, which queries your connected manufacturing systems and returns a prioritized report.</p>
+
+                        <h4 style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;font-weight:600;color:var(--accent);margin:0.8rem 0 0.3rem;">Creating a Workflow</h4>
+                        <ul style="margin:0 0 0.6rem;padding-left:1.2rem;list-style-type:disc;">
+                            <li>From the chat, ask a question and click "Save as Workflow" on the response</li>
+                            <li>Or click the <span style="font-family:'IBM Plex Mono',monospace;background:var(--surface2);padding:0.1rem 0.3rem;border-radius:3px;">+</span> button in the sidebar</li>
+                            <li>Choose a model and set a schedule (hourly, daily, or weekdays)</li>
+                        </ul>
+
+                        <h4 style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;font-weight:600;color:var(--accent);margin:0.8rem 0 0.3rem;">Schedule Options</h4>
+                        <ul style="margin:0 0 0.6rem;padding-left:1.2rem;list-style-type:disc;">
+                            <li><b>Manual</b>: run on demand only</li>
+                            <li><b>Every X hours</b>: runs at a fixed interval (1–24h)</li>
+                            <li><b>Daily</b>: runs once per day at a specified UTC time</li>
+                            <li><b>Weekdays</b>: runs Monday through Friday at a specified UTC time</li>
+                        </ul>
+
+                        <h4 style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;font-weight:600;color:var(--accent);margin:0.8rem 0 0.3rem;">Priority Classification</h4>
+                        <p style="margin:0;">Each result is automatically classified as <span style="color:var(--red);">urgent</span>, normal, or <span style="color:var(--muted);">low</span> by the agent based on the response content. Urgent results indicate safety issues, failures, or out-of-spec conditions.</p>
+                    </div>
+                </div>
+            </div>
+            <div id="wf-detail-content" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <!-- Header -->
+                <div class="wf-detail-header" id="wf-detail-header"></div>
+                <!-- Results -->
+                <div class="wf-detail-results" id="wf-detail-results"></div>
+            </div>
+        </section>
+        </div>
+    </main>
+</div>
+
+<style>
+    .wf-main {
+        padding: 1rem 1.5rem 1.5rem; height: calc(100vh - 64px - 42px); overflow: hidden;
+    }
+    .wf-container {
+        display: flex; height: 100%; gap: 1rem; overflow: hidden;
+    }
+    /* Sidebar */
+    .wf-sidebar {
+        width: 340px; min-width: 280px; max-width: 420px; flex-shrink: 0;
+        display: flex; flex-direction: column;
+        background: var(--surface); border: 1px solid var(--border);
+        border-top: 2px solid var(--accent); border-radius: 10px; overflow: hidden;
+    }
+    .wf-sidebar-header {
+        padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        background: linear-gradient(135deg, transparent 0%, rgba(var(--primary-rgb, 0, 216, 255), 0.03) 100%);
+    }
+    .wf-sidebar-title {
+        font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600;
+        color: var(--text); text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .wf-sidebar-count {
+        font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; font-weight: 600;
+        color: var(--accent); background: rgba(var(--primary-rgb, 0, 216, 255), 0.1);
+        padding: 0.15rem 0.45rem; border-radius: 10px;
+    }
+    .wf-sidebar-list { flex: 1; overflow-y: auto; }
+    .wf-item {
+        padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); cursor: pointer;
+        transition: background 0.12s, border-left-color 0.12s;
+        border-left: 3px solid transparent;
+    }
+    .wf-item:hover { background: var(--surface2); }
+    .wf-item.selected { background: rgba(var(--primary-rgb, 0, 216, 255), 0.06); border-left-color: var(--accent); }
+    .wf-item-top { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; }
+    .wf-item-title {
+        font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600;
+        color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .wf-item-badge {
+        font-size: 0.58rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 3px;
+        background: var(--surface3); color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.04em; font-family: 'IBM Plex Mono', monospace; flex-shrink: 0;
+    }
+    .wf-item-badge.active { background: rgba(63,185,80,0.12); color: var(--green); }
+    .wf-item-prompt { font-size: 0.75rem; color: var(--text2); line-height: 1.4; margin-bottom: 0.3rem; }
+    .wf-item-meta {
+        display: flex; gap: 0.5rem; font-size: 0.65rem; color: var(--muted);
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .wf-empty-list { padding: 3rem 1rem; text-align: center; color: var(--muted); font-size: 0.82rem; }
+
+    /* Detail panel */
+    .wf-detail {
+        flex: 1; display: flex; flex-direction: column; overflow: hidden;
+        background: var(--surface); border: 1px solid var(--border);
+        border-top: 2px solid var(--accent); border-radius: 10px;
+    }
+    .wf-detail-empty {
+        flex: 1; display: flex; flex-direction: column; align-items: center;
+        justify-content: flex-start; overflow-y: auto; padding: 1rem;
+    }
+    .wf-detail-header {
+        padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, transparent 0%, rgba(var(--primary-rgb, 0, 216, 255), 0.03) 100%);
+        flex-shrink: 0;
+    }
+    .wf-detail-results { flex: 1; overflow-y: auto; padding: 1rem 1.25rem; background: var(--bg); border-radius: 0 0 10px 0; }
+
+    /* Result cards */
+    .wf-res-card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+        padding: 0.75rem 1rem; margin-bottom: 0.6rem; transition: border-color 0.15s;
+    }
+    .wf-res-card:hover { border-color: var(--border2); }
+    .wf-res-card.urgent { border-left: 3px solid var(--red); }
+    .wf-res-meta { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+
+    /* Action buttons */
+    .wf-act { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 0.72rem; font-family: 'IBM Plex Mono', monospace; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.3rem; }
+    .wf-act:hover { color: var(--accent); border-color: var(--accent); }
+    .wf-act.run:hover { color: var(--green); border-color: var(--green); }
+    .wf-act.del:hover { color: var(--red); border-color: var(--red); }
+
+    /* Markdown in results */
+    .wf-md { font-size: 0.82rem; color: var(--text2); line-height: 1.7; }
+    .wf-md h2 { font-size: 1rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; margin: 0.8rem 0 0.4rem; }
+    .wf-md h3 { font-size: 0.92rem; font-weight: 700; color: var(--text); margin: 0.6rem 0 0.3rem; }
+    .wf-md h4 { font-size: 0.86rem; font-weight: 700; color: var(--accent); margin: 0.5rem 0 0.25rem; }
+    .wf-md p { margin: 0.4rem 0; }
+    .wf-md ul, .wf-md ol { padding-left: 1.4rem; margin: 0.4rem 0; }
+    .wf-md li { margin-bottom: 0.2rem; }
+    .wf-md li::marker { color: var(--accent); }
+    .wf-md strong { color: var(--text); }
+    .wf-md code { font-size: 0.78rem; padding: 0.1rem 0.3rem; border-radius: 3px; background: rgba(0,216,255,0.1); font-family: 'IBM Plex Mono', monospace; }
+    .wf-md pre { margin: 0.5rem 0; padding: 0.5rem; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); overflow-x: auto; }
+    .wf-md pre code { padding: 0; background: none; font-size: 0.75rem; }
+    .wf-md table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.78rem; }
+    .wf-md th, .wf-md td { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: left; }
+    .wf-md th { background: var(--surface2); font-weight: 700; color: var(--text); }
+    .wf-md hr { border: none; border-top: 1px solid var(--border); margin: 0.6rem 0; }
+    .wf-md blockquote { border-left: 3px solid var(--accent); margin: 0.5rem 0; padding: 0.3rem 0.6rem; background: rgba(0,216,255,0.04); }
+
+    /* Followups */
+    .wf-followups { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+    .wf-fu-heading { width: 100%; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .wf-fu-heading.actions { color: var(--amber); }
+    .wf-fu-chip { padding: 0.3rem 0.6rem; border-radius: 8px; font-size: 0.78rem; line-height: 1.3; background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.2); color: var(--text2); }
+    .wf-fu-chip.action { border-color: var(--amber); color: var(--amber); background: rgba(210,153,34,0.08); }
+
+    /* Modal */
+    .wf-overlay { position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px); }
+    .wf-overlay.open { display:flex; }
+    .wf-modal { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:90%;max-width:480px;box-shadow:0 16px 48px rgba(0,0,0,0.4); }
+    .wf-modal h3 { font-family:'IBM Plex Mono',monospace;font-size:0.95rem;font-weight:600;color:var(--text);margin:0 0 1rem; }
+    .wf-modal label { font-size:0.7rem;font-weight:600;color:var(--muted);display:block;margin-bottom:0.15rem;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.04em; }
+    .wf-modal input,.wf-modal textarea,.wf-modal select { width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:'Outfit',sans-serif;font-size:0.85rem;outline:none;transition:border-color 0.15s;box-sizing:border-box;margin-bottom:0.6rem; }
+    .wf-modal input:focus,.wf-modal textarea:focus,.wf-modal select:focus { border-color:var(--accent); }
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+
+<!-- Create Modal -->
+<div id="create-modal" class="wf-overlay">
+    <div class="wf-modal">
+        <h3>Create Workflow</h3>
+        <form id="create-form">
+            <label>Title</label><input type="text" id="create-title" required placeholder="e.g. Daily Batch Quality Check">
+            <label>Prompt</label><textarea id="create-prompt" rows="3" required placeholder="What should the agent investigate?"></textarea>
+            <label>Model</label><select id="create-model"></select>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <div><label>Schedule</label>
+                    <select id="create-schedule-type" onchange="createSchedChanged()">
+                        <option value="manual" selected>Manual Only</option><option value="hours">Every X Hours</option>
+                        <option value="daily">Every Day at…</option><option value="weekdays">Weekdays at…</option>
+                    </select></div>
+                <div id="create-interval-wrap" style="display:none;"><label>Hours</label>
+                    <select id="create-interval"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">12</option><option value="24">24</option></select></div>
+                <div id="create-time-wrap" style="display:none;"><label>Time (UTC)</label><input type="time" id="create-time" value="08:00"></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.5rem;">
+                <button type="button" onclick="closeCreate()" class="wf-act">Cancel</button>
+                <button type="submit" id="create-submit" style="padding:0.45rem 1rem;border:none;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;font-size:0.85rem;font-weight:500;">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Edit Modal -->
+<div id="edit-modal" class="wf-overlay">
+    <div class="wf-modal">
+        <h3>Edit Workflow</h3>
+        <form id="edit-form">
+            <input type="hidden" id="edit-wf-id"><input type="hidden" id="edit-wf-email">
+            <label>Title</label><input type="text" id="edit-title" required>
+            <label>Prompt</label><textarea id="edit-prompt" rows="3" required></textarea>
+            <label>Model</label><select id="edit-model"></select>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <div><label>Schedule</label>
+                    <select id="edit-schedule-type" onchange="editSchedChanged()">
+                        <option value="manual">Manual Only</option><option value="hours">Every X Hours</option>
+                        <option value="daily">Every Day at…</option><option value="weekdays">Weekdays at…</option>
+                    </select></div>
+                <div id="edit-interval-wrap" style="display:none;"><label>Hours</label>
+                    <select id="edit-interval"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">12</option><option value="24">24</option></select></div>
+                <div id="edit-time-wrap"><label>Time (UTC)</label><input type="time" id="edit-time" value="08:00"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin:0.2rem 0 0.6rem;">
+                <input type="checkbox" id="edit-enabled" style="width:auto;margin:0;">
+                <label style="margin:0;text-transform:none;font-size:0.8rem;color:var(--text2);">Schedule enabled</label>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:0.5rem;">
+                <button type="button" onclick="closeEdit()" class="wf-act">Cancel</button>
+                <button type="submit" style="padding:0.45rem 1rem;border:none;border-radius:8px;background:var(--accent);color:var(--bg);cursor:pointer;font-family:'Outfit',sans-serif;font-size:0.85rem;font-weight:500;">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Delete Modal -->
+<div id="del-modal" class="wf-overlay">
+    <div class="wf-modal" style="text-align:center;max-width:400px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:rgba(248,81,73,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 0.75rem;">
+            <svg style="width:24px;height:24px;color:var(--red);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        </div>
+        <h3 style="text-align:center;">Delete Workflow</h3>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Delete "<span id="del-title" style="color:var(--text);font-weight:500;"></span>" and all results?</p>
+        <div style="display:flex;justify-content:center;gap:0.5rem;">
+            <button onclick="closeDel()" class="wf-act">Cancel</button>
+            <button id="del-confirm" style="padding:0.45rem 1rem;border:none;border-radius:8px;background:var(--red);color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:500;">Delete</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- nosemgrep: insecure-document-method -->
+<script>
+var _wfData = {{ workflows | tojson }};
+function esc(s){return escapeHTML(s);}
+function decode(s){var t=document.createElement('textarea');t.innerHTML=s;return t.value;} // nosemgrep: insecure-innerhtml, insecure-document-method
+function fmtDate(iso){if(!iso)return '';var p=iso.slice(0,10).split('-');return p[1]+'/'+p[2]+'/'+p[0];}
+
+// ── Select workflow ──
+var _selectedId = null;
+function selectWorkflow(id, el) {
+    document.querySelectorAll('.wf-item').forEach(function(e){e.classList.remove('selected');});
+    if (el) el.classList.add('selected');
+    _selectedId = id;
+    document.getElementById('wf-detail-empty').style.display = 'none';
+    document.getElementById('wf-detail-content').style.display = 'flex';
+    var wf = _wfData.find(function(w){return w.workflow_id===id;});
+    if (!wf) return;
+    // Render header
+    var h = document.getElementById('wf-detail-header');
+    h.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">' // nosemgrep: insecure-innerhtml, insecure-document-method
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.3rem;">'
+        + '<h2 style="font-family:IBM Plex Mono,monospace;font-size:1rem;font-weight:600;color:var(--text);margin:0;">' + esc(wf.title) + '</h2>'
+        + (wf.enabled ? '<span class="wf-item-badge active">Active</span>' : '<span class="wf-item-badge">Disabled</span>')
+        + '</div>'
+        + '<p style="font-size:0.82rem;color:var(--text2);line-height:1.5;margin:0 0 0.4rem;">' + esc(wf.prompt) + '</p>'
+        + '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.68rem;color:var(--muted);font-family:IBM Plex Mono,monospace;">'
+        + '<span style="padding:0.15rem 0.4rem;background:var(--surface2);border-radius:4px;">🕐 ' + esc(wf.schedule_display) + '</span>'
+        + '<span style="padding:0.15rem 0.4rem;background:var(--surface2);border-radius:4px;">🤖 ' + esc(getWorkflowModelLabel(wf.model_id)) + '</span>'
+        + '<span>' + esc(wf.created_at ? fmtDate(wf.created_at) : '') + '</span>'
+        + (wf.created_by ? '<span>· ' + esc(wf.created_by) + '</span>' : '')
+        + '</div></div>'
+        + '<div style="display:flex;gap:0.3rem;flex-shrink:0;">'
+        + '<button class="wf-act run" onclick="runWf(\'' + esc(wf.workflow_id) + '\',this)">▶ Run</button>'
+        + '<button class="wf-act" onclick="openEdit(\'' + esc(wf.workflow_id) + '\')">✏️ Edit</button>'
+        + '<button class="wf-act del" onclick="openDel(\'' + esc(wf.workflow_id) + '\',\'' + esc(wf.title) + '\')">🗑</button>'
+        + '</div></div>';
+    // Load results
+    loadResults(id);
+}
+
+async function loadResults(id) {
+    var c = document.getElementById('wf-detail-results');
+    c.innerHTML = '<div style="color:var(--muted);font-size:0.78rem;font-family:IBM Plex Mono,monospace;padding:1rem;">Loading results…</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+    try {
+        var r = await fetch('/api/workflows/' + id);
+        var data = await r.json();
+        var results = data.results || [];
+        if (!results.length) {
+            c.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted);font-size:0.82rem;">No results yet — run the workflow to see execution history.</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+            return;
+        }
+        var pC = {urgent:'var(--red)',normal:'var(--accent)',low:'var(--muted)'};
+        var pI = {urgent:'🔴',normal:'🔵',low:'⚪'};
+        c.innerHTML = '<div style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);font-family:IBM Plex Mono,monospace;margin-bottom:0.5rem;">Execution History · ' + results.length + ' run' + (results.length!==1?'s':'') + '</div>' // nosemgrep: insecure-innerhtml, insecure-document-method
+            + results.map(function(r){
+                var ts = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US', {month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+                var si = r.status==='success'?'✅':'❌';
+                var pc = pC[r.priority]||pC.normal, pi = pI[r.priority]||'🔵';
+                var tok = (r.input_tokens||0)+' in / '+(r.output_tokens||0)+' out';
+                var lat = r.latency_ms?(r.latency_ms/1000).toFixed(1)+'s':'';
+                var md = r.response_md||'', mainMd=md, fuHtml='';
+                var fuMatch = md.match(/-*\s*FOLLOWUPS\s*-+/i); var fi = fuMatch ? fuMatch.index : -1;
+                if(fi!==-1){
+                    mainMd=md.substring(0,fi).trim();
+                    var fl=md.substring(fi+fuMatch[0].length).trim().split('\n').filter(function(l){return l.trim();});
+                    if(fl.length){var qs=[],as=[];fl.forEach(function(l){var t=l.trim();if(t.match(/^A\d+:/))as.push(t.replace(/^A\d+:\s*/,''));else qs.push(t.replace(/^Q\d+:\s*/,''));});
+                    fuHtml='<div class="wf-followups">';if(qs.length){fuHtml+='<div class="wf-fu-heading">Explore Further</div>';qs.forEach(function(q){fuHtml+='<span class="wf-fu-chip">'+esc(q)+'</span>';});}
+                    if(as.length){fuHtml+='<div class="wf-fu-heading actions">Recommended Actions</div>';as.forEach(function(a){fuHtml+='<span class="wf-fu-chip action">⚡ '+esc(a)+'</span>';});}fuHtml+='</div>';}}
+                var rendered = typeof marked!=='undefined'?(typeof DOMPurify!=='undefined'?DOMPurify.sanitize(marked.parse(mainMd)):marked.parse(mainMd)):esc(mainMd);
+                var exp = md.length>300;
+                return '<div class="wf-res-card'+(r.priority==='urgent'?' urgent':'')+'">'
+                    +'<div class="wf-res-meta">'
+                    +'<span>'+si+'</span>'
+                    +'<span style="font-size:0.68rem;font-weight:600;color:var(--text);font-family:IBM Plex Mono,monospace;">'+esc(r.triggered_by||'manual')+'</span>'
+                    +'<span style="font-size:0.6rem;font-weight:600;padding:0.1rem 0.35rem;border-radius:4px;border:1px solid '+pc+';color:'+pc+';font-family:IBM Plex Mono,monospace;">'+pi+' '+esc(r.priority||'normal')+'</span>'
+                    +'<span style="font-size:0.65rem;color:var(--muted);margin-left:auto;font-family:IBM Plex Mono,monospace;">'+ts+'</span>'
+                    +'</div>'
+                    +(exp?'<details class="wf-exp"><summary style="cursor:pointer;font-size:0.72rem;color:var(--accent);font-family:IBM Plex Mono,monospace;user-select:none;list-style:none;display:flex;align-items:center;gap:0.3rem;margin-bottom:0.2rem;"><svg class="wf-chv" style="width:12px;height:12px;transition:transform 0.2s;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>Show response</summary><div class="wf-md" style="padding-top:0.3rem;">'+rendered+'</div>'+fuHtml+'</details>'
+                    :'<div class="wf-md">'+rendered+'</div>'+fuHtml)
+                    +'<div style="display:flex;gap:0.5rem;margin-top:0.35rem;font-size:0.65rem;color:var(--muted);font-family:IBM Plex Mono,monospace;"><span>'+tok+'</span>'+(lat?'<span>· '+lat+'</span>':'')+'<span>· '+esc(r.model_id?getModelName(r.model_id):getWorkflowModelLabel(''))+'</span></div></div>';
+            }).join('');
+        c.querySelectorAll('.wf-exp').forEach(function(d){d.addEventListener('toggle',function(){var s=d.querySelector('summary');if(s)s.innerHTML='<svg class="wf-chv" style="width:12px;height:12px;transition:transform 0.2s;flex-shrink:0;'+(d.open?'transform:rotate(90deg);':'')+'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>'+(d.open?'Hide response':'Show response');});}); // nosemgrep: insecure-innerhtml, insecure-document-method
+    } catch(e) { c.innerHTML = '<div style="color:var(--red);padding:1rem;font-size:0.78rem;">Failed to load results</div>'; } // nosemgrep: insecure-innerhtml, insecure-document-method
+}
+
+// ── Create ──
+function openCreate(){document.getElementById('create-form').reset();document.getElementById('create-model').innerHTML=buildModelOptions('',true);createSchedChanged();document.getElementById('create-modal').classList.add('open');document.getElementById('create-title').focus();} // nosemgrep: insecure-innerhtml, insecure-document-method
+function closeCreate(){document.getElementById('create-modal').classList.remove('open');}
+function createSchedChanged(){var t=document.getElementById('create-schedule-type').value;document.getElementById('create-interval-wrap').style.display=t==='hours'?'':'none';document.getElementById('create-time-wrap').style.display=(t==='daily'||t==='weekdays')?'':'none';}
+document.getElementById('create-form').addEventListener('submit',async function(e){
+    e.preventDefault();var btn=document.getElementById('create-submit');btn.disabled=true;btn.textContent='Creating…';
+    var body={title:document.getElementById('create-title').value.trim(),prompt:document.getElementById('create-prompt').value.trim(),schedule_type:document.getElementById('create-schedule-type').value,schedule_interval:parseInt(document.getElementById('create-interval').value)||0,schedule_time:document.getElementById('create-time').value||'08:00',model_id:document.getElementById('create-model').value||''};
+    if(!body.title||!body.prompt){btn.disabled=false;btn.textContent='Create';return;}
+    try{var r=await fetch('/api/workflows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('Failed');window.location.reload();}
+    catch(e){alert('Failed to create: '+e.message);btn.disabled=false;btn.textContent='Create';}
+});
+
+// ── Run ──
+async function runWf(id, btn) {
+    btn.disabled=true; var orig=btn.innerHTML; // nosemgrep: insecure-innerhtml, insecure-document-method
+    btn.innerHTML='<svg style="width:13px;height:13px;animation:spin 1s linear infinite;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M20.016 4.656v4.992"/></svg> Running…'; // nosemgrep: insecure-innerhtml, insecure-document-method
+    try { var r=await fetch('/api/workflows/'+id+'/run',{method:'POST'}); if(!r.ok) throw new Error('Failed');
+        btn.innerHTML='✅ Done'; setTimeout(function(){btn.innerHTML=orig;btn.disabled=false;},2000); loadResults(id); // nosemgrep: insecure-innerhtml, insecure-document-method
+    } catch(e) { btn.innerHTML='❌ Failed'; setTimeout(function(){btn.innerHTML=orig;btn.disabled=false;},2000); } // nosemgrep: insecure-innerhtml, insecure-document-method
+}
+
+// ── Edit ──
+function openEdit(id) {
+    var wf=_wfData.find(function(w){return w.workflow_id===id;});if(!wf)return;
+    document.getElementById('edit-wf-id').value=id;
+    document.getElementById('edit-title').value=wf.title;
+    document.getElementById('edit-prompt').value=wf.prompt;
+    document.getElementById('edit-schedule-type').value=wf.schedule_type||'manual';
+    document.getElementById('edit-interval').value=wf.schedule_interval||'1';
+    document.getElementById('edit-time').value=wf.schedule_time||'08:00';
+    document.getElementById('edit-enabled').checked=wf.enabled;
+    document.getElementById('edit-model').innerHTML=buildModelOptions(wf.model_id||'',true); // nosemgrep: insecure-innerhtml, insecure-document-method
+    editSchedChanged();
+    document.getElementById('edit-modal').classList.add('open');
+}
+function editSchedChanged(){var t=document.getElementById('edit-schedule-type').value;document.getElementById('edit-interval-wrap').style.display=t==='hours'?'':'none';document.getElementById('edit-time-wrap').style.display=(t==='daily'||t==='weekdays')?'':'none';}
+function closeEdit(){document.getElementById('edit-modal').classList.remove('open');}
+document.getElementById('edit-form').addEventListener('submit',async function(e){
+    e.preventDefault();var id=document.getElementById('edit-wf-id').value;
+    var body={title:document.getElementById('edit-title').value.trim(),prompt:document.getElementById('edit-prompt').value.trim(),schedule_type:document.getElementById('edit-schedule-type').value,schedule_interval:parseInt(document.getElementById('edit-interval').value)||0,schedule_time:document.getElementById('edit-time').value||'08:00',enabled:document.getElementById('edit-enabled').checked,model_id:document.getElementById('edit-model').value||''};
+    try{var r=await fetch('/api/workflows/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('Failed');window.location.reload();}catch(e){alert('Failed: '+e.message);}
+});
+
+// ── Delete ──
+var _delId='';
+function openDel(id,title){_delId=id;document.getElementById('del-title').textContent=title;document.getElementById('del-modal').classList.add('open');}
+function closeDel(){document.getElementById('del-modal').classList.remove('open');}
+document.getElementById('del-confirm').addEventListener('click',async function(){if(!_delId)return;try{var r=await fetch('/api/workflows/'+_delId,{method:'DELETE'});if(!r.ok)throw new Error('Failed');window.location.reload();}catch(e){alert('Failed: '+e.message);}});
+
+// Close modals
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeCreate();closeEdit();closeDel();}});
+(function(){var dt=null;document.addEventListener('mousedown',function(e){dt=e.target;});document.addEventListener('mouseup',function(e){if(dt===e.target){if(e.target===document.getElementById('create-modal'))closeCreate();if(e.target===document.getElementById('edit-modal'))closeEdit();if(e.target===document.getElementById('del-modal'))closeDel();}dt=null;});})();
+
+// No auto-select — show dashboard home view by default
+
+function deselectWorkflow() {
+    document.querySelectorAll('.wf-item').forEach(function(e){e.classList.remove('selected');});
+    _selectedId = null;
+    document.getElementById('wf-detail-empty').style.display = '';
+    document.getElementById('wf-detail-content').style.display = 'none';
+}
+</script>
+{% endblock %}

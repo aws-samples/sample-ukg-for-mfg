@@ -1,0 +1,82 @@
+{# Shared System Explorer component — include in any page that needs the system list + drill-in #}
+
+{# ── Markup for the detail drill-in panel ── #}
+{# The caller provides the container; this macro renders the inner detail panel. #}
+{# Usage: {% include "components/system_explorer.html" %} inside a container div #}
+
+<style>
+/* ── System Explorer shared styles ─────────────────────────────── */
+
+/* System cards */
+.se-sys-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.6rem 0.7rem; cursor: pointer; transition: all 0.15s; position: relative;
+    border-left: 3px solid var(--border2);
+}
+.se-sys-card:hover { border-color: var(--border2); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.se-sys-card.active { border-color: var(--accent); border-left-color: var(--accent); background: rgba(0,216,255,0.04); }
+.se-sys-card[data-type="ERP"] { border-left-color: var(--accent2); }
+.se-sys-card[data-type="MES"] { border-left-color: var(--accent); }
+.se-sys-card[data-type="CMMS"] { border-left-color: var(--amber); }
+.se-sys-card[data-type="PLM"] { border-left-color: #bc8cff; }
+.se-sys-card[data-type="Historian"], .se-sys-card[data-type="IoT"] { border-left-color: var(--green); }
+.se-sys-row { display: flex; align-items: center; gap: 0.4rem; }
+.se-sys-badge {
+    font-size: 0.58rem; font-weight: 700; padding: 0.08rem 0.35rem; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+    background: var(--surface3); color: var(--text2);
+}
+.se-sys-name { font-weight: 600; font-size: 0.8rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.se-sys-meta { font-size: 0.65rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 0.15rem; }
+
+/* Detail panel */
+.se-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.se-detail-back {
+    display: flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; color: var(--muted);
+    cursor: pointer; padding: 0 0.75rem 0.4rem; background: none; border: none; font-family: inherit; transition: color 0.15s;
+}
+.se-detail-back:hover { color: var(--accent); }
+.se-detail-tabs { display: flex; padding: 0 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.se-tab {
+    background: none; border: none; color: var(--muted); font-size: 0.8rem; font-weight: 600;
+    padding: 0.45rem 0.65rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; font-family: inherit;
+}
+.se-tab:hover { color: var(--text2); }
+.se-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.se-detail-body { flex: 1; overflow-y: auto; padding: 0.6rem 0.75rem; }
+
+/* Table cards */
+.se-tbl-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.4rem; overflow: hidden; }
+.se-tbl-hdr { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.6rem; cursor: pointer; transition: background 0.15s; }
+.se-tbl-hdr:hover { background: var(--surface3); }
+.se-tbl-name { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.se-tbl-meta { font-size: 0.72rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+.se-tbl-fields { display: none; padding: 0 0.6rem 0.4rem; border-top: 1px solid var(--border); }
+.se-tbl-card.open .se-tbl-fields { display: block; }
+.se-field-row { display: flex; align-items: center; justify-content: space-between; padding: 0.2rem 0; font-size: 0.8rem; border-bottom: 1px solid rgba(48,54,61,0.2); }
+.se-field-row:last-child { border-bottom: none; }
+.se-field-name { font-family: 'IBM Plex Mono', monospace; color: var(--text2); }
+.se-field-type { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+
+/* Concept cards */
+.se-concept-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.6rem; margin-bottom: 0.35rem; }
+.se-concept-name { font-size: 0.82rem; font-weight: 600; color: var(--accent); text-transform: capitalize; }
+.se-concept-fields { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; font-family: 'IBM Plex Mono', monospace; }
+
+/* Equivalence cards */
+.se-equiv-card { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 0.45rem 0.6rem; margin-bottom: 0.35rem; }
+.se-equiv-concept { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 0.15rem; }
+.se-equiv-path { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--text2); }
+.se-equiv-conf { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* Shared utility */
+.se-loading { display: flex; align-items: center; justify-content: center; padding: 2rem; color: var(--muted); font-size: 0.8rem; font-family: 'IBM Plex Mono', monospace; }
+.se-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; text-align: center; color: var(--muted); gap: 0.4rem; }
+.se-empty-text { font-size: 0.88rem; color: var(--text2); }
+.se-empty-hint { font-size: 0.8rem; }
+
+/* Systems list container */
+.se-systems-list { display: flex; flex-direction: column; gap: 0.35rem; overflow-y: auto; padding-bottom: 0.5rem; flex: 1; min-height: 0; }
+</style>
+
+<script src="/static/js/system-explorer.js"></script>

@@ -1,0 +1,11 @@
+bedrock-agentcore
+strands-agents[otel]
+strands-agents-tools
+mcp-proxy-for-aws
+boto3
+httpx
+mcp[cli]
+aws-opentelemetry-distro
+beautifulsoup4
+lxml
+pyyaml

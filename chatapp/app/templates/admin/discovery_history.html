@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Discovery History - Admin Dashboard{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'Systems Registry', 'url': '/admin/registry'},
+        {'label': 'Data Discovery'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <main class="mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- Time Range Selector -->
+        <div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <span class="text-sm font-medium text-gray-700">Time Range:</span>
+                <div class="flex gap-2" id="preset-buttons">
+                    <button onclick="setTimeRange(1)" id="btn-1" class="px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">Today</button>
+                    <button onclick="setTimeRange(7)" id="btn-7" class="px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">7 Days</button>
+                    <button onclick="setTimeRange(30)" id="btn-30" class="px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">30 Days</button>
+                    <button onclick="setTimeRange(90)" id="btn-90" class="px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">90 Days</button>
+                </div>
+                <div class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs text-gray-500">From:</label>
+                    <input type="date" id="start-date" class="px-2 py-1 text-sm border border-gray-300 rounded-md" value="{{ start_time[:10] }}">
+                    <label class="text-xs text-gray-500">To:</label>
+                    <input type="date" id="end-date" class="px-2 py-1 text-sm border border-gray-300 rounded-md" value="{{ end_time[:10] }}">
+                    <button onclick="applyCustomRange()" class="px-3 py-1.5 text-sm rounded-md bg-primary-600 hover:bg-primary-700 text-white transition-colors">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+            <!-- Sessions -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Sessions</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(total_sessions) }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ days_in_period }} day{{ 's' if days_in_period != 1 else '' }}</p>
+            </div>
+            <!-- Unique Systems -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Systems</p>
+                <p class="text-2xl font-bold text-blue-600 mt-1">{{ "{:,}".format(unique_systems) }}</p>
+                <p class="mt-1 text-xs text-gray-500">Unique sources</p>
+            </div>
+            <!-- Tables -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Tables</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(total_tables) }}</p>
+                <p class="mt-1 text-xs text-gray-500">Discovered</p>
+            </div>
+            <!-- Fields -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Fields</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(total_fields) }}</p>
+                <p class="mt-1 text-xs text-gray-500">Registered</p>
+            </div>
+            <!-- Equivalences -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Equivalences</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">{{ "{:,}".format(total_equivalences) }}</p>
+                <p class="mt-1 text-xs text-gray-500">Cross-system</p>
+            </div>
+            <!-- Failures -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <p class="text-sm font-medium text-gray-500">Failures</p>
+                <p class="text-2xl font-bold {% if failed_count > 0 %}text-red-600{% else %}text-gray-900{% endif %} mt-1">{{ "{:,}".format(failed_count) }}</p>
+                <p class="mt-1 text-xs text-gray-500">Failed sessions</p>
+            </div>
+        </div>
+
+        <!-- Discovery Sessions Table -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Discovery Sessions</h2>
+                <p class="text-sm text-gray-500 mt-1">Each time a data source was discovered, registered, or re-registered</p>
+            </div>
+
+            {% if records %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">System</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tables</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Fields</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Equivalences</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for r in records %}
+                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location='/admin/discovery-history/{{ r.discovery_id }}'">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-utc-timestamp="{{ r.timestamp }}" data-include-seconds="true">
+                                {{ r.timestamp[:19].replace('T', ' ') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ r.system_name or r.system_id }}</div>
+                                <div class="text-xs text-gray-500">{{ r.system_id }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if r.system_type == 'ERP' %}bg-blue-100 text-blue-800
+                                    {% elif r.system_type == 'MES' %}bg-green-100 text-green-800
+                                    {% elif r.system_type == 'CMMS' %}bg-amber-100 text-amber-800
+                                    {% elif r.system_type == 'PLM' %}bg-purple-100 text-purple-800
+                                    {% elif r.system_type == 'IoT' %}bg-cyan-100 text-cyan-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ r.system_type or 'Unknown' }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if r.action == 'registered' %}bg-green-100 text-green-800
+                                    {% elif r.action == 're-registered' %}bg-blue-100 text-blue-800
+                                    {% elif r.action == 'removed' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ r.action }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">{{ r.table_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">{{ r.field_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">{{ r.equivalence_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                {% if r.status == 'completed' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓</span>
+                                {% elif r.status == 'failed' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">✗</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">~</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                                {{ "%.1f"|format(r.duration_seconds) }}s
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-6 py-12 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No discovery sessions</h3>
+                <p class="mt-1 text-sm text-gray-500">No data source discoveries found in the selected time period.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/admin-utils.js"></script>
+{% endblock %}

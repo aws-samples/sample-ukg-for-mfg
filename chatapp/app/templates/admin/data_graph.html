@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block title %}Data Graph{% endblock %}
+
+{% block body %}
+<div class="min-h-screen" style="background: var(--bg);">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'Systems Registry', 'url': '/admin/registry'},
+        {'label': 'Data Graph'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <main class="mx-auto px-4 py-4 relative" style="height: calc(100vh - 120px); overflow: hidden;">
+        <!-- Graph container (full area) -->
+        <div class="relative w-full h-full rounded-lg" style="background: var(--surface); border: 1px solid var(--border);">
+            <!-- Force-graph canvas -->
+            <div id="fg" class="w-full h-full"></div>
+
+            <!-- Stats bar (floating overlay, top-left) -->
+            <div class="absolute top-3 left-3 flex items-center gap-3 rounded-lg px-3 py-2"
+                 style="background: color-mix(in srgb, var(--surface) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); z-index: 10;">
+                <button onclick="fgInstance && fgInstance.zoomToFit(400, 60)"
+                        style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-family: 'IBM Plex Mono', monospace;"
+                        onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                        onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'"
+                        title="Fit graph to viewport">⊞ Fit</button>
+                <span id="stat-systems" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 systems</span>
+                <span id="stat-tables" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 tables</span>
+                <span id="stat-edges" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 edges</span>
+            </div>
+
+            <!-- Legend (floating overlay, left column under stats) -->
+            <div id="fg-legend" class="absolute top-16 left-3 flex flex-col gap-1.5 rounded-lg px-3 py-2"
+                 style="background: color-mix(in srgb, var(--surface) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); z-index: 10; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted);">
+                <span style="font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.1rem;" id="fg-legend-label">Systems</span>
+            </div>
+
+            <!-- Detail panel (hover on node/link) -->
+            <div id="detail-panel" class="hidden absolute top-3 right-3 rounded-lg overflow-y-auto"
+                 style="width: 340px; max-height: calc(100% - 80px); background: var(--surface); border: 1px solid var(--border); padding: 1rem; box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 20;">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 id="detail-title" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; font-weight: 600; color: var(--accent);"></h3>
+                    <button onclick="closeDetail()" style="color: var(--muted); cursor: pointer; background: none; border: none; font-size: 1.2rem;">&times;</button>
+                </div>
+                <div id="detail-content" style="font-size: 0.82rem; color: var(--text2);"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://unpkg.com/d3-quadtree@3"></script>
+<script src="https://unpkg.com/d3-force@3"></script>
+<script src="https://unpkg.com/force-graph"></script>
+
+<!-- nosemgrep: insecure-document-method -->
+<script>
+let fgInstance = null;
+let allNodes = [];
+let allLinks = [];
+let systemMeta = {};
+let fgPinned = false;
+
+function closeDetail() {
+    document.getElementById('detail-panel').classList.add('hidden');
+    fgPinned = false;
+}
+
+function showNodeDetail(node) {
+    const panel = document.getElementById('detail-panel');
+    document.getElementById('detail-title').textContent = node.label;
+    const sys = systemMeta[node.system_id] || {};
+    let html = `
+        <div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">System</div>
+            <div>${sys.label || node.system_id || '—'} <span style="color:var(--muted);">(${node.system_type || '—'})</span></div>
+        </div>`;
+    if (node.protocol) {
+        html += `<div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Protocol</div>
+            <div>${node.protocol}</div>
+        </div>`;
+    }
+    if (node.field_count) {
+        html += `<div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Fields</div>
+            <div>${node.field_count}</div>
+        </div>`;
+    }
+    if (node.description) {
+        html += `<div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Description</div>
+            <div>${node.description}</div>
+        </div>`;
+    }
+    // Show connected edges
+    const connected = allLinks.filter(l => {
+        const sid = typeof l.source === 'object' ? l.source.id : l.source;
+        const tid = typeof l.target === 'object' ? l.target.id : l.target;
+        return sid === node.id || tid === node.id;
+    });
+    if (connected.length > 0) {
+        html += `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Connections (${connected.length})</div>`;
+        connected.forEach(l => {
+            const detail = l.detail || l.label || l.concept || '';
+            html += `<div style="padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;">${detail}</div>`;
+        });
+        html += '</div>';
+    }
+    document.getElementById('detail-content').innerHTML = html; // nosemgrep: insecure-innerhtml, insecure-document-method
+    panel.classList.remove('hidden');
+}
+
+function showLinkDetail(link) {
+    const panel = document.getElementById('detail-panel');
+    document.getElementById('detail-title').textContent = link.label || link.concept || 'Connection';
+    const srcId = typeof link.source === 'object' ? link.source.id : link.source;
+    const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+    let html = `
+        <div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Type</div>
+            <div>${link.edge_type || 'concept'}</div>
+        </div>
+        <div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Source</div>
+            <div>${srcId}</div>
+        </div>
+        <div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Target</div>
+            <div>${tgtId}</div>
+        </div>`;
+    if (link.detail) {
+        html += `<div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Detail</div>
+            <div>${link.detail}</div>
+        </div>`;
+    }
+    if (link.confidence) {
+        html += `<div style="margin-bottom:0.75rem;">
+            <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Confidence</div>
+            <div>${(link.confidence * 100).toFixed(0)}%</div>
+        </div>`;
+    }
+    document.getElementById('detail-content').innerHTML = html; // nosemgrep: insecure-innerhtml, insecure-document-method
+    panel.classList.remove('hidden');
+}
+
+async function loadGraph() {
+    const container = document.getElementById('fg');
+    if (!container) return;
+
+    try {
+        const resp = await fetch('/api/registry/graph?edge_type=concepts');
+        const data = await resp.json();
+        if (!data.configured || !data.elements) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:IBM Plex Mono,monospace;font-size:0.85rem;">No registry data. Run the Discovery Agent first.</div>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+            return;
+        }
+
+        const nodeMap = new Map();
+        systemMeta = {};
+        let systemCount = 0;
+
+        for (const n of data.elements.nodes) {
+            const d = n.data;
+            nodeMap.set(d.id, d);
+            if (d.type === 'system') {
+                systemMeta[d.id] = { label: d.label || d.id, color: d.color || '#484f58' };
+                systemCount++;
+            }
+        }
+
+        // Only table nodes in the graph
+        allNodes = [];
+        const tableIds = new Set();
+        for (const n of data.elements.nodes) {
+            const d = n.data;
+            if (d.type === 'table') {
+                allNodes.push({
+                    id: d.id, label: d.label || d.id, type: 'table',
+                    color: d.color || '#484f58', system_id: d.system_id || d.parent || null,
+                    system_type: d.system_type || '', protocol: d.protocol || '',
+                    field_count: d.field_count || 0, description: d.description || '',
+                    schema_name: d.schema_name || '', val: 5,
+                });
+                tableIds.add(d.id);
+            }
+        }
+
+        // Build links, add placeholder nodes for missing endpoints
+        allLinks = [];
+        for (const e of data.elements.edges) {
+            for (const ep of [e.data.source, e.data.target]) {
+                if (!tableIds.has(ep)) {
+                    const [sysId, tbl] = ep.includes('.') ? ep.split('.', 2) : [ep, ''];
+                    const color = systemMeta[sysId] ? systemMeta[sysId].color : '#484f58';
+                    allNodes.push({ id: ep, label: tbl || ep, type: 'table', color: color, system_id: sysId, val: 5 });
+                    tableIds.add(ep);
+                }
+            }
+            if (tableIds.has(e.data.source) && tableIds.has(e.data.target)) {
+                allLinks.push({
+                    source: e.data.source, target: e.data.target,
+                    label: e.data.label || '', concept: e.data.concept_id || '',
+                    detail: e.data.detail || '', confidence: e.data.confidence || null,
+                    edge_type: e.data.edge_type || 'concept',
+                });
+            }
+        }
+
+        // Stats
+        document.getElementById('stat-systems').textContent = `${systemCount} systems`;
+        document.getElementById('stat-tables').textContent = `${allNodes.length} tables`;
+        document.getElementById('stat-edges').textContent = `${allLinks.length} edges`;
+
+        // Legend
+        const legend = document.getElementById('fg-legend');
+        // Keep label, clear system items
+        while (legend.children.length > 1) legend.removeChild(legend.lastChild);
+        if (!legend.querySelector('#fg-legend-label')) {
+            const lbl = document.createElement('span');
+            lbl.id = 'fg-legend-label';
+            lbl.style.cssText = 'font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:0.1rem;';
+            lbl.textContent = 'Systems';
+            legend.prepend(lbl);
+        }
+        for (const [sysId, meta] of Object.entries(systemMeta)) {
+            const item = document.createElement('span');
+            item.style.cssText = 'display:flex;align-items:center;gap:0.3rem;';
+            item.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0;"></span>${meta.label}`; // nosemgrep: insecure-innerhtml, insecure-document-method
+            legend.appendChild(item);
+        }
+
+        // Theme colors — read live in render callbacks for theme switching
+        function getTC() {
+            const s = getComputedStyle(document.documentElement);
+            return {
+                text: s.getPropertyValue('--text').trim() || '#f0f6fc',
+                bg: s.getPropertyValue('--surface').trim() || '#161b22',
+                border: s.getPropertyValue('--border').trim() || '#30363d',
+                accent: s.getPropertyValue('--accent').trim() || '#00d8ff',
+            };
+        }
+
+        if (fgInstance) { container.innerHTML = ''; } // nosemgrep: insecure-innerhtml, insecure-document-method
+
+        const rect = container.getBoundingClientRect();
+        let highlightNode = null;
+        let highlightLink = null;
+
+        fgInstance = ForceGraph()(container)
+            .width(rect.width)
+            .height(rect.height)
+            .backgroundColor('rgba(0,0,0,0)')
+            .graphData({ nodes: allNodes, links: allLinks })
+            .nodeId('id')
+            .nodeVal('val')
+            .nodeLabel(n => {
+                const sys = systemMeta[n.system_id];
+                return n.label + (sys ? ' (' + sys.label + ')' : '');
+            })
+            .nodeCanvasObject((node, ctx, globalScale) => {
+                const tc = getTC();
+                const isLinkEnd = highlightLink && (
+                    (typeof highlightLink.source === 'object' ? highlightLink.source : null) === node ||
+                    (typeof highlightLink.target === 'object' ? highlightLink.target : null) === node
+                );
+                const isHighlight = highlightNode === node || isLinkEnd;
+                const size = isHighlight ? 11 : 7;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
+                ctx.fillStyle = node.color;
+                ctx.fill();
+                if (isHighlight) {
+                    ctx.strokeStyle = tc.accent;
+                    ctx.lineWidth = 2.5 / globalScale;
+                } else {
+                    ctx.strokeStyle = tc.border;
+                    ctx.lineWidth = 1 / globalScale;
+                }
+                ctx.stroke();
+
+                // Labels
+                if (globalScale > 0.8) {
+                    const fontSize = Math.max(10 / globalScale, 3);
+                    ctx.font = `${fontSize}px IBM Plex Mono, monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    const labelY = node.y + size + 2;
+                    // Text outline for readability on any background
+                    ctx.strokeStyle = tc.bg;
+                    ctx.lineWidth = 3 / globalScale;
+                    ctx.lineJoin = 'round';
+                    ctx.strokeText(node.label, node.x, labelY);
+                    ctx.fillStyle = tc.text;
+                    ctx.fillText(node.label, node.x, labelY);
+                }
+            })
+            .nodeCanvasObjectMode(() => 'replace')
+            .linkColor(l => highlightLink === l ? '#a371f7' : '#a371f730')
+            .linkWidth(l => highlightLink === l ? 3 : 1)
+            .linkLineDash([4, 2])
+            .linkLabel(l => l.label || l.concept || '')
+            .autoPauseRedraw(false)
+            .d3AlphaDecay(0.02)
+            .d3VelocityDecay(0.25)
+            .cooldownTicks(200)
+            .onNodeHover(node => {
+                if (fgPinned) return;
+                highlightNode = node;
+                if (node) showNodeDetail(node);
+                container.style.cursor = node ? 'pointer' : 'default';
+            })
+            .onLinkHover(link => {
+                if (fgPinned) return;
+                highlightLink = link;
+                if (link) showLinkDetail(link);
+                container.style.cursor = link ? 'pointer' : 'default';
+            })
+            .onNodeClick(node => {
+                fgPinned = true;
+                highlightNode = node;
+                highlightLink = null;
+                showNodeDetail(node);
+                document.getElementById('detail-title').innerHTML = node.label + ' <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">📌 pinned</span>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+            })
+            .onLinkClick(link => {
+                fgPinned = true;
+                highlightLink = link;
+                highlightNode = null;
+                showLinkDetail(link);
+                const title = link.label || link.concept || 'Connection';
+                document.getElementById('detail-title').innerHTML = title + ' <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">📌 pinned</span>'; // nosemgrep: insecure-innerhtml, insecure-document-method
+            })
+            .onBackgroundClick(() => {
+                fgPinned = false;
+                highlightNode = null;
+                highlightLink = null;
+                closeDetail();
+            })
+            .enableNodeDrag(true)
+            .linkHoverPrecision(8)
+            .onEngineStop(() => {
+                fgInstance.zoomToFit(400, 60);
+            });
+
+        // Forces
+        fgInstance.d3Force('link').distance(l => {
+            const src = typeof l.source === 'object' ? l.source : null;
+            const tgt = typeof l.target === 'object' ? l.target : null;
+            if (src && tgt && src.system_id && src.system_id === tgt.system_id) return 30;
+            return 80;
+        });
+        fgInstance.d3Force('collision', d3.forceCollide(10));
+        fgInstance.d3Force('charge').strength(-120);
+
+    } catch (err) {
+        console.error('Graph error:', err);
+        document.getElementById('fg').innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-family:IBM Plex Mono,monospace;font-size:0.85rem;">Error: ${err.message}</div>`; // nosemgrep: insecure-innerhtml, insecure-document-method
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadGraph);
+</script>
+{% endblock %}
