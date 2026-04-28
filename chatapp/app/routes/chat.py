@@ -16,6 +16,7 @@ from app.auth.cognito import extract_user_id, TokenValidationError
 from app.auth.middleware import SESSION_COOKIE_NAME
 from app.agentcore.client import AgentCoreClient
 from app.config import get_config
+from app.admin.cost_calculator import DEFAULT_MODEL_ID
 from app.models.events import MessageEvent, MetadataEvent, ToolUseEvent, ToolResultEvent, GuardrailEvent
 from app.models.guardrail import GuardrailRecord
 from app.models.usage import UsageRecord, ToolUsageRecord
@@ -40,8 +41,8 @@ class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, description="User message")
     session_id: str = Field(..., min_length=1, description="Session ID")
     model_id: Optional[str] = Field(
-        default="global.anthropic.claude-sonnet-4-6",
-        description="Model identifier for LLM selection"
+        default=None,
+        description="Model identifier for LLM selection. Falls back to DEFAULT_MODEL_ID."
     )
     agent_mode: Optional[str] = Field(
         default="explorer",
@@ -125,7 +126,7 @@ async def _stream_chat_response(
     prompt: str,
     session_id: str,
     user_id: str,
-    model_id: str = "global.anthropic.claude-sonnet-4-6",
+    model_id: str = DEFAULT_MODEL_ID,
     user_email: str | None = None,
     agent_mode: str = "v1",
 ):
@@ -497,7 +498,7 @@ async def chat(request: Request, body: ChatRequest):
             prompt=body.prompt,
             session_id=body.session_id,
             user_id=user_id,
-            model_id=body.model_id,
+            model_id=body.model_id or DEFAULT_MODEL_ID,
             user_email=user_email,
             agent_mode=agent_mode,
         ),

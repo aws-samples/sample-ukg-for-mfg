@@ -2,27 +2,31 @@
  * Home page — Universal Knowledge Graph Control Panel
  * Loads systems, graph, vocabulary, and provides inline chat.
  *
- * Shares localStorage keys with /chat page:
- *   - agentcore-selected-model  (MODEL_SELECTION_KEY in chat.js)
- *   - undefined                 (AGENT_SELECTION_KEY in chat.js — bug, but we match it)
- *   - agentcore-session-id      (SESSION_KEY in chat.js)
+ * LocalStorage keys (shared across pages that use the chat API):
+ *   - agentcore-selected-model  (shared with discover.js)
+ *   - agentcore-session-id
  */
 
-// Same model list as chat.js AVAILABLE_MODELS
+// Model list is hydrated from /api/models into SHARED_MODELS/SHARED_DEFAULT_MODEL_ID
+// by utils.js at page load. Keep this alias for the small number of call
+// sites below that read the live array.
 const HOME_MODELS = SHARED_MODELS;
-const HOME_DEFAULT_MODEL = SHARED_DEFAULT_MODEL_ID;
-// Match chat.js localStorage keys exactly
+// LocalStorage keys (stable across deploys; shared with discover.js)
 const HOME_MODEL_KEY = 'agentcore-selected-model';
-const HOME_AGENT_KEY = undefined; // chat.js uses AGENT_SELECTION_KEY which is undefined
+const HOME_AGENT_KEY = undefined;
 const HOME_SESSION_KEY = 'agentcore-session-id';
 
 function getHomeModel() {
     var stored = localStorage.getItem(HOME_MODEL_KEY);
     if (stored) {
-        var m = HOME_MODELS.find(function(x) { return x.id === stored; });
+        var m = SHARED_MODELS.find(function(x) { return x.id === stored; });
         if (m) return m;
     }
-    return HOME_MODELS.find(function(x) { return x.id === HOME_DEFAULT_MODEL; }) || HOME_MODELS[0];
+    var defaultModel = SHARED_MODELS.find(function(x) { return x.id === SHARED_DEFAULT_MODEL_ID; });
+    if (defaultModel) return defaultModel;
+    // Hydration hasn't completed yet — return a stub so callers can still
+    // read .id. The server will substitute its own default if we send this.
+    return SHARED_MODELS[0] || { id: SHARED_DEFAULT_MODEL_ID, name: '' };
 }
 
 function setHomeModel(modelId) {
@@ -43,7 +47,10 @@ function setHomeAgent(agentId) {
     localStorage.setItem(HOME_AGENT_KEY, agentId);
 }
 
-function initHomeSelectors() {
+async function initHomeSelectors() {
+    // Model list is hydrated asynchronously from /api/models — wait for
+    // the hydrator before building the dropdown so the options are real.
+    if (window.modelsReady) { try { await window.modelsReady; } catch (_) {} }
     // Populate model selector
     var modelSel = document.getElementById('home-model-select');
     if (modelSel) {
@@ -1000,7 +1007,7 @@ async function sendHomeChat(event) {
 // escHtml — delegates to global escapeHTML from utils.js
 var escHtml = escapeHTML;
 
-/** Generate a UUID v4 session ID (matches chat.js format, 36 chars). */
+/** Generate a UUID v4 session ID (36 chars). */
 function homeGenerateSessionId() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         var r = Math.random() * 16 | 0;
@@ -1032,7 +1039,7 @@ function homeFinalizeMessage(el, msgId, content, userMsg, metadata) {
     thumbUp.style.cssText = 'background:none;border:none;cursor:pointer;font-size:0.85rem;opacity:0.5;padding:2px;transition:opacity 0.15s;';
     thumbUp.onmouseover = function(){ this.style.opacity='1'; };
     thumbUp.onmouseout = function(){ if(!this.dataset.selected) this.style.opacity='0.5'; };
-    thumbUp.onclick = function(){ homeSubmitFeedback(msgId, 'positive', null); homeMarkFeedback(fbWrap, 'positive'); };
+    thumbUp.onclick = function(){ homeSubmitFeedback(msgId, 'positive', null, false, false); homeMarkFeedback(fbWrap, 'positive', msgId); };
 
     var thumbDown = document.createElement('button');
     thumbDown.innerHTML = '&#x1F44E;'; // nosemgrep: insecure-innerhtml, insecure-document-method
@@ -1090,17 +1097,65 @@ function homeFinalizeMessage(el, msgId, content, userMsg, metadata) {
     homeFeedbackStore.set(msgId, { userMessage: userMsg, assistantResponse: content });
 }
 
-function homeMarkFeedback(fbWrap, sentiment) {
+function homeMarkFeedback(fbWrap, sentiment, msgId) {
     var btns = fbWrap.querySelectorAll('button');
     btns.forEach(function(b){ b.style.opacity = '0.3'; b.style.pointerEvents = 'none'; b.dataset.selected = ''; });
     var idx = sentiment === 'positive' ? 0 : 1;
     if (btns[idx]) { btns[idx].style.opacity = '1'; btns[idx].dataset.selected = '1'; }
+    // Offer a deliberate second step after a thumbs-up: save to the KB so
+    // the agent can surface this Q/A as a worked example for similar
+    // future questions. One-shot — posts is_validated=true on click.
+    if (sentiment === 'positive' && msgId) {
+        homeRenderSaveToKBPill(fbWrap, msgId);
+    }
 }
 
-function homeSubmitFeedback(msgId, sentiment, comment, isCorrection) {
+function homeRenderSaveToKBPill(fbWrap, msgId) {
+    if (!fbWrap || fbWrap.querySelector('.home-save-to-kb-pill')) return;
+    var pill = document.createElement('button');
+    pill.className = 'home-save-to-kb-pill';
+    pill.type = 'button';
+    pill.title = 'Teach the agent by saving this answer to the knowledge base';
+    pill.textContent = '+ Save to knowledge base';
+    pill.style.cssText = 'margin-left:0.4rem;padding:0.1rem 0.55rem;border:1px solid var(--border);border-radius:999px;background:var(--surface2);color:var(--muted);font-size:0.68rem;cursor:pointer;transition:background 0.15s,color 0.15s;pointer-events:auto;opacity:1;';
+    pill.onmouseover = function(){ if(!this.disabled) this.style.background = 'var(--surface3)'; };
+    pill.onmouseout = function(){ if(!this.disabled) this.style.background = 'var(--surface2)'; };
+    pill.onclick = function(){ homeSaveToKB(msgId, pill); };
+    fbWrap.appendChild(pill);
+}
+
+async function homeSaveToKB(msgId, pill) {
+    var ctx = homeFeedbackStore.get(msgId) || {};
+    if (pill) {
+        pill.disabled = true;
+        pill.textContent = 'Saving\u2026';
+        pill.style.cursor = 'wait';
+    }
+    var ok = await homeSubmitFeedback(msgId, 'positive', null, false, true);
+    if (!pill) return;
+    if (ok && ok.validated_answer_stored) {
+        pill.textContent = '\u2713 Saved to knowledge base';
+        pill.style.color = 'var(--green, #16a34a)';
+        pill.style.cursor = 'default';
+        pill.onmouseover = null;
+        pill.onmouseout = null;
+        pill.onclick = null;
+    } else if (ok) {
+        // Logged to DynamoDB but KB write was skipped (e.g. KB not configured)
+        pill.textContent = '\u2713 Recorded';
+        pill.style.cursor = 'default';
+        pill.onclick = null;
+    } else {
+        pill.textContent = 'Save failed \u2014 retry';
+        pill.disabled = false;
+        pill.style.cursor = 'pointer';
+    }
+}
+
+function homeSubmitFeedback(msgId, sentiment, comment, isCorrection, isValidated) {
     var ctx = homeFeedbackStore.get(msgId) || {};
     var sessionId = localStorage.getItem(HOME_SESSION_KEY) || '';
-    fetch('/api/feedback', {
+    return fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1111,9 +1166,13 @@ function homeSubmitFeedback(msgId, sentiment, comment, isCorrection) {
             tools_used: [],
             sentiment: sentiment,
             user_comment: comment,
-            is_correction: !!isCorrection
+            is_correction: !!isCorrection,
+            is_validated: !!isValidated
         })
-    }).catch(function(e){ console.error('Feedback error:', e); });
+    }).then(function(resp){
+        if (!resp.ok) return null;
+        return resp.json().catch(function(){ return {}; });
+    }).catch(function(e){ console.error('Feedback error:', e); return null; });
 }
 
 function homeShowFeedbackModal(msgId, fbWrap) {
@@ -1141,8 +1200,8 @@ function homeShowFeedbackModal(msgId, fbWrap) {
     function _submit(isCorrection){
         var comment = (document.getElementById('home-fb-comment').value || '').trim();
         modal.remove();
-        homeSubmitFeedback(msgId, 'negative', comment || null, isCorrection);
-        homeMarkFeedback(fbWrap, 'negative');
+        homeSubmitFeedback(msgId, 'negative', comment || null, isCorrection, false);
+        homeMarkFeedback(fbWrap, 'negative', msgId);
     }
     document.getElementById('home-fb-submit-comment').onclick = function(){ _submit(false); };
     document.getElementById('home-fb-submit-correction').onclick = function(){ _submit(true); };
@@ -1162,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================================================
-// Memory Tab (mirrors sidebar.html from /chat page)
+// Memory Tab (mirrors the memory sidebar component)
 // ============================================================================
 
 var homeMemoryTab = 'events';

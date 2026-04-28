@@ -6,17 +6,11 @@
 let discStreaming = false;
 let discLastMetadata = null;
 const DISC_SESSION_KEY = 'disc-session-id';
-const DISC_MODEL_KEY = 'agentcore-selected-model'; // shared with chat/home
+const DISC_MODEL_KEY = 'agentcore-selected-model'; // shared with home.js
 
-// Same model list as home.js / chat.js
-const DISC_MODELS = [
-    { id: "global.anthropic.claude-opus-4-6-v1", name: "Claude Opus 4.6" },
-    { id: "global.anthropic.claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
-    { id: "global.anthropic.claude-opus-4-5-20251101-v1:0", name: "Claude Opus 4.5" },
-    { id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5" },
-    { id: "global.anthropic.claude-haiku-4-5-20251001-v1:0", name: "Claude Haiku 4.5" },
-];
-const DISC_DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-6";
+// Model list is hydrated from /api/models into SHARED_MODELS by utils.js.
+// Aliases keep existing call sites below readable.
+const DISC_MODELS = SHARED_MODELS;
 
 function discGetModel() {
     var stored = localStorage.getItem(DISC_MODEL_KEY);
@@ -24,14 +18,16 @@ function discGetModel() {
         var m = DISC_MODELS.find(function(x) { return x.id === stored; });
         if (m) return m.id;
     }
-    return DISC_DEFAULT_MODEL;
+    return SHARED_DEFAULT_MODEL_ID;
 }
 
 function discSetModel(modelId) {
     localStorage.setItem(DISC_MODEL_KEY, modelId);
 }
 
-function discInitModelSelector() {
+async function discInitModelSelector() {
+    // Wait for /api/models to hydrate before populating the dropdown
+    if (window.modelsReady) { try { await window.modelsReady; } catch (_) {} }
     var sel = document.getElementById('disc-model-select');
     if (!sel) return;
     var current = discGetModel();

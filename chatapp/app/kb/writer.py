@@ -5,10 +5,12 @@ markdown file under ``documents/learned/...`` in the Bedrock KB source bucket
 and flip the DynamoDB dirty flag so the scheduled ingestion tick picks up
 the change within ~5 minutes.
 
-Currently exposes just one writer — ``write_gotcha_from_feedback`` — invoked
-from the feedback route when a user marks their negative feedback as a
-correction. Future writers (validated answers, etc.) can share the helpers
-here.
+Exposes two writers, both invoked from the feedback route:
+
+* ``write_gotcha_from_feedback`` — negative feedback flagged as a correction.
+  The user is telling us the agent was wrong, so capture the right answer.
+* ``write_validated_answer`` — positive feedback flagged as validated, so
+  future similar questions can surface this Q/A pair as a worked example.
 """
 
 from __future__ import annotations
@@ -186,4 +188,120 @@ def write_gotcha_from_feedback(
 
     _mark_kb_dirty(sync_table)
     logger.info("Stored gotcha memory at s3://%s/%s", bucket, key)
+    return key
+
+
+# =============================================================================
+# Validated-answer writer (Pattern #2)
+# =============================================================================
+
+
+def _render_validated_answer_markdown(
+    *,
+    user_question: str,
+    agent_answer: str,
+    tools_used: List[str],
+    session_id: str,
+    user_id: str,
+    tags: Optional[List[str]],
+    created_at: str,
+    feedback_id: str,
+    question_fingerprint: str,
+) -> str:
+    """Build the markdown body with YAML front-matter for a validated Q/A.
+
+    The tool list is preserved so the Explorer can surface which systems
+    were queried to arrive at this answer — that context is often what
+    makes a future similar question tractable.
+    """
+    tag_list = list(tags or [])
+    tag_list.append("validated-answer")
+    front = [
+        "---",
+        "category: validated-answer",
+        f"feedback_id: {feedback_id}",
+        f"question_fingerprint: {question_fingerprint}",
+        f"session_id: {session_id}",
+        f"user_id: {user_id}",
+        f"created_at: {created_at}",
+        f"tools_used: [{', '.join(tools_used or [])}]",
+        f"tags: [{', '.join(sorted(set(tag_list)))}]",
+        "---",
+    ]
+    body = [
+        "# Validated Answer",
+        "",
+        "## Question",
+        user_question.strip(),
+        "",
+        "## Answer",
+        agent_answer.strip(),
+        "",
+    ]
+    if tools_used:
+        body.extend(["## Tools used", ", ".join(tools_used), ""])
+    return "\n".join(front) + "\n\n" + "\n".join(body) + "\n"
+
+
+def write_validated_answer(
+    *,
+    feedback_id: str,
+    user_id: str,
+    session_id: str,
+    user_question: str,
+    agent_answer: str,
+    tools_used: Optional[List[str]] = None,
+) -> Optional[str]:
+    """Persist a thumbs-up Q/A pair as a validated answer in the KB.
+
+    Returns the S3 key on success, or ``None`` if the KB is not configured
+    or the write failed. Never raises — feedback submission must not break
+    on a KB hiccup.
+
+    Key shape: ``documents/learned/answers/{question_fingerprint}.md``.
+
+    Keying on the question fingerprint (not the feedback id) means repeated
+    endorsements of the same question normalize into a single document
+    — the newest validated answer wins, and we don't accumulate duplicates
+    that would bloat the KB and dilute vector-search relevance.
+    """
+    bucket = os.getenv("KB_SOURCE_BUCKET")
+    sync_table = os.getenv("KB_SYNC_STATE_TABLE_NAME")
+    if not bucket or not sync_table:
+        logger.debug(
+            "KB writer skipped: KB_SOURCE_BUCKET=%r KB_SYNC_STATE_TABLE_NAME=%r",
+            bool(bucket),
+            bool(sync_table),
+        )
+        return None
+
+    tools_list = list(tools_used or [])
+    question_fingerprint = _fingerprint(user_question)
+    tags = _extract_system_id_tags(user_question) + _extract_system_id_tags(agent_answer)
+    key = f"documents/learned/answers/{question_fingerprint}.md"
+    body = _render_validated_answer_markdown(
+        user_question=user_question,
+        agent_answer=agent_answer,
+        tools_used=tools_list,
+        session_id=session_id,
+        user_id=user_id,
+        tags=tags,
+        created_at=_now_iso(),
+        feedback_id=feedback_id,
+        question_fingerprint=question_fingerprint,
+    )
+
+    try:
+        _s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=body.encode("utf-8"),
+            ContentType="text/markdown; charset=utf-8",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("validated-answer KB write failed: %s", e, exc_info=True)
+        return None
+
+    _mark_kb_dirty(sync_table)
+    logger.info("Stored validated answer at s3://%s/%s", bucket, key)
     return key

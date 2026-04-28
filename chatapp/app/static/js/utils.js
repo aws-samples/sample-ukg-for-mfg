@@ -45,18 +45,51 @@ function escapeAttr(str) {
 }
 
 // ============================================================================
-// Shared Model List — single source of truth for all pages
+// Shared Model List — hydrated from /api/models at page load
 // ============================================================================
+//
+// The server-side cost_calculator.MODELS is the single source of truth for
+// model ids, display names, and pricing. The frontend fetches it once at
+// script load so dropdowns never drift from the Python registry.
+//
+// Consumers that need the list synchronously can either:
+//   * read `SHARED_MODELS` (empty until hydration completes, then populated),
+//   * or await `window.modelsReady` (preferred for code that runs early).
 
-var SHARED_MODELS = [
-    { id: "global.anthropic.claude-opus-4-6-v1", name: "Claude Opus 4.6", description: "IN [$5.00] - OUT [$25.00]" },
-    { id: "global.anthropic.claude-sonnet-4-6", name: "Claude Sonnet 4.6", description: "IN [$3.00] - OUT [$15.00]" },
-    { id: "global.anthropic.claude-opus-4-5-20251101-v1:0", name: "Claude Opus 4.5", description: "IN [$5.00] - OUT [$25.00]" },
-    { id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5", description: "IN [$3.00] - OUT [$15.00]" },
-    { id: "global.anthropic.claude-haiku-4-5-20251001-v1:0", name: "Claude Haiku 4.5", description: "IN [$1.00] - OUT [$5.00]" },
-];
+var SHARED_MODELS = [];
+var SHARED_DEFAULT_MODEL_ID = "";
+// Historical alias — workflows use the same default, keep both names so
+// existing callers don't break.
+var SHARED_DEFAULT_RUNTIME_MODEL = "";
 
-var SHARED_DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6";
+/**
+ * Fetch the canonical model list from the server.
+ * Populates the module-level caches and resolves `window.modelsReady`.
+ * If the fetch fails (offline, logged out, etc.) we leave the caches empty
+ * — callers should treat an empty list as "no selection available" and
+ * fall back to the server-side default by omitting model_id from the
+ * request payload.
+ */
+window.modelsReady = (async function hydrateModels() {
+    try {
+        var resp = await fetch('/api/models', { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        if (Array.isArray(data.models)) {
+            // Mutate in place so aliases like `HOME_MODELS = SHARED_MODELS`
+            // observe the hydrated entries without needing re-assignment.
+            SHARED_MODELS.length = 0;
+            Array.prototype.push.apply(SHARED_MODELS, data.models);
+        }
+        if (typeof data.default_model_id === 'string') {
+            SHARED_DEFAULT_MODEL_ID = data.default_model_id;
+            SHARED_DEFAULT_RUNTIME_MODEL = data.default_model_id;
+        }
+    } catch (err) {
+        console.warn('Failed to hydrate model list from /api/models:', err);
+    }
+    return { models: SHARED_MODELS, defaultId: SHARED_DEFAULT_MODEL_ID };
+})();
 
 /** Build <option> HTML for a model <select>. includeBlank adds an empty first option. */
 function buildModelOptions(selectedId, includeBlank) {
@@ -76,8 +109,6 @@ function getModelName(modelId) {
 }
 
 /** Get display label for a workflow's model. Shows "(default)" if none was explicitly set. */
-var SHARED_DEFAULT_RUNTIME_MODEL = "global.anthropic.claude-sonnet-4-6";
-
 function getWorkflowModelLabel(modelId) {
     if (modelId) return getModelName(modelId);
     return getModelName(SHARED_DEFAULT_RUNTIME_MODEL) + ' (default)';

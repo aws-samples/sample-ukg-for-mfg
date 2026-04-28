@@ -56,6 +56,8 @@ export interface AppConfig {
   kbName: string;
   /** Knowledge Base source bucket name */
   kbSourceBucketName: string;
+  /** Default Bedrock model id (injected as DEFAULT_MODEL_ID into runtimes) */
+  defaultModelId: string;
 
   // Secrets configuration
   /** Secrets Manager secret name */
@@ -173,6 +175,10 @@ export const config: AppConfig = {
   guardrailName: getEnvOrDefault('GUARDRAIL_NAME', `${appName}-guardrail`),
   kbName: getEnvOrDefault('KB_NAME', `${appName}-kb`),
   kbSourceBucketName: getEnvOrDefault('KB_SOURCE_BUCKET_NAME', `${appName}-kb-source`),
+  // Default Bedrock model id. Override via DEFAULT_MODEL_ID env var at synth
+  // time. Agents and chatapp runtime both read this via env so changing a
+  // model is a single-deploy-time knob.
+  defaultModelId: getEnvOrDefault('DEFAULT_MODEL_ID', 'global.anthropic.claude-sonnet-4-6'),
 
   // Secrets configuration
   secretName: getEnvOrDefault('SECRET_NAME', `${appName}/appconfig`),

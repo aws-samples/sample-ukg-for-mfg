@@ -93,8 +93,8 @@ class TestHealthEndpoint:
 class TestRootRedirect:
     """Tests for root endpoint redirect."""
 
-    def test_root_redirects_to_chat(self):
-        """Test that root endpoint redirects to /chat."""
+    def test_root_redirects_to_home(self):
+        """Test that root endpoint redirects to /home."""
         with patch("app.config.get_config") as mock_config:
             mock_config.return_value = MagicMock(
                 cognito_user_pool_id="test-pool",

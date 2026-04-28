@@ -121,8 +121,14 @@ async def analyze_schema(namespace: str = None) -> AsyncIterator:
     }, default=str)
 
     # Create a sub-agent with its own clean context
+    # Defaults cascade: ANALYSIS_MODEL_ID → DEFAULT_MODEL_ID → hardcoded literal.
+    _model_id = (
+        os.getenv("ANALYSIS_MODEL_ID")
+        or os.getenv("DEFAULT_MODEL_ID")
+        or "global.anthropic.claude-sonnet-4-6"
+    )
     sub_model = BedrockModel(
-        model_id=os.getenv("ANALYSIS_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
+        model_id=_model_id,
         max_tokens=32000,
     )
 
@@ -362,8 +368,13 @@ async def correlate_fields(namespace: str = None) -> AsyncIterator:
         }, default=str)
 
         # Invoke sub-agent
+        _corr_model_id = (
+            os.getenv("ANALYSIS_MODEL_ID")
+            or os.getenv("DEFAULT_MODEL_ID")
+            or "global.anthropic.claude-sonnet-4-6"
+        )
         sub_model = BedrockModel(
-            model_id=os.getenv("ANALYSIS_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
+            model_id=_corr_model_id,
             max_tokens=16000,
         )
         sub_agent = Agent(model=sub_model, system_prompt=_CORRELATE_PROMPT, callback_handler=None)

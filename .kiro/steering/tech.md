@@ -5,7 +5,7 @@
 **Framework**: Strands Agents with Bedrock AgentCore SDK
 **Runtime**: Python 3.11+
 **Dependencies**: `bedrock-agentcore`, `strands-agents`
-**Model**: `global.anthropic.claude-4-6-sonnet`
+**Default Model**: `global.anthropic.claude-sonnet-4-6` (override via `DEFAULT_MODEL_ID` env var; canonical registry lives in `chatapp/app/admin/cost_calculator.py::MODELS` and is served to frontends via `GET /api/models`)
 
 ### Configuration
 - Environment variables via `.env` file (gitignored)
@@ -110,7 +110,7 @@ Supports multi-region deployment in the same AWS account.
 - Configuration from environment variables
 - Error handling with detailed logging
 
-### JavaScript (chat.js)
+### JavaScript (home.js, discover.js)
 - ES6+ syntax
 - JSDoc comments for functions
 - camelCase for functions/variables

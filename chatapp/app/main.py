@@ -34,6 +34,7 @@ from app.routes.registry import router as registry_router
 from app.routes.ukg import ukg_router
 from app.routes.registry_graph import admin_router as graph_admin_router, api_router as graph_api_router
 from app.routes.workflows import router as workflows_router
+from app.routes.models import router as models_router
 
 # Set up paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -164,6 +165,7 @@ app.include_router(ukg_router)
 app.include_router(graph_admin_router)
 app.include_router(graph_api_router)
 app.include_router(workflows_router)
+app.include_router(models_router)
 from app.routes.workflows import admin_router as workflows_admin_router
 from app.routes.workflows import pages_router as workflows_pages_router
 app.include_router(workflows_admin_router)
@@ -240,38 +242,3 @@ async def discover_page(request: Request):
         }
     )
 
-
-@app.get("/chat", response_class=HTMLResponse)
-async def chat_page(request: Request):
-    """Chat page - requires authentication (handled by middleware).
-    
-    Renders the main chat interface with HTMX.
-    """
-    # Get user info from request state (set by auth middleware)
-    user = getattr(request.state, "user", None)
-    user_email = user.email if user else None
-    is_admin = getattr(request.state, "is_admin", False)
-    
-    # Load app settings for server-side rendering
-    from app.helpers import get_app_settings
-    app_settings = await get_app_settings()
-    
-    # Determine available agents for the agent selector
-    config = get_config()
-    available_agents = []
-    if config.explorer_runtime_arn:
-        available_agents.append({"id": "explorer", "name": "Data Explorer", "description": "Dynamic Data Exploration"})
-    if config.discovery_runtime_arn and is_admin:
-        available_agents.append({"id": "discovery", "name": "Discovery", "description": "Systems Discovery & Correlation"})
-    # Fallback: if no V2 runtimes configured, show nothing (v1 still works as default)
-    
-    return templates.TemplateResponse(
-        "chat.html",
-        {
-            "request": request,
-            "user_email": user_email,
-            "is_admin": is_admin,
-            "available_agents": available_agents,
-            **app_settings,
-        }
-    )

@@ -76,12 +76,13 @@ chatapp/
 │   │   └── manager.py           # Session management
 │   ├── static/
 │   │   ├── js/
-│   │   │   ├── chat.js          # SSE streaming, session mgmt, UI logic
+│   │   │   ├── home.js          # Home page SSE streaming, session mgmt, UI logic
+│   │   │   ├── discover.js      # Discovery agent UI
 │   │   │   └── admin-utils.js   # Admin dashboard utilities
 │   │   └── favicon.svg
 │   └── templates/
 │       ├── base.html            # Base layout with Tailwind CDN, CSS variables
-│       ├── chat.html            # Main chat page
+│       ├── home.html            # Home page with inline chat
 │       ├── login.html           # Login form
 │       ├── components/
 │       │   ├── sidebar.html     # Memory viewer with theme toggle
@@ -108,7 +109,7 @@ chatapp/
 
 **Key Files**:
 - `app/main.py`: FastAPI app with routes and middleware
-- `app/static/js/chat.js`: SSE streaming, message rendering, session management
+- `app/static/js/home.js`: Home page SSE streaming, message rendering, session management
 - `app/templates/components/sidebar.html`: Memory viewer with light/dark theme
 - `app/auth/cognito.py`: Direct Cognito authentication (no hosted UI)
 - `app/routes/chat.py`: SSE streaming endpoint proxying to AgentCore

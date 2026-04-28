@@ -15,6 +15,7 @@ import boto3
 from botocore.config import Config
 
 from app.config import get_config
+from app.admin.cost_calculator import DEFAULT_MODEL_ID
 from app.models.events import (
     SSEEvent,
     MessageEvent,
@@ -351,7 +352,7 @@ class AgentCoreClient:
         prompt: str,
         session_id: str,
         user_id: str,
-        model_id: str = "global.anthropic.claude-sonnet-4-6",
+        model_id: str = DEFAULT_MODEL_ID,
     ) -> AsyncGenerator[SSEEvent, None]:
         """Invoke AgentCore Runtime and stream the response.
         

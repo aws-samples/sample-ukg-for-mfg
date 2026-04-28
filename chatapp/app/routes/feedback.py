@@ -17,7 +17,7 @@ from app.models.feedback import FeedbackRecord, FeedbackSubmission, FeedbackStat
 from app.storage.feedback import FeedbackStorageService
 from app.admin.feedback_repository import FeedbackRepository
 from app.auth.cognito import get_user_emails_by_ids
-from app.kb import write_gotcha_from_feedback
+from app.kb import write_gotcha_from_feedback, write_validated_answer
 from app.templates_config import templates
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,14 @@ class FeedbackRequest(BaseModel):
         description=(
             "If true (and sentiment is negative), persist the comment to the "
             "Bedrock KB as a gotcha so the agent learns from it next time."
+        ),
+    )
+    is_validated: bool = Field(
+        default=False,
+        description=(
+            "If true (and sentiment is positive), persist the Q/A pair to the "
+            "Bedrock KB as a validated answer so the agent can surface it as a "
+            "worked example for similar future questions."
         ),
     )
     
@@ -138,6 +146,20 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
             user_correction=body.user_comment.strip(),
         )
 
+    # Symmetric path for positive feedback: if the user endorsed this Q/A
+    # as a validated answer, persist it so similar future questions can
+    # surface it as a worked example. Same failure-isolation semantics.
+    validated_answer_key: Optional[str] = None
+    if body.sentiment == "positive" and body.is_validated:
+        validated_answer_key = write_validated_answer(
+            feedback_id=body.message_id,
+            user_id=user_id,
+            session_id=body.session_id,
+            user_question=body.user_message,
+            agent_answer=body.assistant_response,
+            tools_used=body.tools_used,
+        )
+
     logger.info(
         "Feedback submitted",
         extra={
@@ -146,7 +168,9 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
             "message_id": body.message_id,
             "sentiment": body.sentiment,
             "is_correction": body.is_correction,
+            "is_validated": body.is_validated,
             "gotcha_key": gotcha_key,
+            "validated_answer_key": validated_answer_key,
         },
     )
 
@@ -158,6 +182,7 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> JSONRespon
             "message_id": body.message_id,
             "sentiment": body.sentiment,
             "gotcha_stored": bool(gotcha_key),
+            "validated_answer_stored": bool(validated_answer_key),
         },
     )
 

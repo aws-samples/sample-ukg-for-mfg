@@ -662,6 +662,10 @@ def handler(event, context):
             name: 'LOG_LEVEL',
             value: 'INFO',
           },
+          {
+            name: 'DEFAULT_MODEL_ID',
+            value: config.defaultModelId,
+          },
         ],
       },
     });
@@ -965,6 +969,7 @@ def handler(event, context):
         'LOG_LEVEL': 'INFO',
         'AWS_LWA_INVOKE_MODE': 'response_stream',  // Enable SSE streaming
         'AWS_LWA_PORT': '8080',
+        'DEFAULT_MODEL_ID': config.defaultModelId,
       },
     });
     

@@ -36,7 +36,7 @@ from tools.remember import remember_discovery
 from strands.tools.mcp import MCPClient
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 
-DISCOVERY_MODEL = "global.anthropic.claude-sonnet-4-6"
+DISCOVERY_MODEL = os.getenv("DEFAULT_MODEL_ID", "global.anthropic.claude-sonnet-4-6")
 
 
 def _render_progress(payload: dict) -> str | None:

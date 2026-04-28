@@ -614,8 +614,13 @@ async def query_system(system_id: str, query: str, limit: int = 100) -> AsyncIte
         from strands import Agent
         from strands.models import BedrockModel
 
+        _analyst_model_id = (
+            os.getenv("QUERY_ANALYST_MODEL_ID")
+            or os.getenv("DEFAULT_MODEL_ID")
+            or "global.anthropic.claude-sonnet-4-6"
+        )
         sub_model = BedrockModel(
-            model_id=os.getenv("QUERY_ANALYST_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
+            model_id=_analyst_model_id,
             max_tokens=2000,
         )
         sub_agent = Agent(

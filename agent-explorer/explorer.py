@@ -6,10 +6,11 @@ at runtime. Newly registered systems are immediately queryable without code chan
 
 import os
 
-EXPLORER_MODEL = os.getenv(
-    "EXPLORER_MODEL_ID",
-    "global.anthropic.claude-sonnet-4-6",
-)
+# Default model id. CDK injects DEFAULT_MODEL_ID into the runtime; the
+# literal fallback keeps `agentcore run` working in local dev.
+_DEFAULT_MODEL_ID = os.getenv("DEFAULT_MODEL_ID", "global.anthropic.claude-sonnet-4-6")
+
+EXPLORER_MODEL = os.getenv("EXPLORER_MODEL_ID", _DEFAULT_MODEL_ID)
 
 EXPLORER_PROMPT = """You are the Universal Knowledge Graph Data Explorer Agent for a global manufacturer.
 

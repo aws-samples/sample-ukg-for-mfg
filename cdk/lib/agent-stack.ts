@@ -1254,6 +1254,7 @@ def handler(event, context):
         GUARDRAIL_ID: guardrailId,
         KB_ID: knowledgeBaseId,
         LOG_LEVEL: 'INFO',
+        DEFAULT_MODEL_ID: config.defaultModelId,
       },
       tags: {
         Application: config.appName,
@@ -1366,6 +1367,7 @@ def handler(event, context):
         KB_SOURCE_BUCKET: `${config.appName}-kb-${this.account}-${this.region}`,
         KB_SYNC_STATE_TABLE: kbSyncStateTableName,
         LOG_LEVEL: 'INFO',
+        DEFAULT_MODEL_ID: config.defaultModelId,
       },
       tags: {
         Application: config.appName,

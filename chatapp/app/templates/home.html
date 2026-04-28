@@ -34,7 +34,6 @@
                         <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                         New
                     </button>
-                    <!-- <a href="/chat" class="home-panel-link">Full Chat →</a> -->
                 </div>
             </div>
             <div class="home-panel-body home-chat-body">
@@ -1200,7 +1199,7 @@
 <script src="https://unpkg.com/d3-force@3"></script>
 <script src="https://unpkg.com/force-graph"></script>
 <script>
-    // Pass available agents from server (same as chat.html)
+    // Pass available agents from server
     window.homeAvailableAgents = {{ available_agents|tojson if available_agents is defined else '[]' }};
 </script>
 {% include "components/system_explorer.html" %}
