@@ -1,4 +1,4 @@
-# Manufacturing Universal Knowledge Graph — Agentic Data Explorer
+# Sample Universal Knowledge Graph for Manufacturing
 
 A multi-agent AI application that unifies manufacturing data across ERP, MES, CMMS, PLM, and IoT systems through autonomous data discovery, a dynamic system registry, and natural language exploration. Built with Amazon Bedrock AgentCore, Strands Agents SDK, and FastAPI.
 
