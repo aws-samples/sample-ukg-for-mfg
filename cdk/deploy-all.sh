@@ -210,48 +210,125 @@ else
 fi
 
 # ============================================================================
-# STEP 2c: Enable X-Ray trace segment destination for CloudWatch Logs
+# STEP 2c: Enable CloudWatch Transaction Search
 # ============================================================================
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}Step 2c: Enable X-Ray CloudWatch Logs trace destination${NC}"
+echo -e "${BLUE}Step 2c: Enable CloudWatch Transaction Search${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-# Required before creating AWS::Logs::Delivery resources with XRAY destination type.
-# Without this, new regions fail with "Please enable the CloudWatch Logs destination
-# for your traces using the UpdateTraceSegmentDestination API".
+# CloudWatch Transaction Search routes X-Ray spans into CloudWatch Logs
+# (log groups aws/spans and /aws/application-signals/data). It must be
+# enabled before the Agent stack can create AWS::Logs::Delivery resources
+# with the XRAY destination type. AWS's documented API enablement has two
+# steps (see "Enabling Transaction Search using an API" in the CloudWatch
+# docs):
+#   1. logs:PutResourcePolicy granting xray.amazonaws.com permission to
+#      PutLogEvents into the aws/spans and /aws/application-signals/data
+#      log groups.
+#   2. xray:UpdateTraceSegmentDestination --destination CloudWatchLogs.
+#
+# In a fresh region, Step 2 returns a misleading AccessDenied / "An
+# unknown error occurred" if Step 1 hasn't been run, even when the caller
+# has admin IAM. This script performs both, idempotently, and skips the
+# work if Transaction Search is already ACTIVE on CloudWatchLogs.
 if [ "$DRY_RUN" != true ]; then
-    echo -e "${YELLOW}Enabling X-Ray CloudWatch Logs trace destination...${NC}"
-    XRAY_OUTPUT=$(aws xray update-trace-segment-destination --destination CloudWatchLogs --region "$AWS_REGION" 2>&1) && \
-        echo -e "${GREEN}X-Ray trace segment destination update requested${NC}" || \
-        echo -e "${YELLOW}Warning: X-Ray update returned: $XRAY_OUTPUT${NC}"
-    
-    # Wait for the destination to become ACTIVE (can take 1-3 minutes in new regions)
-    echo -e "${YELLOW}Waiting for X-Ray trace destination to become ACTIVE...${NC}"
-    for i in {1..30}; do
-        XRAY_STATE=$(aws xray get-trace-segment-destination --region "$AWS_REGION" --query '[Destination,Status]' --output text 2>/dev/null || echo "UNKNOWN UNKNOWN")
-        XRAY_DEST=$(echo "$XRAY_STATE" | awk '{print $1}')
-        XRAY_STATUS=$(echo "$XRAY_STATE" | awk '{print $2}')
-        if [ "$XRAY_DEST" = "CloudWatchLogs" ] && [ "$XRAY_STATUS" = "ACTIVE" ]; then
-            echo -e "${GREEN}X-Ray trace destination is ACTIVE on CloudWatchLogs${NC}"
-            break
+    # Short-circuit if already enabled in this region.
+    CURRENT_XRAY_STATE=$(aws xray get-trace-segment-destination \
+        --region "$AWS_REGION" \
+        --query '[Destination,Status]' \
+        --output text 2>/dev/null || echo "UNKNOWN UNKNOWN")
+    CURRENT_XRAY_DEST=$(echo "$CURRENT_XRAY_STATE" | awk '{print $1}')
+    CURRENT_XRAY_STATUS=$(echo "$CURRENT_XRAY_STATE" | awk '{print $2}')
+
+    if [ "$CURRENT_XRAY_DEST" = "CloudWatchLogs" ] && [ "$CURRENT_XRAY_STATUS" = "ACTIVE" ]; then
+        echo -e "${GREEN}CloudWatch Transaction Search already enabled (destination=CloudWatchLogs, status=ACTIVE). Skipping.${NC}"
+    else
+        # ------------------------------------------------------------------
+        # Step 1: CloudWatch Logs resource policy granting xray.amazonaws.com
+        # permission to PutLogEvents into the Transaction Search log groups.
+        # ------------------------------------------------------------------
+        echo -e "${YELLOW}Putting CloudWatch Logs resource policy AgentCoreTracingPolicy (xray.amazonaws.com -> logs:PutLogEvents)...${NC}"
+        XRAY_LOGS_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TransactionSearchXRayAccess",
+      "Effect": "Allow",
+      "Principal": { "Service": "xray.amazonaws.com" },
+      "Action": "logs:PutLogEvents",
+      "Resource": [
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:aws/spans:*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws/application-signals/data:*"
+      ],
+      "Condition": {
+        "ArnLike": { "aws:SourceArn": "arn:aws:xray:${AWS_REGION}:${AWS_ACCOUNT_ID}:*" },
+        "StringEquals": { "aws:SourceAccount": "${AWS_ACCOUNT_ID}" }
+      }
+    }
+  ]
+}
+EOF
+)
+        LOGS_POLICY_OUTPUT=$(aws logs put-resource-policy \
+            --region "$AWS_REGION" \
+            --policy-name AgentCoreTracingPolicy \
+            --policy-document "$XRAY_LOGS_POLICY" 2>&1) && \
+            echo -e "${GREEN}CloudWatch Logs resource policy AgentCoreTracingPolicy is in place${NC}" || \
+            echo -e "${YELLOW}Warning: put-resource-policy returned: $LOGS_POLICY_OUTPUT${NC}"
+
+        # ------------------------------------------------------------------
+        # Step 2: Switch X-Ray trace segment destination to CloudWatchLogs.
+        # ------------------------------------------------------------------
+        echo -e "${YELLOW}Setting X-Ray trace segment destination to CloudWatchLogs...${NC}"
+        XRAY_OUTPUT=$(aws xray update-trace-segment-destination --destination CloudWatchLogs --region "$AWS_REGION" 2>&1) && \
+            echo -e "${GREEN}X-Ray trace segment destination update requested${NC}" || \
+            echo -e "${YELLOW}Warning: X-Ray update returned: $XRAY_OUTPUT${NC}"
+
+        # Wait for the destination to become ACTIVE (can take 1-3 minutes in new regions)
+        echo -e "${YELLOW}Waiting for CloudWatch Transaction Search to become ACTIVE...${NC}"
+        for i in {1..30}; do
+            XRAY_STATE=$(aws xray get-trace-segment-destination --region "$AWS_REGION" --query '[Destination,Status]' --output text 2>/dev/null || echo "UNKNOWN UNKNOWN")
+            XRAY_DEST=$(echo "$XRAY_STATE" | awk '{print $1}')
+            XRAY_STATUS=$(echo "$XRAY_STATE" | awk '{print $2}')
+            if [ "$XRAY_DEST" = "CloudWatchLogs" ] && [ "$XRAY_STATUS" = "ACTIVE" ]; then
+                echo -e "${GREEN}CloudWatch Transaction Search is ACTIVE (destination=CloudWatchLogs)${NC}"
+                break
+            fi
+            echo -n "."
+            sleep 10
+        done
+
+        if [ "$XRAY_DEST" != "CloudWatchLogs" ] || [ "$XRAY_STATUS" != "ACTIVE" ]; then
+            echo ""
+            echo -e "${RED}Error: CloudWatch Transaction Search state is '$XRAY_DEST' / '$XRAY_STATUS' after 5 minutes.${NC}"
+            echo -e "${RED}Expected 'CloudWatchLogs' / 'ACTIVE'. The Agent stack will fail.${NC}"
+            echo -e "${YELLOW}This usually means the CloudWatch Logs resource policy for X-Ray is missing or malformed.${NC}"
+            echo -e "${YELLOW}See: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Enable-TransactionSearch.html${NC}"
+            exit 1
         fi
-        echo -n "."
-        sleep 10
-    done
-    
-    if [ "$XRAY_DEST" != "CloudWatchLogs" ] || [ "$XRAY_STATUS" != "ACTIVE" ]; then
-        echo ""
-        echo -e "${RED}Error: X-Ray trace destination is '$XRAY_DEST' / '$XRAY_STATUS' after 5 minutes.${NC}"
-        echo -e "${RED}Expected 'CloudWatchLogs' / 'ACTIVE'. The Agent stack will fail.${NC}"
-        echo -e "${YELLOW}This usually means the CloudWatch Logs resource policy for X-Ray is missing.${NC}"
-        echo -e "${YELLOW}If you see an AccessDeniedException above, create the policy manually:${NC}"
-        echo -e "${YELLOW}  aws logs put-resource-policy --policy-name AgentCoreTracingPolicy --region $AWS_REGION \\\\${NC}"
-        echo -e "${YELLOW}    --policy-document '{...}' (see cdk/lib/agent-stack.ts XRayTracingPolicy for template)${NC}"
-        exit 1
+
+        # ------------------------------------------------------------------
+        # Step 3 (AWS docs, initial enablement only): set the Default
+        # indexing rule to 100% so every ingested span is indexed and
+        # searchable in Transaction Search. Only run this when we just
+        # enabled Transaction Search; on subsequent runs we leave the
+        # sampling rate alone so operators can tune it manually without
+        # this script clobbering their choice.
+        # Ref: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Enable-TransactionSearch.html
+        # ------------------------------------------------------------------
+        echo -e "${YELLOW}Setting X-Ray Default indexing rule to 100% (initial setup)...${NC}"
+        INDEX_OUTPUT=$(aws xray update-indexing-rule \
+            --region "$AWS_REGION" \
+            --name Default \
+            --rule '{"Probabilistic":{"DesiredSamplingPercentage":100}}' 2>&1) && \
+            echo -e "${GREEN}X-Ray Default indexing rule set to 100%${NC}" || \
+            echo -e "${YELLOW}Warning: update-indexing-rule returned: $INDEX_OUTPUT${NC}"
     fi
 else
-    echo -e "${CYAN}[DRY RUN] Would enable X-Ray CloudWatch Logs trace destination${NC}"
+    echo -e "${CYAN}[DRY RUN] Would check CloudWatch Transaction Search state${NC}"
+    echo -e "${CYAN}[DRY RUN] If not ACTIVE: put CloudWatch Logs resource policy AgentCoreTracingPolicy, set X-Ray destination to CloudWatchLogs, and set Default indexing rule to 100%${NC}"
 fi
 
 # ============================================================================

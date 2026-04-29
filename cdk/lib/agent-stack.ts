@@ -2006,39 +2006,28 @@ def handler(event, context):
     // ========================================================================
     // Resource Policy for X-Ray Transaction Search
     // ========================================================================
-
-    new logs.CfnResourcePolicy(this, 'XRayTracingPolicy', {
-      policyName: 'AgentCoreTracingPolicy',
-      policyDocument: JSON.stringify({
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Sid: 'TransactionSearchXRayAccess',
-            Effect: 'Allow',
-            Principal: {
-              Service: 'xray.amazonaws.com',
-            },
-            Action: 'logs:PutLogEvents',
-            Resource: [
-              `arn:aws:logs:${this.region}:${this.account}:log-group:aws/spans:*`,
-              `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/application-signals/data:*`,
-            ],
-            Condition: {
-              ArnLike: {
-                'aws:SourceArn': `arn:aws:xray:${this.region}:${this.account}:*`,
-              },
-              StringEquals: {
-                'aws:SourceAccount': this.account,
-              },
-            },
-          },
-        ],
-      }),
-    });
+    // NOTE: The CloudWatch Logs resource policy (AgentCoreTracingPolicy) that
+    // grants xray.amazonaws.com -> logs:PutLogEvents on aws/spans and
+    // /aws/application-signals/data is created out of band by deploy-all.sh
+    // Step 2c (Enable CloudWatch Transaction Search), before any stacks are
+    // deployed. That bootstrap is required because X-Ray's
+    // UpdateTraceSegmentDestination API fails with a misleading AccessDenied
+    // in fresh regions unless the Logs resource policy is already in place.
+    // Since the policy is account-wide and already exists before this stack
+    // deploys, we do NOT create it here (CloudFormation will not adopt a
+    // resource it did not create, which would cause "already exists" errors).
 
     // ========================================================================
-    // Enable X-Ray Transaction Search and Sampling (Lambda-backed custom resource)
+    // Verify X-Ray Transaction Search is ACTIVE (Lambda-backed custom resource)
     // ========================================================================
+    // The actual enablement of Transaction Search (resource policy +
+    // destination switch + initial sampling rate) is performed by
+    // deploy-all.sh Step 2c before any stacks are deployed. This custom
+    // resource is a safety net that (a) re-asserts the destination in case
+    // the stack is deployed without the deploy-all.sh bootstrap, and
+    // (b) waits until the destination is ACTIVE. It intentionally does
+    // NOT touch the indexing rule so that operators can tune the sampling
+    // rate after initial setup without this stack clobbering their choice.
 
     const xrayConfigFunction = new lambda.Function(this, 'XRayConfigFunction', {
       functionName: `${config.appName}-xray-config`,
@@ -2090,14 +2079,10 @@ def handler(event, context):
             results['Verified'] = False
             print("WARNING: Destination not yet ACTIVE after 60s, proceeding anyway")
         
-        try:
-            xray.update_indexing_rule(
-                Name='Default',
-                Rule={'Probabilistic': {'DesiredSamplingPercentage': 100}}
-            )
-            results['Sampling'] = 'Set to 100%'
-        except Exception as e:
-            results['Sampling'] = f'Warning: {str(e)}'
+        # NOTE: Indexing rule (sampling percentage) is intentionally NOT
+        # set here. deploy-all.sh Step 2c sets it to 100% on initial
+        # Transaction Search enablement only; operators can tune it later
+        # without this custom resource overriding their choice.
         
         print(f"Results: {json.dumps(results)}")
         cfnresponse.send(event, context, cfnresponse.SUCCESS, results)
@@ -2116,8 +2101,6 @@ def handler(event, context):
         actions: [
           'xray:GetTraceSegmentDestination',
           'xray:UpdateTraceSegmentDestination',
-          'xray:GetIndexingRules',
-          'xray:UpdateIndexingRule',
         ],
         resources: ['*'],
       })
