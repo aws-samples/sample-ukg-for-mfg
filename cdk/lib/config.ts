@@ -95,7 +95,7 @@ export interface AppConfig {
   /** S3 bucket name for CodeBuild source */
   buildSourceBucketName: string;
 
-  // V2 Agent configuration (Explorer + Discovery)
+  // Agent configuration (Explorer + Discovery)
   /** System Registry DynamoDB table name */
   registryTableName: string;
   /** Explorer ECR repository name */
@@ -203,7 +203,7 @@ export const config: AppConfig = {
   // CodeBuild configuration
   buildSourceBucketName: getEnvOrDefault('BUILD_SOURCE_BUCKET_NAME', `${appName}-build-source`),
 
-  // V2 Agent configuration (Explorer + Discovery)
+  // Agent configuration (Explorer + Discovery)
   registryTableName: getEnvOrDefault('REGISTRY_TABLE_NAME', `${appName}-system-registry`),
   explorerRepoName: getEnvOrDefault('EXPLORER_REPO_NAME', `${appName}-explorer`),
   discoveryRepoName: getEnvOrDefault('DISCOVERY_REPO_NAME', `${appName}-discovery`),
@@ -289,10 +289,10 @@ export const exportNames = {
   chatappRepositoryUri: `${config.appName}-ChatAppRepositoryUri`,
 
   // ========================================================================
-  // V2 Agent Stack exports (Explorer + Discovery)
+  // Agent Stack exports (Explorer + Discovery)
   // ========================================================================
 
-  /** System Registry table name - used by Agent Stack for V2 agents */
+  /** System Registry table name - used by Agent Stack */
   registryTableName: `${config.appName}-RegistryTableName`,
   /** System Registry table ARN - used by Agent Stack for IAM permissions */
   registryTableArn: `${config.appName}-RegistryTableArn`,

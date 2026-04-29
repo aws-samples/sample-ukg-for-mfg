@@ -101,7 +101,6 @@ chatapp/
 │           └── settings.html    # Application settings (branding, colors)
 ├── sync-env.sh                   # Sync .env from AWS Secrets Manager
 ├── Dockerfile                    # Container build
-├── docker-compose.yml            # Local development
 ├── requirements.txt              # Python dependencies
 ├── pyproject.toml               # Python project config
 └── README.md                    # ChatApp documentation

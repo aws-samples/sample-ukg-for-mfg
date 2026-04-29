@@ -436,8 +436,8 @@ async def get_user_groups(username: str) -> list[str]:
     next time the user signs in.
 
     Transient lookup failures fall back to the last cached value (if any)
-    rather than ``[]``, which previously caused the admin menu to flicker
-    off on first load and back on after a refresh.
+    rather than ``[]``, so the admin menu stays stable across page loads
+    when AWS calls hiccup.
 
     Args:
         username: The user's username (email)

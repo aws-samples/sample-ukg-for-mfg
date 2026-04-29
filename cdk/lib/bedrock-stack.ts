@@ -56,7 +56,6 @@ export class BedrockStack extends cdk.Stack {
 
     // ========================================================================
     // GUARDRAIL SECTION
-    // Requirements: 1.3, 2.1
     // ========================================================================
 
     
@@ -112,7 +111,6 @@ export class BedrockStack extends cdk.Stack {
 
     // ========================================================================
     // KNOWLEDGE BASE SECTION
-    // Requirements: 1.3, 2.1
     // ========================================================================
 
     // Resource naming
@@ -386,7 +384,6 @@ export class BedrockStack extends cdk.Stack {
 
     // ========================================================================
     // MEMORY SECTION
-    // Requirements: 1.3, 2.1
     // ========================================================================
     
     // Memory name must match pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$
@@ -476,7 +473,6 @@ export class BedrockStack extends cdk.Stack {
 
     // ========================================================================
     // UPDATE SECRETS MANAGER WITH BEDROCK VALUES
-    // Requirements: 2.1, 2.3
     // ========================================================================
     
     // Import secret ARN from Foundation stack
@@ -576,7 +572,6 @@ def handler(event, context):
 
     // ========================================================================
     // STACK OUTPUTS AND EXPORTS
-    // Requirements: 2.3
     // 
     // Only exports needed by Agent Stack are defined here.
     // ========================================================================

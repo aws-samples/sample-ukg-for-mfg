@@ -247,8 +247,6 @@ async def user_analytics(
     - Runtime costs per user
     - Search functionality for filtering users
     - Users sorted by total tokens descending
-    
-    Requirements: 4.1, 4.3, 4.4
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -332,8 +330,6 @@ async def session_detail(
     - Duration and latency
     - Individual invocation records
     - Compute costs (vCPU, memory)
-    
-    Requirements: 4.2
     """
     # Initialize repository and cost calculator
     repository = UsageRepository()
@@ -467,8 +463,6 @@ async def tool_analytics(
     - Success rates
     - Error rates and counts
     - Average execution times
-    
-    Requirements: 5.1, 5.2, 5.3
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -514,8 +508,6 @@ async def tool_detail(
     - Success/error status for each invocation
     - Session and user information
     - Timestamp and latency
-    
-    Requirements: 5.1, 5.2, 5.3
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -592,8 +584,6 @@ async def user_detail(
     - Session count and list
     - Cost breakdown (token + runtime)
     - Invocation history
-    
-    Requirements: 4.1, 4.2
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -734,8 +724,6 @@ async def api_stats(
         - avg_latency_ms
         - projected_monthly_cost
         - days_in_period
-    
-    Requirements: 7.3
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -777,8 +765,6 @@ async def guardrails_analytics(
     - Policy type breakdown
     - Source breakdown (INPUT vs OUTPUT)
     - Recent violations with expandable details
-    
-    Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -1062,8 +1048,6 @@ async def evaluations_dashboard(
     - KPI cards: Average Score, Evaluated Sessions, Failed Evaluations
     - Per-evaluator score breakdown table
     - Detailed results table (50 most recent)
-    
-    Requirements: 6.1, 6.2, 10.3, 10.4
     """
     # Parse time range (defaults to 7 days)
     start_dt, end_dt = _parse_time_range(start_time, end_time)

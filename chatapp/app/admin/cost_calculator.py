@@ -74,8 +74,9 @@ def _default_from_registry() -> str:
 DEFAULT_MODEL_ID: str = os.getenv("DEFAULT_MODEL_ID", _default_from_registry())
 
 
-# Derived pricing dict: kept for backward compatibility with consumers that
-# still expect a flat ``{model_id: {"input": r, "output": r}}`` map.
+# Flat pricing map derived from MODELS. Consumers that want a simple
+# ``{model_id: {"input": r, "output": r}}`` lookup use this instead of
+# iterating the richer MODELS registry.
 MODEL_PRICING: Dict[str, Dict[str, float]] = {
     str(m["id"]): {"input": float(m["input"]), "output": float(m["output"])}
     for m in MODELS

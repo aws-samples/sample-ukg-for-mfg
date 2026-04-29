@@ -3,8 +3,6 @@
 This module provides session management functionality for chat sessions,
 including session ID generation, storage in secure HTTP-only cookies,
 and session lifecycle management.
-
-Requirements: 3.1, 3.2
 """
 
 import json

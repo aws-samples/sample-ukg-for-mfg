@@ -250,8 +250,6 @@ async def feedback_page(
     - Summary statistics (total, positive, negative, percentage)
     - Feedback records table with filtering
     - Expandable rows for full message content
-    
-    Requirements: 5.1, 5.2, 5.3, 5.4, 6.1, 6.2
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
@@ -299,8 +297,6 @@ async def api_feedback(
     """JSON API endpoint for feedback data.
     
     Returns feedback records and statistics as JSON for client-side updates.
-    
-    Requirements: 5.1, 5.3, 5.4, 6.1, 6.2
     """
     # Parse time range
     start_dt, end_dt = _parse_time_range(start_time, end_time)
