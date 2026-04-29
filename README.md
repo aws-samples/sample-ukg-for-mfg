@@ -1,6 +1,6 @@
 # Sample Universal Knowledge Graph for Manufacturing
 
-A multi-agent AI application that unifies manufacturing data across ERP, MES, CMMS, PLM, and IoT systems through autonomous data discovery, a dynamic system registry, and natural language exploration. Built with Amazon Bedrock AgentCore, Strands Agents SDK, and FastAPI.
+A multi-agent Agentic AI application that unifies manufacturing data across ERP, MES, CMMS, PLM, and IoT systems through autonomous data discovery, a dynamic system registry, and natural language exploration. Built with Amazon Bedrock AgentCore, Strands Agents SDK, and FastAPI.
 
 The agents discover and register data sources at runtime — no hardcoded schemas or system knowledge. New systems become queryable immediately after registration.
 
@@ -12,16 +12,11 @@ The agents discover and register data sources at runtime — no hardcoded schema
 
 - [Why This Project?](#why-this-project)
 - [Key Features](#key-features)
-- [Admin Dashboard](#admin-dashboard)
-- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Deployment Options](#deployment-options)
-- [Stack Architecture](#stack-architecture)
-- [Multi-Region Deployment](#multi-region-deployment)
+- [Architecture](#architecture)
 - [Local Development](#local-development)
-- [Synthetic Data Generation](#synthetic-data-generation)
-- [Knowledge Base Integration](#knowledge-base-integration)
 - [Useful Commands](#useful-commands)
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
@@ -42,7 +37,7 @@ This project solves that with two cooperating AI agents:
 - **Natural language data exploration** — Ask questions that span multiple systems ("Trace ORD-000003 from design to delivery") and the Data Explorer Agent resolves entities across systems, queries each source, and synthesizes a unified answer with source citations
 - **Automated workflows** — Turn any chat prompt into a scheduled workflow that runs on EventBridge, delivering recurring insights without manual intervention
 - **Built-in cost intelligence** — Track token usage, runtime costs, and tool invocations with projections to forecast production spending before you scale
-- **Flexible deployment** — Choose between always-on ECS (~$60/mo) or serverless Lambda Web Adapter (~$5/mo) based on your traffic patterns
+- **Flexible deployment** — Choose between always-on ECS (\~$60/mo) or serverless Lambda Web Adapter (\~$5/mo) based on your traffic patterns
 
 ---
 
@@ -85,155 +80,7 @@ This project solves that with two cooperating AI agents:
 - 📡 OpenTelemetry and Bedrock AgentCore Observability with logs, traces, and metrics
 - 🗄️ API Gateway + Lambda for the System Registry API
 
----
-
-## Admin Dashboard
-
-The built-in admin dashboard (`/admin`) provides comprehensive usage analytics and system management:
-
-<!-- 📸 Recommended screenshot: Admin dashboard overview showing cost breakdown and usage charts -->
-
-<table width="100%">
-<tr>
-<td width="50%" valign="top">
-
-**📊 Dashboard Overview** `/admin`
-- Total cost breakdown (token cost + runtime cost)
-- Top users and tools by usage
-- Model breakdown with per-model costs
-
-</td>
-<td width="50%" valign="top">
-
-**🔢 Token Usage** `/admin/tokens`
-- Token usage breakdown by model
-- Input vs output distribution
-- Monthly projections
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**💬 Chat History** `/admin/history`
-- Browse all chat sessions with time filtering
-- Token cost vs runtime cost breakdown
-
-</td>
-<td width="50%" valign="top">
-
-**📋 Session Details** `/admin/sessions/{id}`
-- Complete session token and runtime usage
-- Tools invoked with success/error rates
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**👍 Feedback Analytics** `/admin/feedback`
-- User sentiment and comments capture
-- Review related conversation context
-
-</td>
-<td width="50%" valign="top">
-
-**👥 User Analytics** `/admin/users`
-- Per-user token usage and session counts
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**🛡️ Guardrails Analytics** `/admin/guardrails`
-- Violation tracking by filter type
-- Filter strength and confidence levels
-
-</td>
-<td width="50%" valign="top">
-
-**🔧 Tool Analytics** `/admin/tools`
-- Call counts per tool with success/error rates
-- Average execution times
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**🔍 Data Discovery** `/admin/discover`
-- Discovery agent chat interface
-- Discovery history with drill-down
-
-</td>
-<td width="50%" valign="top">
-
-**🗂️ System Registry** `/admin/registry`
-- Registered systems, concepts, and equivalences
-- Per-system schema and field detail views
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**📝 Prompt Templates** `/admin/templates`
-- Create reusable prompt templates for the chat UI
-- Bulk upload from external tools
-
-</td>
-<td width="50%" valign="top">
-
-**🎨 Application Settings** `/admin/settings`
-- Customize app title, subtitle, and welcome message
-- Set app theme including color and custom logos
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**🧪 Evaluations** `/admin/evaluations`
-- Agent evaluation tracking and results
-
-</td>
-<td width="50%" valign="top">
-
-**📈 Data Graph** `/admin/data-graph`
-- Visual graph of system relationships and concept mappings
-
-</td>
-</tr>
-</table>
-
 ![Data Discovery Dashboard](/assets/app_discovery.png?raw=true "Data Discovery Dashboard")
-
----
-
-## Architecture
-
-The application uses two cooperating agents backed by a shared system registry, with flexible ingress via ECS Express Gateway or CloudFront + Lambda Web Adapter.
-
-![System Architecture](/assets/ukg_arch.png?raw=true "System Architecture")
-
-### Strands Agents
-
-| Agent | Purpose |
-|-------|---------|
-| **Data Explorer** | Answers manufacturing questions by discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `query_system`, `find_by_concept`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
-| **Discovery** | Admin-only agent that inspects and registers new data sources (S3 Tables, APIs, databases). Runs a multi-phase process: inspect schema → analyze fields → map to ISA-95 concepts → register cross-system equivalences. Tools: `inspect`, `analyze`, `register`, `discovery_helpers`. |
-
-### Key Components
-
-| Component | Description |
-|-----------|-------------|
-| **System Registry** | DynamoDB-backed registry of all connected systems, their schemas, field-to-concept mappings, and cross-system equivalences. Served via API Gateway + Lambda. Shared by both agents via AgentCore Gateway. |
-| **Knowledge Base** | Bedrock Knowledge Base (S3 Vectors) for semantic search over manufacturing reference documents (ISA-95, glossary, standards). |
-| **S3 Tables** | Apache Iceberg tables on S3 for manufacturing data (ERP, MES, CMMS, PLM, IoT). Queried via Lambda + Athena. |
-| **AgentCore Memory** | Event and semantic memory for conversation persistence across sessions. Separate memory stores for Explorer and Discovery agents. |
-| **Guardrails** | Bedrock Guardrails for content filtering with violation tracking and analytics. |
-| **Workflow Scheduler** | EventBridge Scheduler + Lambda for running prompts on a schedule with per-user result tracking. |
 
 ---
 
@@ -244,7 +91,7 @@ The application uses two cooperating agents backed by a shared system registry, 
 | **Node.js** | 18.x+ | CDK runtime |
 | **AWS CDK CLI** | 2.x | Infrastructure deployment |
 | **AWS CLI** | 2.x | AWS resource management |
-| **Python** | 3.11+ | Agent and ChatApp runtime |
+| **Python** | 3.11+ | Agent and ChatApp runtimes |
 
 Install CDK CLI globally:
 
@@ -265,7 +112,7 @@ npm install -g aws-cdk
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/aws-samples/sample-ukg-for-mfg
    cd sample-ukg-for-mfg
    ```
 
@@ -357,9 +204,33 @@ Options:
 
 ---
 
-## Stack Architecture
+## Architecture
 
-The CDK deployment creates 7 CloudFormation stacks:
+The application uses two cooperating agents backed by a shared system registry, with flexible ingress via ECS Express Gateway or CloudFront + Lambda Web Adapter.
+
+![System Architecture](/assets/ukg_arch.png?raw=true "System Architecture")
+
+### Strands Agents
+
+| Agent | Purpose |
+|-------|---------|
+| **Data Explorer** | Answers manufacturing questions by discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `query_system`, `find_by_concept`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
+| **Discovery** | Admin-only agent that inspects and registers new data sources (S3 Tables, APIs, databases). Runs a multi-phase process: inspect schema → analyze fields → map to ISA-95 concepts → register cross-system equivalences. Tools: `inspect`, `analyze`, `register`, `discovery_helpers`. |
+
+### Key Components
+
+| Component | Description |
+|-----------|-------------|
+| **System Registry** | DynamoDB-backed registry of all connected systems, their schemas, field-to-concept mappings, and cross-system equivalences. Served via API Gateway + Lambda. Shared by both agents via AgentCore Gateway. |
+| **Knowledge Base** | Bedrock Knowledge Base (S3 Vectors) for semantic search over manufacturing reference documents (ISA-95, glossary, standards). |
+| **S3 Tables** | Apache Iceberg tables on S3 for manufacturing data (ERP, MES, CMMS, PLM, IoT). Queried via Lambda + Athena. |
+| **AgentCore Memory** | Event and semantic memory for conversation persistence across sessions. Separate memory stores for Explorer and Discovery agents. |
+| **Guardrails** | Bedrock Guardrails for content filtering with violation tracking and analytics. |
+| **Workflow Scheduler** | EventBridge Scheduler + Lambda for running prompts on a schedule with per-user result tracking. |
+
+### Stacks
+
+The CDK deployment creates 6 CloudFormation stacks:
 
 | Stack | Description | Key Resources |
 |-------|-------------|---------------|
@@ -367,11 +238,10 @@ The CDK deployment creates 7 CloudFormation stacks:
 | **Bedrock** | AI/ML Resources | Guardrail, Knowledge Base (S3 Vectors), AgentCore Memory (×2) |
 | **Agent** | Agent Infrastructure | ECR (×2), CodeBuild (×2), Explorer + Discovery AgentCore Runtimes, Observability |
 | **Gateway** | Registry API | API Gateway + Lambda, AgentCore Gateway for shared registry tools |
-| **S3Tables** | Data Layer | S3 Tables namespace, Athena catalog |
 | **WorkflowScheduler** | Automation | Lambda executor, EventBridge Scheduler group |
 | **ChatApp** | Application | ECS Express Mode and/or CloudFront + Lambda Web Adapter |
 
-Deployment order: Foundation → Bedrock → Agent + Gateway + S3Tables → WorkflowScheduler → ChatApp
+Deployment order: Foundation → Bedrock → Agent + Gateway → WorkflowScheduler → ChatApp
 
 ### Multi-Region Deployment
 
@@ -410,66 +280,6 @@ uvicorn app.main:app --reload --port 8080
 - Admin: http://localhost:8080/admin
 
 **DEV_MODE**: When enabled, Cognito authentication is bypassed and requests use a default `dev-user-001` user ID. Useful for rapid iteration without needing to log in.
-
----
-
-## Synthetic Data Generation
-
-Since this project connects to live data sources, you need representative manufacturing data for demos and testing. We provide a companion synthetic data generator that creates logically consistent data across ISA-95 systems.
-
-<!-- 📸 Recommended screenshot: Synthetic data generator UI showing scenario selection -->
-
-### Workflow
-
-1. Use the standalone synthetic data generator app to create a data batch (e.g., Construction scenario, 2000 rows)
-2. Load the generated data into an S3 Tables bucket via the generator's Load page
-3. In the Universal Knowledge Graph app, go to Data Discovery and tell the agent: `Register S3 tables in "<bucket-name>"`
-4. The Discovery Agent runs its 5-phase process (inspect → analyze → map → register → verify)
-5. Registered systems appear in the Home page Systems and Graph tabs
-6. Use the generator's "Generate Questions" feature to create prompt templates matching your data
-7. Bulk upload the generated templates via Admin → Prompt Templates
-
----
-
-## Knowledge Base Integration
-
-The agent includes a Bedrock Knowledge Base for semantic search over curated manufacturing reference documents.
-
-### Setup
-
-The Knowledge Base is automatically created during CDK deployment with:
-- S3 bucket for source documents
-- S3 Vectors bucket and index for embeddings
-- Bedrock Knowledge Base with Titan Embed Text v2
-- Pre-loaded reference documents (ISA-95 reference, manufacturing glossary, standards comparison)
-
-### Adding Documents
-
-```bash
-# Get the source bucket name from CDK outputs
-SOURCE_BUCKET=$(cat cdk/cdk-outputs.json | jq -r '."mfg-ukg-bedrock".SourceBucketName')
-
-# Upload documents
-aws s3 cp my-document.pdf s3://${SOURCE_BUCKET}/documents/
-aws s3 cp my-folder/ s3://${SOURCE_BUCKET}/documents/ --recursive
-
-# Trigger ingestion
-KB_ID=$(cat cdk/cdk-outputs.json | jq -r '."mfg-ukg-bedrock".KnowledgeBaseId')
-DS_ID=$(aws bedrock-agent list-data-sources --knowledge-base-id $KB_ID \
-  --query "dataSourceSummaries[0].dataSourceId" --output text --no-cli-pager)
-
-aws bedrock-agent start-ingestion-job \
-  --knowledge-base-id $KB_ID \
-  --data-source-id $DS_ID --no-cli-pager
-```
-
-### Supported Formats
-
-PDF, Plain text, Markdown, HTML, Word (.doc/.docx), CSV
-
-### How the Agent Uses It
-
-The Data Explorer Agent searches the Knowledge Base for relevant context before falling back to web search. Domain-specific knowledge takes precedence over general web content.
 
 ---
 
