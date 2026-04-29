@@ -45,6 +45,50 @@ function escapeAttr(str) {
 }
 
 // ============================================================================
+// Crypto helpers
+// ============================================================================
+
+/**
+ * Generate a RFC 4122 v4 UUID using the Web Crypto API.
+ *
+ * Prefers `crypto.randomUUID()` (available in all modern browsers served over
+ * HTTPS or localhost). Falls back to `crypto.getRandomValues()` when that
+ * method is missing. Throws if no cryptographic randomness source is
+ * available — callers treat that as fatal because session IDs are
+ * security-sensitive.
+ *
+ * @returns {string} A 36-character UUID.
+ */
+function cryptoUUID() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        var bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        // Per RFC 4122 §4.4: set version (4) and variant (10xx) bits.
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        var hex = [];
+        for (var i = 0; i < 16; i++) {
+            hex.push((bytes[i] + 0x100).toString(16).slice(1));
+        }
+        return hex[0] + hex[1] + hex[2] + hex[3] + '-' +
+               hex[4] + hex[5] + '-' +
+               hex[6] + hex[7] + '-' +
+               hex[8] + hex[9] + '-' +
+               hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15];
+    }
+    throw new Error('Web Crypto API is not available; cannot generate a secure UUID.');
+}
+
+// Expose globally so inline scripts in templates can reach it.
+window.cryptoUUID = cryptoUUID;
+window.safeHTML = safeHTML;
+window.escapeHTML = escapeHTML;
+window.escapeAttr = escapeAttr;
+
+// ============================================================================
 // Shared Model List — hydrated from /api/models at page load
 // ============================================================================
 //

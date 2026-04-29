@@ -223,26 +223,42 @@ function renderAgent() {
         + '<div class="ev-kpi"><div class="ev-kpi-value">' + s.total_evaluations.toLocaleString() + '</div><div class="ev-kpi-label">Evaluations</div></div>'
         + '<div class="ev-kpi"><div class="ev-kpi-value">' + (s.evaluator_stats || []).length + '</div><div class="ev-kpi-label">Evaluators</div></div>';
 
-    // Evaluator bars
+    // Evaluator bars. Each row carries its evaluator_id in a data-* attribute
+    // and the click handler is wired via delegation below — this avoids
+    // building inline onclick strings where partial quote-escaping can be
+    // bypassed by hostile data.
     var stats = s.evaluator_stats || [];
     var barsHtml = stats.map(function(st) {
         var pct = (st.average_score * 100).toFixed(0);
         var c = scoreColor(st.average_score);
         var name = st.evaluator_name || st.evaluator_id.replace('Builtin.', '');
-        return '<div class="ev-bar-row" onclick="filterByEvaluator(\'' + st.evaluator_id.replace(/'/g, "\\'") + '\')" title="' + name + ': ' + fmtPct(st.average_score) + ' (' + st.evaluation_count + ' evals)">'
-            + '<div class="ev-bar-name">' + name + '</div>'
+        var titleText = name + ': ' + fmtPct(st.average_score) + ' (' + st.evaluation_count + ' evals)';
+        return '<div class="ev-bar-row" data-evaluator-id="' + escapeAttr(st.evaluator_id) + '" title="' + escapeAttr(titleText) + '">'
+            + '<div class="ev-bar-name">' + escapeHTML(name) + '</div>'
             + '<div class="ev-bar-line">'
             + '<div class="ev-bar-track"><div class="ev-bar-fill" style="width:' + pct + '%;background:' + c + ';"></div></div>'
             + '<span class="ev-bar-score" style="color:' + c + ';">' + pct + '</span>'
             + '</div></div>';
     }).join('');
-    document.getElementById('ev-bars').innerHTML = barsHtml; // nosemgrep: insecure-innerhtml, insecure-document-method
+    var barsContainer = document.getElementById('ev-bars');
+    barsContainer.innerHTML = barsHtml; // nosemgrep: insecure-innerhtml, insecure-document-method
+    // Wire click handler once via delegation so we never interpolate
+    // evaluator IDs into an inline onclick string.
+    if (!barsContainer.dataset.delegated) {
+        barsContainer.addEventListener('click', function(ev) {
+            var row = ev.target.closest('.ev-bar-row');
+            if (row && row.dataset.evaluatorId) {
+                filterByEvaluator(row.dataset.evaluatorId);
+            }
+        });
+        barsContainer.dataset.delegated = '1';
+    }
 
     // Populate filter dropdown
     var sel = document.getElementById('ev-filter-evaluator');
     sel.innerHTML = '<option value="">All evaluators</option>' + stats.map(function(st) { // nosemgrep: insecure-innerhtml, insecure-document-method
         var name = st.evaluator_name || st.evaluator_id.replace('Builtin.', '');
-        return '<option value="' + st.evaluator_id + '">' + name + ' (' + st.evaluation_count + ')</option>';
+        return '<option value="' + escapeAttr(st.evaluator_id) + '">' + escapeHTML(name) + ' (' + st.evaluation_count + ')</option>';
     }).join('');
     sel.value = _filterEvaluator;
 
@@ -298,21 +314,22 @@ function renderResults() {
     document.getElementById('ev-results').innerHTML = pageResults.map(function(r, i) { // nosemgrep: insecure-innerhtml, insecure-document-method
         var idx = start + i;
         var c = scoreColor(r.score);
-        var name = r.evaluator_id.replace('Builtin.', '');
+        var name = r.evaluator_id ? r.evaluator_id.replace('Builtin.', '') : '';
         var ts = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
         var sid = r.session_id ? r.session_id.substring(0, 10) + '…' : '–';
+        var sessionHref = r.session_id ? '/admin/sessions/' + encodeURIComponent(r.session_id) : '#';
         return '<div class="ev-result-row" onclick="toggleDetail(' + idx + ')">'
             + '<div class="ev-result-head">'
             + '<span class="ev-result-score" style="color:' + c + ';">' + (r.score * 100).toFixed(0) + '</span>'
-            + '<span class="ev-result-evaluator">' + name + '</span>'
-            + '<span class="ev-result-label">' + (r.label || '') + '</span>'
-            + '<span class="ev-result-ts">' + ts + '</span>'
+            + '<span class="ev-result-evaluator">' + escapeHTML(name) + '</span>'
+            + '<span class="ev-result-label">' + escapeHTML(r.label || '') + '</span>'
+            + '<span class="ev-result-ts">' + escapeHTML(ts) + '</span>'
             + '</div>'
             + '<div class="ev-result-detail" id="ev-detail-' + idx + '">'
-            + '<div class="ev-result-reasoning">' + (r.reasoning || 'No reasoning provided.') + '</div>'
+            + '<div class="ev-result-reasoning">' + escapeHTML(r.reasoning || 'No reasoning provided.') + '</div>'
             + '<div class="ev-result-meta">'
-            + '<span>session: <a href="/admin/sessions/' + (r.session_id || '') + '" style="color:var(--accent);" onclick="event.stopPropagation()">' + sid + '</a></span>'
-            + (r.trace_id ? '<span>trace: ' + r.trace_id.substring(0, 12) + '…</span>' : '')
+            + '<span>session: <a href="' + escapeAttr(sessionHref) + '" style="color:var(--accent);" onclick="event.stopPropagation()">' + escapeHTML(sid) + '</a></span>'
+            + (r.trace_id ? '<span>trace: ' + escapeHTML(r.trace_id.substring(0, 12)) + '…</span>' : '')
             + '</div></div></div>';
     }).join('');
 }
