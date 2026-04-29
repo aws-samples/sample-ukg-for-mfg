@@ -40,11 +40,7 @@ async function discInitModelSelector() {
 function discSessionId() {
     var id = localStorage.getItem(DISC_SESSION_KEY);
     if (!id || id.length !== 36) {
-        id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0;
-            var v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+        id = cryptoUUID();
         localStorage.setItem(DISC_SESSION_KEY, id);
         console.log('[discover] New session created:', id);
     }
