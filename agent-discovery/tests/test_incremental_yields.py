@@ -147,10 +147,7 @@ class TestMultiNamespaceSuccess(unittest.TestCase):
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
     ):
-        """4.1 — 3 namespaces all succeeding → 5 yields (1 progress + 3 namespace_result + 1 summary).
-
-        **Validates: Requirements 2.1, 2.2, 2.3 (Property 1)**
-        """
+        """4.1 — 3 namespaces all succeeding → 5 yields (1 progress + 3 namespace_result + 1 summary)."""
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
                        mock_correlate, mock_register, mock_log,
                        namespaces=["erp", "mes", "cmms"])
@@ -194,7 +191,7 @@ class TestMultiNamespaceSuccess(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 4.2  Multi-namespace partial failure — validates requirements 2.2, 2.4
+# 4.2  Multi-namespace partial failure
 # ---------------------------------------------------------------------------
 class TestMultiNamespacePartialFailure(unittest.TestCase):
     """Verify middle namespace failing yields correct statuses and summary counts."""
@@ -209,10 +206,7 @@ class TestMultiNamespacePartialFailure(unittest.TestCase):
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
     ):
-        """4.2 — Middle namespace (mes) fails inspect → 5 yields, 2 completed + 1 failed.
-
-        **Validates: Requirements 2.2, 2.4**
-        """
+        """4.2 — Middle namespace (mes) fails inspect → 5 yields, 2 completed + 1 failed."""
         mock_list_ns.return_value = json.dumps({
             "success": True,
             "namespaces": ["erp", "mes", "cmms"],
@@ -286,7 +280,7 @@ class TestMultiNamespacePartialFailure(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 4.3  All namespaces fail — validates requirement 2.4
+# 4.3  All namespaces fail
 # ---------------------------------------------------------------------------
 class TestAllNamespacesFail(unittest.TestCase):
     """Verify all namespaces failing yields correct failed statuses and summary."""
@@ -301,10 +295,7 @@ class TestAllNamespacesFail(unittest.TestCase):
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
     ):
-        """4.3 — All 3 namespaces fail inspect → 5 yields, all failed, success=False.
-
-        **Validates: Requirement 2.4**
-        """
+        """4.3 — All 3 namespaces fail inspect → 5 yields, all failed, success=False."""
         mock_list_ns.return_value = json.dumps({
             "success": True,
             "namespaces": ["erp", "mes", "cmms"],
@@ -341,7 +332,7 @@ class TestAllNamespacesFail(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 4.4  Empty bucket — validates requirement 3.1
+# 4.4  Empty bucket
 # ---------------------------------------------------------------------------
 class TestEmptyBucket(unittest.TestCase):
     """Verify empty bucket yields a single result with namespace_count=0."""
@@ -356,10 +347,7 @@ class TestEmptyBucket(unittest.TestCase):
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
     ):
-        """4.4 — 0 namespaces → single yield with namespace_count=0.
-
-        **Validates: Requirement 3.1**
-        """
+        """4.4 — 0 namespaces → single yield with namespace_count=0."""
         mock_list_ns.return_value = json.dumps({
             "success": True,
             "namespaces": [],
@@ -380,7 +368,7 @@ class TestEmptyBucket(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 4.5  Single namespace — validates requirement 3.1
+# 4.5  Single namespace
 # ---------------------------------------------------------------------------
 class TestSingleNamespace(unittest.TestCase):
     """Verify single namespace yields 3 results (progress + result + summary)."""
@@ -395,10 +383,7 @@ class TestSingleNamespace(unittest.TestCase):
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
     ):
-        """4.5 — 1 namespace succeeding → 3 yields (1 progress + 1 namespace_result + 1 summary).
-
-        **Validates: Requirement 3.1**
-        """
+        """4.5 — 1 namespace succeeding → 3 yields (1 progress + 1 namespace_result + 1 summary)."""
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
                        mock_correlate, mock_register, mock_log,
                        namespaces=["erp"])
@@ -440,7 +425,7 @@ class TestSingleNamespace(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 4.6  Guaranteed final yield on loop exception — validates requirement 2.4
+# 4.6  Guaranteed final yield on loop exception
 # ---------------------------------------------------------------------------
 class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
     """Verify catastrophic loop exception still produces a partial summary."""
@@ -460,8 +445,6 @@ class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
 
         The outer try/except catches the exception and falls through to the
         summary-building code, which yields whatever partial results accumulated.
-
-        **Validates: Requirement 2.4**
         """
         # Setup: 2 namespaces, first succeeds fully
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,

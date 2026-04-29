@@ -132,8 +132,8 @@ async def _stream_chat_response(
 ):
     """Generate SSE stream from AgentCore response.
     
-    Accumulates metrics during stream and stores usage record asynchronously
-    after stream completes (fire-and-forget pattern per Requirements 2.1, 8.1).
+    Accumulates metrics during stream and stores the usage record asynchronously
+    (fire-and-forget) after the stream completes.
     
     Sends SSE comment keepalives every 15s while waiting for the first token
     so the load balancer (60s idle timeout) never drops the connection.
@@ -268,7 +268,7 @@ async def _stream_chat_response(
             accumulated_metrics = event.data
         
         # Store guardrail violations asynchronously (fire-and-forget)
-        # Requirements 5.1, 5.4: Store violation without blocking response
+        # so violation capture never blocks the streamed response.
         if isinstance(event, GuardrailEvent) and event.action == "GUARDRAIL_INTERVENED":
             asyncio.create_task(
                 _store_guardrail_violation(event, session_id, user_id)
@@ -299,7 +299,7 @@ async def _stream_chat_response(
         accumulated_metrics["toolMetrics"] = tool_usage_counts
     
     # Store usage asynchronously after stream completes (fire-and-forget)
-    # Requirements 2.1, 8.1: Store usage record without blocking response
+    # so persistence never blocks the streamed response.
     if accumulated_metrics:
         asyncio.create_task(
             _store_usage_record(accumulated_metrics, session_id, user_id, model_id, user_email)
@@ -315,9 +315,8 @@ async def _store_usage_record(
 ) -> None:
     """Store usage record from accumulated metrics.
     
-    This function is called asynchronously (fire-and-forget) after the stream
-    completes. Errors are logged but never raised to ensure chat responses
-    are not impacted (Requirements 2.4, 8.2).
+    Called asynchronously (fire-and-forget) after the stream completes. Errors
+    are logged but never raised so chat responses are never impacted.
     
     Args:
         metrics: Accumulated metrics from MetadataEvent
@@ -402,9 +401,9 @@ async def _store_guardrail_violation(
 ) -> None:
     """Store guardrail violation record asynchronously.
     
-    This function is called asynchronously (fire-and-forget) when a guardrail
-    violation is detected. Errors are logged but never raised to ensure chat
-    responses are not impacted (Requirements 5.4).
+    Called asynchronously (fire-and-forget) when a guardrail violation is
+    detected. Errors are logged but never raised so chat responses are never
+    impacted.
     
     Args:
         event: GuardrailEvent containing violation details

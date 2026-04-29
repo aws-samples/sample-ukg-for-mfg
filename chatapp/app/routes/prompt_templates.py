@@ -75,8 +75,6 @@ async def admin_templates_page(request: Request):
     - Table with all templates (title, description, prompt_detail)
     - Create form for new templates
     - Edit/Delete actions per row
-    
-    Requirements: 2.1, 2.2
     """
     storage = PromptTemplateStorageService()
     templates_list = await storage.get_all_templates()
@@ -111,8 +109,6 @@ async def create_template(
     Returns:
         JSON response with template data when called via AJAX,
         otherwise redirect to admin templates page.
-        
-    Requirements: 2.3
     """
     # Validate inputs
     title = title.strip()
@@ -174,8 +170,6 @@ async def edit_template(
         
     Returns:
         Redirect to admin templates page
-        
-    Requirements: 2.4
     """
     # Validate inputs
     title = title.strip()
@@ -326,8 +320,6 @@ async def delete_template(
         
     Returns:
         Redirect to admin templates page
-        
-    Requirements: 2.5
     """
     storage = PromptTemplateStorageService()
     success = await storage.delete_template(template_id)

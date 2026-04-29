@@ -59,7 +59,6 @@ export class AgentStack extends cdk.Stack {
 
     // ========================================================================
     // AGENT INFRASTRUCTURE SECTION
-    // Requirements: 1.4, 2.1
     // ========================================================================
 
     // --- S3 Bucket for CodeBuild source ---
@@ -266,12 +265,12 @@ export class AgentStack extends cdk.Stack {
       })
     );
 
-    // Note: S3 Tables, Athena, Glue, LakeFormation, and SiteWise permissions
-    // have been removed — agents use DynamoDB registry tools and generic query_system.
+    // Agents use DynamoDB registry tools and the generic query_system
+    // interface, so no direct S3 Tables, Athena, Glue, Lake Formation, or
+    // SiteWise permissions are granted on the agent role.
 
     // ========================================================================
-    // V2 AGENT DEPLOYMENTS (Explorer + Discovery)
-    // Requirements: 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 12.3
+    // AGENT DEPLOYMENTS (Explorer + Discovery)
     // ========================================================================
 
     // Deploy timestamp forces CloudFormation to update runtimes on every deploy
@@ -643,8 +642,7 @@ def handler(event, context):
       logGroup: buildWaiterProviderLogGroup,
     });
 
-    // --- Build Waiters for V2 agents ---
-    // Grant build waiter permission to check V2 build projects
+    // --- Build Waiters for Explorer and Discovery agents ---
     buildWaiterFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -1380,7 +1378,6 @@ def handler(event, context):
 
     // ========================================================================
     // OBSERVABILITY SECTION
-    // Requirements: 1.4, 2.1
     // ========================================================================
 
     // NOTE: X-Ray trace segment destination must be enabled for CloudWatch Logs
@@ -2227,7 +2224,6 @@ def handler(event, context):
 
     // ========================================================================
     // UPDATE SECRETS MANAGER WITH AGENT RUNTIME ARN
-    // Requirements: 2.1, 2.3
     // ========================================================================
     
     // Import secret ARN from Foundation stack
@@ -2325,7 +2321,6 @@ def handler(event, context):
 
     // ========================================================================
     // STACK OUTPUTS AND EXPORTS
-    // Requirements: 2.3
     // ========================================================================
 
     // --- Agent Runtime Export (for ChatApp stack) ---
@@ -2381,7 +2376,7 @@ def handler(event, context):
       description: 'X-Ray Service Map URL',
     });
 
-    // --- V2 Agent Runtime Exports ---
+    // --- Agent Runtime Exports ---
     new cdk.CfnOutput(this, 'ExplorerRuntimeArn', {
       value: explorerRuntime.attrAgentRuntimeArn,
       description: 'Explorer AgentCore Runtime ARN',

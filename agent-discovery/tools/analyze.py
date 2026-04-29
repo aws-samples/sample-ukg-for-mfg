@@ -101,8 +101,8 @@ async def analyze_schema(namespace: str = None) -> AsyncIterator:
     Args:
         namespace: Optional namespace scope. When provided, loads inspect data
             from ``PHASE#inspect#{namespace}`` and saves understand results to
-            ``PHASE#understand#{namespace}``. When None, uses the original
-            unscoped keys (backward compatible).
+            ``PHASE#understand#{namespace}``. When ``None``, the unscoped
+            ``PHASE#inspect`` / ``PHASE#understand`` keys are used.
 
     Returns:
         Compact summary of the analysis (system_id, table_count, field_count,
@@ -285,8 +285,8 @@ async def correlate_fields(namespace: str = None) -> AsyncIterator:
     Args:
         namespace: Optional namespace scope. When provided, loads understand data
             from ``PHASE#understand#{namespace}`` and saves correlate results to
-            ``PHASE#correlate#{namespace}``. When None, uses the original
-            unscoped keys (backward compatible).
+            ``PHASE#correlate#{namespace}``. When ``None``, the unscoped
+            ``PHASE#understand`` / ``PHASE#correlate`` keys are used.
 
     Returns:
         Compact summary with equivalence count. Full results saved to DDB.
@@ -426,8 +426,8 @@ async def register_all(namespace: str = None) -> AsyncIterator:
     Args:
         namespace: Optional namespace scope. When provided, loads understand data
             from ``PHASE#understand#{namespace}`` and correlate data from
-            ``PHASE#correlate#{namespace}``. When None, uses the original
-            unscoped keys (backward compatible).
+            ``PHASE#correlate#{namespace}``. When ``None``, the unscoped
+            ``PHASE#understand`` / ``PHASE#correlate`` keys are used.
 
     Returns:
         Summary with counts of registered items.

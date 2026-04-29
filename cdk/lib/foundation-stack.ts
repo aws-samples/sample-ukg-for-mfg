@@ -105,7 +105,6 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 1: COGNITO (Auth)
-    // Requirements: 1.2, 2.1
     // ========================================================================
     
     this.userPool = new cognito.UserPool(this, 'UserPool', {
@@ -180,7 +179,6 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 2: S3 ACCESS LOGS BUCKET (Shared across stacks)
-    // Requirements: Security best practices
     // ========================================================================
     
     this.accessLogsBucket = new s3.Bucket(this, 'AccessLogsBucket', {
@@ -222,7 +220,6 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 3: DYNAMODB TABLES (Storage)
-    // Requirements: 1.2, 2.1
     // ========================================================================
     
     // Usage records table
@@ -398,8 +395,9 @@ export class FoundationStack extends cdk.Stack {
     });
     seedDefaultSettings.node.addDependency(this.appSettingsTable);
 
-    // Runtime usage table for AgentCore runtime metrics
-    // Note: Keep logical ID as 'ComputeUsageTable' for backward compatibility with existing deployments
+    // Runtime usage table for AgentCore runtime metrics.
+    // The CloudFormation logical ID must remain 'ComputeUsageTable' so the
+    // table is not replaced on deploy.
     this.runtimeUsageTable = new dynamodb.Table(this, 'ComputeUsageTable', {
       tableName: config.runtimeUsageTableName,
       partitionKey: {
@@ -533,7 +531,6 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 4: IAM ROLES
-    // Requirements: 1.2, 2.1
     // ========================================================================
     
     // ECS task execution role
@@ -794,8 +791,7 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 5: SECRETS MANAGER
-    // Requirements: 1.2, 2.1
-    // Note: Some values will be added by other stacks via custom resource updates
+    // Some values are populated by other stacks via custom resource updates.
     // ========================================================================
     
     // Custom resource to retrieve Cognito User Pool Client secret
@@ -898,7 +894,6 @@ export class FoundationStack extends cdk.Stack {
 
     // ========================================================================
     // SECTION 6: EXPORTS
-    // Requirements: 2.3
     // 
     // Only exports needed by other stacks are defined here.
     // Auth and Storage values are internal to this stack and passed via Secrets.

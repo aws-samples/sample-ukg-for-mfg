@@ -47,8 +47,7 @@ def save_state(phase: str, data_json: str, namespace: str = None) -> bool:
         data_json: The JSON string to persist.
         namespace: Optional namespace scope. When provided, the sort key becomes
             ``PHASE#{phase}#{namespace}`` so that each namespace's data is stored
-            independently. When *None*, the original key ``PHASE#{phase}`` is used
-            (backward compatible).
+            independently. When ``None``, the unscoped key ``PHASE#{phase}`` is used.
     """
     try:
         table_name = _get_table_name()
