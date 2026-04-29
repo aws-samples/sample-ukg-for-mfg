@@ -350,12 +350,30 @@ function setTimeRange(days) {
     var end = new Date();
     var start = new Date();
     start.setDate(start.getDate() - days);
-    window.location.href = '/admin/evaluations?start_time=' + start.toISOString().slice(0,10) + 'T00:00:00&end_time=' + end.toISOString().slice(0,10) + 'T23:59:59';
+    var params = new URLSearchParams({
+        start_time: start.toISOString().slice(0, 10) + 'T00:00:00',
+        end_time: end.toISOString().slice(0, 10) + 'T23:59:59'
+    });
+    window.location.href = '/admin/evaluations?' + params.toString();
 }
+
+// Matches the native <input type="date"> format: YYYY-MM-DD.
+var _EV_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function applyCustomRange() {
     var s = document.getElementById('start-date').value;
     var e = document.getElementById('end-date').value;
-    if (s && e) window.location.href = '/admin/evaluations?start_time=' + s + 'T00:00:00&end_time=' + e + 'T23:59:59';
+    if (!s || !e) return;
+    // Reject anything that doesn't look like a plain date before sending it
+    // to the server, and URL-encode what we do send. Together these prevent
+    // DOM-sourced values from ever being reinterpreted as HTML or breaking
+    // out of the query-string context.
+    if (!_EV_DATE_RE.test(s) || !_EV_DATE_RE.test(e)) return;
+    var params = new URLSearchParams({
+        start_time: s + 'T00:00:00',
+        end_time: e + 'T23:59:59'
+    });
+    window.location.href = '/admin/evaluations?' + params.toString();
 }
 
 // Highlight active range button
