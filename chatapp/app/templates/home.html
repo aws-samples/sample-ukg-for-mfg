@@ -1367,7 +1367,7 @@ function popOutTab(tabId) {
     splitPanel.className = 'home-split-panel';
     splitPanel.id = 'home-split-panel';
     splitPanel.innerHTML = '<div class="home-split-header">' // nosemgrep: insecure-innerhtml, insecure-document-method
-        + '<span>' + tabLabel.replace(/[0-9—–]/g, '').trim() + '</span>'
+        + '<span>' + escapeHTML(tabLabel.replace(/[0-9—–]/g, '').trim()) + '</span>'
         + '<div style="display:flex;align-items:center;gap:0.35rem;">'
         + '<button class="home-split-pin' + (isPinned ? ' pinned' : '') + '" onclick="togglePinBottom()" title="Pin this layout">'
         + _pinIcon(isPinned) + ' Pin</button>'
