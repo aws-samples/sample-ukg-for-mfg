@@ -286,9 +286,9 @@ EOF
             echo -e "${GREEN}X-Ray trace segment destination update requested${NC}" || \
             echo -e "${YELLOW}Warning: X-Ray update returned: $XRAY_OUTPUT${NC}"
 
-        # Wait for the destination to become ACTIVE (can take 1-3 minutes in new regions)
+        # Wait for the destination to become ACTIVE (can take 1-10 minutes in new regions)
         echo -e "${YELLOW}Waiting for CloudWatch Transaction Search to become ACTIVE...${NC}"
-        for i in {1..30}; do
+        for i in {1..60}; do
             XRAY_STATE=$(aws xray get-trace-segment-destination --region "$AWS_REGION" --query '[Destination,Status]' --output text 2>/dev/null || echo "UNKNOWN UNKNOWN")
             XRAY_DEST=$(echo "$XRAY_STATE" | awk '{print $1}')
             XRAY_STATUS=$(echo "$XRAY_STATE" | awk '{print $2}')
