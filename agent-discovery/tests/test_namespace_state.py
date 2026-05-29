@@ -375,6 +375,8 @@ class TestDiscoverS3TablesBucket(unittest.TestCase):
     """Verify discover_s3tables_bucket processes multiple namespaces and
     returns a consolidated summary."""
 
+    @patch("tools.analyze._load_phase_data")
+    @patch("tools.analyze.remember_discovery")
     @patch("tools.analyze.log_discovery_session")
     @patch("tools.analyze.register_all")
     @patch("tools.analyze.correlate_fields")
@@ -384,8 +386,11 @@ class TestDiscoverS3TablesBucket(unittest.TestCase):
     def test_processes_multiple_namespaces(
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
+        mock_remember, mock_load_phase,
     ):
         """6.7 — Should process 3 namespaces and return namespace_count=3."""
+        mock_load_phase.return_value = {}
+        mock_remember.return_value = "stored:x.md"
         mock_list_ns.return_value = json.dumps({
             "success": True,
             "namespaces": ["erp", "mes", "cmms"],

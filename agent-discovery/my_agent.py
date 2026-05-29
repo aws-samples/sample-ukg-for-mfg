@@ -96,8 +96,8 @@ For S3 Tables specifically, set catalog to "s3tablescatalog/<bucket-name>" \
 (e.g. "s3tablescatalog/mfg-ukg-manufacturing-123456789012-us-east-2"). \
 **IMPORTANT for S3 Tables**: Use `discover_s3tables_bucket` with the bucket name. \
 This tool handles the entire multi-namespace pipeline automatically — it lists all \
-namespaces, then processes each through all 5 phases (inspect → analyze → correlate → \
-register → log) with isolated contexts. You do NOT need to call the individual phase \
+namespaces, then processes each through all 6 phases (inspect → analyze → correlate → \
+register → log → remember) with isolated contexts. You do NOT need to call the individual phase \
 tools for S3 Tables. \
 \
 The tool yields incremental results as it works: \
@@ -174,7 +174,8 @@ results in exactly one current memory per system.
 
 - Always complete all 6 phases in order. Do not skip phases.
 - **S3 Tables exception**: For S3 Tables buckets, call `discover_s3tables_bucket` instead of \
-running the 6 phases manually. It handles all phases internally for every namespace and \
+running the 6 phases manually. It handles all phases internally for every namespace (including \
+Phase 6 REMEMBER, which writes institutional memory to the Knowledge Base) and \
 yields incremental progress per namespace. Relay each namespace result to the user as it \
 arrives. After the final summary yield, produce the detailed report. If only partial \
 results arrive, still report what was discovered.

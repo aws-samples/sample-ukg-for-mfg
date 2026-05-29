@@ -21,6 +21,7 @@ from strands.models import BedrockModel
 from concepts import CANONICAL_CONCEPTS, get_all_concepts_serializable
 from tools.inspect import inspect_athena_source, list_s3tables_namespaces
 from tools.register import log_discovery_session
+from tools.remember import remember_discovery
 from tools.state import save_state, _get_client, _get_table_name
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,99 @@ def _load_inspect_data(namespace: str = None) -> dict:
     if not item:
         return {}
     return json.loads(item.get("data", {}).get("S", "{}"))
+
+
+def _load_phase_data(phase: str, namespace: str = None) -> dict:
+    """Load any persisted phase payload from DDB as a dict (empty if missing)."""
+    client = _get_client()
+    table_name = _get_table_name()
+    sk = f"PHASE#{phase}#{namespace}" if namespace else f"PHASE#{phase}"
+    response = client.get_item(
+        TableName=table_name,
+        Key={"PK": {"S": "DISCOVERY_STATE#current"}, "SK": {"S": sk}},
+    )
+    item = response.get("Item")
+    if not item:
+        return {}
+    return json.loads(item.get("data", {}).get("S", "{}"))
+
+
+def _build_discovery_summary_markdown(
+    *,
+    namespace: str,
+    inspect_data: dict,
+    understand_data: dict,
+    correlate_data: dict,
+) -> str:
+    """Build a grounded markdown summary from persisted phase data.
+
+    Everything here is derived strictly from what Phases 1–3 produced (loaded
+    from DDB) — no speculation. This becomes the institutional-memory body the
+    Explorer agent reads on future questions about the system.
+    """
+    system_name = understand_data.get("system_name", namespace)
+    system_id = understand_data.get("system_id", namespace)
+    schemas = understand_data.get("schemas", [])
+    fields_by_table = understand_data.get("fields_by_table", {})
+    tables = inspect_data.get("tables", [])
+    row_counts = {
+        t.get("table_name", ""): t.get("row_count")
+        for t in tables
+        if t.get("row_count") is not None
+    }
+    equivalences = correlate_data.get("equivalences", [])
+
+    lines: list[str] = [f"# {system_name} ({system_id}) — Discovery Summary", ""]
+
+    # --- Tables discovered ---
+    if schemas:
+        lines.append("## Tables")
+        lines.append("")
+        for s in schemas:
+            tname = s.get("table_name", "")
+            field_count = len(fields_by_table.get(tname, []))
+            desc = s.get("description", "").strip()
+            rc = row_counts.get(tname)
+            rc_str = f", {rc:,} rows" if isinstance(rc, int) else ""
+            suffix = f" — {desc}" if desc else ""
+            lines.append(f"- **{tname}** ({field_count} fields{rc_str}){suffix}")
+        lines.append("")
+
+    # --- Concept mappings that matter for query construction ---
+    mapped = []
+    for tname, fields in fields_by_table.items():
+        for f in fields:
+            cid = f.get("concept_id", "")
+            if cid and f.get("concept_confidence", 0) >= 0.7:
+                mapped.append((tname, f.get("field_name", ""), cid))
+    if mapped:
+        lines.append("## Concept Mappings")
+        lines.append("")
+        for tname, fname, cid in mapped:
+            lines.append(f"- `{tname}.{fname}` → **{cid}**")
+        lines.append("")
+
+    # --- Cross-system equivalences ---
+    if equivalences:
+        lines.append("## Cross-System Equivalences")
+        lines.append("")
+        for e in equivalences:
+            src = f"{e.get('source_system','')}.{e.get('source_table','')}.{e.get('source_field','')}"
+            tgt = f"{e.get('target_system','')}.{e.get('target_table','')}.{e.get('target_field','')}"
+            concept = e.get("concept_id", "")
+            transform = e.get("transform", "direct")
+            conf = e.get("confidence", "")
+            lines.append(
+                f"- `{src}` ≡ `{tgt}` (concept: {concept}, transform: {transform}, confidence: {conf})"
+            )
+        lines.append("")
+
+    if len(lines) <= 2:
+        # Nothing concrete to record beyond the heading.
+        lines.append("_No tables, concept mappings, or equivalences were captured during discovery._")
+        lines.append("")
+
+    return "\n".join(lines).strip()
 
 
 @tool
@@ -620,10 +714,10 @@ async def discover_s3tables_bucket(
     workgroup: str = "primary",
     output_location: str = "",
 ) -> AsyncIterator:
-    """Discover all namespaces in an S3 Tables bucket through the full 5-phase pipeline.
+    """Discover all namespaces in an S3 Tables bucket through the full 6-phase pipeline.
 
     Lists all namespaces in the bucket, then processes each namespace sequentially
-    through all 5 phases (inspect → analyze → correlate → register → log) using
+    through all 6 phases (inspect → analyze → correlate → register → log → remember) using
     namespace-scoped state keys. Each phase's sub-agent gets its own context window,
     preventing context overflow in the parent agent.
 
@@ -687,7 +781,7 @@ async def discover_s3tables_bucket(
         "namespaces": namespaces,
     })
 
-    # Step 2: Process each namespace through all 5 phases sequentially
+    # Step 2: Process each namespace through all 6 phases sequentially
     results = []
     try:
         for ns in namespaces:
@@ -712,7 +806,7 @@ async def discover_s3tables_bucket(
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
                     "phase": "inspect",
                     "phase_number": 1,
-                    "message": f"[{ns}] Phase 1/5 — Inspecting schema…",
+                    "message": f"[{ns}] Phase 1/6 — Inspecting schema…",
                 })
                 inspect_result_json = inspect_athena_source(
                     database=ns,
@@ -749,7 +843,7 @@ async def discover_s3tables_bucket(
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
                     "phase": "understand",
                     "phase_number": 2,
-                    "message": f"[{ns}] Phase 2/5 — Analyzing {ns_result_entry['tables']} tables…",
+                    "message": f"[{ns}] Phase 2/6 — Analyzing {ns_result_entry['tables']} tables…",
                 })
                 analyze_json = ""
                 async for chunk in analyze_schema(namespace=ns):
@@ -785,7 +879,7 @@ async def discover_s3tables_bucket(
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
                     "phase": "correlate",
                     "phase_number": 3,
-                    "message": f"[{ns}] Phase 3/5 — Correlating {ns_result_entry['concepts_mapped']} concepts…",
+                    "message": f"[{ns}] Phase 3/6 — Correlating {ns_result_entry['concepts_mapped']} concepts…",
                 })
                 correlate_json = ""
                 async for chunk in correlate_fields(namespace=ns):
@@ -801,7 +895,7 @@ async def discover_s3tables_bucket(
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
                     "phase": "register",
                     "phase_number": 4,
-                    "message": f"[{ns}] Phase 4/5 — Registering in system registry…",
+                    "message": f"[{ns}] Phase 4/6 — Registering in system registry…",
                 })
                 register_json = ""
                 async for chunk in register_all(namespace=ns):
@@ -835,7 +929,7 @@ async def discover_s3tables_bucket(
                     "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
                     "phase": "log",
                     "phase_number": 5,
-                    "message": f"[{ns}] Phase 5/5 — Logging discovery session…",
+                    "message": f"[{ns}] Phase 5/6 — Logging discovery session…",
                 })
                 ns_duration = _time.time() - ns_start
                 log_discovery_session(
@@ -859,6 +953,45 @@ async def discover_s3tables_bucket(
                     ns, ns_result_entry["tables"], ns_result_entry["fields"],
                     ns_result_entry["concepts_mapped"], ns_result_entry["equivalences"], ns_duration,
                 )
+
+                # Phase 6: REMEMBER — write learnings to institutional memory (KB).
+                # Built strictly from persisted phase data (no speculation). A
+                # failure here must not fail an otherwise-successful namespace, so
+                # it's best-effort and only logged.
+                try:
+                    yield _emit({
+                        "type": "phase_update",
+                        "namespace": ns,
+                        "namespace_progress": f"{len(results) + 1}/{len(namespaces)}",
+                        "phase": "remember",
+                        "phase_number": 6,
+                        "message": f"[{ns}] Phase 6/6 — Writing institutional memory…",
+                    })
+                    understand_data = _load_phase_data("understand", namespace=ns)
+                    correlate_data = _load_phase_data("correlate", namespace=ns)
+                    summary_md = _build_discovery_summary_markdown(
+                        namespace=ns,
+                        inspect_data=inspect_result,
+                        understand_data=understand_data,
+                        correlate_data=correlate_data,
+                    )
+                    remember_result = remember_discovery(
+                        system_id=ns_result_entry["system_id"] or ns,
+                        system_name=analyze_result.get("system_name", ns),
+                        system_type=analyze_result.get("system_type", "Other"),
+                        protocol="s3tables",
+                        summary_markdown=summary_md,
+                        tags=[ns, analyze_result.get("system_type", "").lower()],
+                    )
+                    logger.info(
+                        "discover_s3tables_bucket: [%s] Phase 6 — remember_discovery -> %s",
+                        ns, remember_result,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "discover_s3tables_bucket: [%s] Phase 6 (remember) failed: %s — %s",
+                        ns, type(e).__name__, e, exc_info=True,
+                    )
 
             except Exception as e:
                 logger.error("discover_s3tables_bucket: [%s] failed: %s — %s", ns, type(e).__name__, e, exc_info=True)

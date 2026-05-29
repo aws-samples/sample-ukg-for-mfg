@@ -137,6 +137,8 @@ def _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
 class TestMultiNamespaceSuccess(unittest.TestCase):
     """Verify 3 successful namespaces yield exactly 5 results with correct types."""
 
+    @patch("tools.analyze._load_phase_data")
+    @patch("tools.analyze.remember_discovery")
     @patch("tools.analyze.log_discovery_session")
     @patch("tools.analyze.register_all")
     @patch("tools.analyze.correlate_fields")
@@ -146,11 +148,14 @@ class TestMultiNamespaceSuccess(unittest.TestCase):
     def test_multi_namespace_success(
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
+        mock_remember, mock_load_phase,
     ):
         """4.1 — 3 namespaces all succeeding → 5 yields (1 progress + 3 namespace_result + 1 summary)."""
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
                        mock_correlate, mock_register, mock_log,
                        namespaces=["erp", "mes", "cmms"])
+        mock_load_phase.return_value = {}
+        mock_remember.return_value = "stored:documents/learned/discovery/x.md"
 
         yields = _collect_yields()
         key_yields = _filter_yields(yields, "progress", "namespace_result", "summary")
@@ -160,8 +165,11 @@ class TestMultiNamespaceSuccess(unittest.TestCase):
 
         # Also verify phase_update yields exist
         phase_updates = _filter_yields(yields, "phase_update")
-        # 3 namespaces × 5 phases = 15 phase updates
-        self.assertEqual(len(phase_updates), 15)
+        # 3 namespaces × 6 phases = 18 phase updates
+        self.assertEqual(len(phase_updates), 18)
+
+        # Phase 6 (REMEMBER) writes institutional memory once per completed namespace
+        self.assertEqual(mock_remember.call_count, 3)
 
         # First key yield: progress
         self.assertEqual(key_yields[0]["type"], "progress")
@@ -196,6 +204,8 @@ class TestMultiNamespaceSuccess(unittest.TestCase):
 class TestMultiNamespacePartialFailure(unittest.TestCase):
     """Verify middle namespace failing yields correct statuses and summary counts."""
 
+    @patch("tools.analyze._load_phase_data")
+    @patch("tools.analyze.remember_discovery")
     @patch("tools.analyze.log_discovery_session")
     @patch("tools.analyze.register_all")
     @patch("tools.analyze.correlate_fields")
@@ -205,8 +215,11 @@ class TestMultiNamespacePartialFailure(unittest.TestCase):
     def test_partial_failure_middle_namespace(
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
+        mock_remember, mock_load_phase,
     ):
         """4.2 — Middle namespace (mes) fails inspect → 5 yields, 2 completed + 1 failed."""
+        mock_load_phase.return_value = {}
+        mock_remember.return_value = "stored:x.md"
         mock_list_ns.return_value = json.dumps({
             "success": True,
             "namespaces": ["erp", "mes", "cmms"],
@@ -373,6 +386,8 @@ class TestEmptyBucket(unittest.TestCase):
 class TestSingleNamespace(unittest.TestCase):
     """Verify single namespace yields 3 results (progress + result + summary)."""
 
+    @patch("tools.analyze._load_phase_data")
+    @patch("tools.analyze.remember_discovery")
     @patch("tools.analyze.log_discovery_session")
     @patch("tools.analyze.register_all")
     @patch("tools.analyze.correlate_fields")
@@ -382,11 +397,14 @@ class TestSingleNamespace(unittest.TestCase):
     def test_single_namespace(
         self, mock_list_ns, mock_inspect, mock_analyze,
         mock_correlate, mock_register, mock_log,
+        mock_remember, mock_load_phase,
     ):
         """4.5 — 1 namespace succeeding → 3 yields (1 progress + 1 namespace_result + 1 summary)."""
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
                        mock_correlate, mock_register, mock_log,
                        namespaces=["erp"])
+        mock_load_phase.return_value = {}
+        mock_remember.return_value = "stored:documents/learned/discovery/erp.md"
 
         yields = _collect_yields()
         key_yields = _filter_yields(yields, "progress", "namespace_result", "summary")
@@ -394,9 +412,9 @@ class TestSingleNamespace(unittest.TestCase):
         # 3 key yields
         self.assertEqual(len(key_yields), 3)
 
-        # Verify phase_update yields (1 namespace × 5 phases)
+        # Verify phase_update yields (1 namespace × 6 phases)
         phase_updates = _filter_yields(yields, "phase_update")
-        self.assertEqual(len(phase_updates), 5)
+        self.assertEqual(len(phase_updates), 6)
 
         # Progress
         self.assertEqual(key_yields[0]["type"], "progress")
@@ -431,6 +449,8 @@ class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
     """Verify catastrophic loop exception still produces a partial summary."""
 
     @patch("time.time")
+    @patch("tools.analyze._load_phase_data")
+    @patch("tools.analyze.remember_discovery")
     @patch("tools.analyze.log_discovery_session")
     @patch("tools.analyze.register_all")
     @patch("tools.analyze.correlate_fields")
@@ -439,7 +459,8 @@ class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
     @patch("tools.analyze.list_s3tables_namespaces")
     def test_catastrophic_loop_exception(
         self, mock_list_ns, mock_inspect, mock_analyze,
-        mock_correlate, mock_register, mock_log, mock_time,
+        mock_correlate, mock_register, mock_log,
+        mock_remember, mock_load_phase, mock_time,
     ):
         """4.6 — Catastrophic exception during 2nd namespace → partial summary yielded.
 
@@ -450,6 +471,8 @@ class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
         _success_mocks(mock_list_ns, mock_inspect, mock_analyze,
                        mock_correlate, mock_register, mock_log,
                        namespaces=["erp", "mes"])
+        mock_load_phase.return_value = {}
+        mock_remember.return_value = "stored:erp.md"
 
         # time.time() call sequence for 1 successful namespace:
         #   1: overall_start
@@ -457,6 +480,7 @@ class TestGuaranteedFinalYieldOnLoopException(unittest.TestCase):
         #   3: ns_duration in Phase 5 LOG
         #   4: duration in bottom yield
         #   5: ns_start (mes) — RAISE HERE to trigger outer except
+        # (Phase 6 REMEMBER adds no time.time() calls.)
         call_count = [0]
 
         def counting_time():
