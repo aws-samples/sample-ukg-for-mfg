@@ -4,6 +4,7 @@ This module provides the AgentCoreClient class for streaming responses
 from the AgentCore Runtime and converting them to typed SSE events.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -387,8 +388,19 @@ class AgentCoreClient:
             }
             payload_bytes = json.dumps(payload_dict).encode('utf-8')
             
-            # Invoke the agent runtime
-            response = self._client.invoke_agent_runtime(
+            # Invoke the agent runtime.
+            #
+            # ``invoke_agent_runtime`` is a sync boto3 call — running it
+            # inline blocks the asyncio event loop until the upstream
+            # service starts producing bytes. For the Discovery agent the
+            # first chunk can arrive 60+ seconds after invocation (LLM
+            # planning + Athena listing), and during that window any
+            # SSE keepalive task in the same loop is starved, the
+            # load balancer's idle timer fires, and the browser sees a
+            # 504. Move the call onto a worker thread so the event loop
+            # stays free.
+            response = await asyncio.to_thread(
+                self._client.invoke_agent_runtime,
                 runtimeSessionId=session_id,
                 agentRuntimeArn=self.runtime_arn,
                 payload=BytesIO(payload_bytes),
@@ -411,7 +423,27 @@ class AgentCoreClient:
             import time as _timing
             _stream_start = _timing.time()
             _last_log = _stream_start
-            for chunk in stream:
+
+            # boto3 StreamingBody is a synchronous iterator. Pulling each
+            # chunk blocks until upstream sends bytes; with the Discovery
+            # agent's "long first-token" pattern that block can be 60+
+            # seconds, which starves any SSE keepalive coroutine running
+            # in the same event loop and produces a 504. We iterate via
+            # asyncio.to_thread so each chunk-fetch happens on a worker
+            # thread and the loop stays responsive between chunks.
+            stream_iter = iter(stream)
+            _STREAM_END = object()
+
+            def _next_chunk():
+                try:
+                    return next(stream_iter)
+                except StopIteration:
+                    return _STREAM_END
+
+            while True:
+                chunk = await asyncio.to_thread(_next_chunk)
+                if chunk is _STREAM_END:
+                    break
                 # Diagnostic: log first-chunk latency once per stream, then
                 # periodic heartbeats at DEBUG only (avoid log spam in prod).
                 _now = _timing.time()

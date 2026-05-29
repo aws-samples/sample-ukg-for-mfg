@@ -5,6 +5,7 @@ runtime, restricted to admin users only. It reuses the same SSE streaming
 pattern as the regular chat endpoint.
 """
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Request, HTTPException
@@ -15,6 +16,12 @@ from app.agentcore.client import AgentCoreClient
 from app.config import get_config
 
 logger = logging.getLogger(__name__)
+
+# Match chat.py: SSE comment keepalives every 15s to stay under the
+# 60s ECS Express / load balancer idle timeout while the Discovery
+# Agent is still planning (first-token latency for S3 Tables discovery
+# regularly exceeds 60s before any chunk is produced).
+KEEPALIVE_INTERVAL = 15
 
 router = APIRouter(prefix="/api", tags=["discovery"])
 
@@ -55,8 +62,12 @@ async def _stream_discovery_response(
 ):
     """Generate SSE stream from the Discovery Agent runtime.
 
-    Uses the same streaming pattern as the chat endpoint but routes
-    to the Discovery Agent runtime ARN.
+    Wraps the AgentCore stream in a producer task so we can emit SSE
+    comment keepalives every ``KEEPALIVE_INTERVAL`` seconds while the
+    agent is planning. Without this, the load balancer's 60s idle
+    timeout drops the connection and the browser sees a 504 before
+    the first token arrives — common on S3 Tables discovery where the
+    LLM + Athena listing easily exceeds 60s.
 
     Args:
         prompt: Admin instruction for the Discovery Agent
@@ -64,17 +75,50 @@ async def _stream_discovery_response(
         user_id: User ID for the invoking admin
 
     Yields:
-        SSE formatted event strings
+        SSE formatted event strings (or ``: keepalive`` comments).
     """
     config = get_config()
     client = AgentCoreClient(runtime_arn=config.discovery_runtime_arn)
 
-    async for event in client.invoke_stream(
-        prompt=prompt,
-        session_id=session_id,
-        user_id=user_id,
-    ):
-        yield event.to_sse_format()
+    _SENTINEL = object()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=64)
+
+    async def _producer():
+        try:
+            async for ev in client.invoke_stream(
+                prompt=prompt,
+                session_id=session_id,
+                user_id=user_id,
+            ):
+                await queue.put(ev)
+        except Exception as exc:
+            logger.error("Discovery stream error in producer: %s", exc)
+        finally:
+            await queue.put(_SENTINEL)
+
+    producer_task = asyncio.create_task(_producer())
+
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=KEEPALIVE_INTERVAL)
+            except asyncio.TimeoutError:
+                # No event in KEEPALIVE_INTERVAL — emit SSE comment to reset
+                # the load balancer's idle timer. Browsers ignore comment
+                # lines so this is invisible to the UI.
+                yield ": keepalive\n\n"
+                continue
+
+            if item is _SENTINEL:
+                break
+
+            yield item.to_sse_format()
+    finally:
+        producer_task.cancel()
+        try:
+            await producer_task
+        except (asyncio.CancelledError, Exception):
+            pass
 
 
 @router.post("/discovery")
