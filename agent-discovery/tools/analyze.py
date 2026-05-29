@@ -158,6 +158,23 @@ async def analyze_schema(namespace: str = None) -> AsyncIterator:
 
         analysis = json.loads(json_text)
 
+        # --- Deterministic system_id ---
+        # When the discover loop scopes by namespace (S3 Tables, Glue databases,
+        # etc.), force ``system_id`` to the namespace itself. Without this the
+        # analysis sub-agent picks a fresh, slightly-different ID on every
+        # re-discovery (e.g. "plm-s3tables" one run, "plm-system" the next),
+        # which causes duplicate system rows in the registry instead of an
+        # upsert. The namespace is already a stable, source-of-truth ID for
+        # the dataset, so use it.
+        if namespace:
+            suggested = analysis.get("system_id", "")
+            if suggested != namespace:
+                logger.info(
+                    "analyze_schema: overriding sub-agent suggested system_id %r with namespace %r",
+                    suggested, namespace,
+                )
+            analysis["system_id"] = namespace
+
         # --- Deterministic field validation ---
         # Build ground-truth field sets from the inspect data
         inspect_tables = inspect_data.get("tables", [])
