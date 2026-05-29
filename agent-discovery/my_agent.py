@@ -280,7 +280,7 @@ class MemoryHook(HookProvider):
                 memory_id=config.memory_id,
                 actor_id=user_id,
                 session_id=session_id,
-                message=msg,
+                messages=[(text, role)],
             )
         except Exception as e:
             get_config()[1].error(f"Memory save error: {e}", exc_info=True)
