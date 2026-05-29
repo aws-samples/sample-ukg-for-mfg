@@ -33,7 +33,7 @@ Manufacturing organizations run dozens of disconnected systems — ERP, MES, CMM
 
 This project solves that with two cooperating AI agents:
 
-- **Zero-config data onboarding** — Point the Discovery Agent at an S3 Tables bucket, RDS database, or API and it autonomously inspects schemas, maps fields to manufacturing concepts (ISA-95 aligned), and registers cross-system equivalences
+- **Agentic data onboarding** — Point the Discovery Agent at an S3 Tables bucket, RDS database, or API and it autonomously inspects schemas, maps fields to manufacturing concepts (ISA-95 aligned), and registers cross-system equivalences
 - **Natural language data exploration** — Ask questions that span multiple systems ("Trace ORD-000003 from design to delivery") and the Data Explorer Agent resolves entities across systems, queries each source, and synthesizes a unified answer with source citations
 - **Automated workflows** — Turn any chat prompt into a scheduled workflow that runs on EventBridge, delivering recurring insights without manual intervention
 - **Built-in cost intelligence** — Track token usage, runtime costs, and tool invocations with projections to forecast production spending before you scale
