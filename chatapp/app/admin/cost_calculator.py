@@ -17,6 +17,12 @@ from typing import Dict, List, Optional
 # Prices are USD per 1 million tokens.
 MODELS: List[Dict[str, object]] = [
     {
+        "id": "global.anthropic.claude-opus-4-8",
+        "name": "Claude Opus 4.8",
+        "input": 5.00,
+        "output": 25.00,
+    },
+    {
         "id": "global.anthropic.claude-opus-4-7",
         "name": "Claude Opus 4.7",
         "input": 5.00,
