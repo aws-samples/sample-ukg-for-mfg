@@ -1032,6 +1032,10 @@ export class FoundationStack extends cdk.Stack {
           id: 'AwsSolutions-COG3',
           reason: 'Advanced security mode not enabled for starter kit to reduce costs. Can be enabled for production.',
         },
+        {
+          id: 'AwsSolutions-COG8',
+          reason: 'Plus feature plan not enabled for starter kit to reduce costs (~$0.05/MAU). Can be upgraded for production deployments to enable advanced security features.',
+        },
       ]
     );
 
