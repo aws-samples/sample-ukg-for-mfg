@@ -20,6 +20,13 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logging.getLogger("app").setLevel(logging.INFO)
 
+# Silence a benign, repetitive botocore notice: the live AgentCore Memory
+# service returns a `dateTimeValue` union member that even the latest bundled
+# botocore service model doesn't know about yet. Our code only reads
+# content.text / createdAt, so the unknown member is harmless. Suppress the
+# per-record INFO spam while still surfacing real warnings.
+logging.getLogger("botocore.parsers").setLevel(logging.WARNING)
+
 from app.config import get_config, ConfigurationError
 from app.auth.middleware import AuthMiddleware
 from app.routes.auth import router as auth_router
