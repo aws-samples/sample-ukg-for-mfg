@@ -23,6 +23,15 @@
                     Data Explorer Agent
                 </div>
                 <div class="flex items-center gap-2 ml-auto">
+                    {% if is_admin %}
+                    <a href="/admin/discover" title="Data Discovery"
+                       style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 0.3rem; text-decoration: none;"
+                       onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                       onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+                        <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+                        Discover
+                    </a>
+                    {% endif %}
                     <select id="home-model-select"
                             style="background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace;">
                     </select>
@@ -918,6 +927,25 @@
     .home-wf-sug-meta {
         font-size: 0.65rem; color: var(--muted); margin-top: 0.1rem;
         font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Explore Further + Create a Workflow — compact 2-column row */
+    .home-suggest-row {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+        margin-top: 1rem; padding-top: 0.75rem; padding-bottom: 0.75rem;
+        border-top: 1px solid var(--border); align-items: start;
+    }
+    .home-suggest-row--single { grid-template-columns: 1fr; }
+    .home-suggest-col {
+        display: flex; flex-direction: column; gap: 0.4rem; min-width: 0;
+    }
+    .home-suggest-col .home-followup-heading { margin-top: 0; margin-bottom: 0.1rem; }
+    .home-suggest-col .home-suggestion-chip {
+        display: block; width: 100%; box-sizing: border-box;
+    }
+    .home-suggest-col .home-workflow-suggestion { margin-bottom: 0; }
+    @media (max-width: 640px) {
+        .home-suggest-row { grid-template-columns: 1fr; }
     }
 
     /* Workflow cards in tab — flat row style */

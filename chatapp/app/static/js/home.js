@@ -892,98 +892,81 @@ async function sendHomeChat(event) {
                 msgWrap.appendChild(srcDiv);
             }
 
-            // Add follow-up chips with headings
-            if (followups.length > 0 || actions.length > 0) {
-                var chipDiv = document.createElement('div');
-                chipDiv.className = 'home-followup-chips';
-                if (followups.length > 0) {
-                    var qHeading = document.createElement('div');
-                    qHeading.className = 'home-followup-heading';
-                    qHeading.textContent = 'Explore further';
-                    chipDiv.appendChild(qHeading);
-                    followups.forEach(function(q) {
-                        var chip = document.createElement('span');
-                        chip.className = 'home-suggestion-chip';
-                        chip.textContent = q;
-                        chip.onclick = function() { document.getElementById('home-chat-input').value = q; document.getElementById('home-chat-form').dispatchEvent(new Event('submit')); };
-                        chipDiv.appendChild(chip);
-                    });
-                }
-                if (actions.length > 0) {
-                    var aHeading = document.createElement('div');
-                    aHeading.className = 'home-followup-heading home-action-heading';
-                    aHeading.textContent = 'Recommended actions';
-                    chipDiv.appendChild(aHeading);
-                    actions.forEach(function(a) {
-                        var chip = document.createElement('span');
-                        chip.className = 'home-suggestion-chip home-action-chip';
-                        chip.textContent = '⚡ ' + a;
-                        chip.onclick = function() { document.getElementById('home-chat-input').value = a; document.getElementById('home-chat-form').dispatchEvent(new Event('submit')); };
-                        chipDiv.appendChild(chip);
-                    });
-                }
-                msgWrap.appendChild(chipDiv);
-            }
-
-            // ── Create a Workflow section (skip if guardrail was triggered) ──
-            if (!guardrailTriggered) {
+            // ── Explore Further + Create a Workflow — single compact 2-column row ──
+            // Left: one "Explore Further" suggestion (prefer deeper "Why" questions).
+            // Right: one "Create a Workflow" suggestion, only when the query is a good
+            // recurring candidate (looking at data over time / trends — not one-time lookups).
             (function() {
-                var wfDiv = document.createElement('div');
-                wfDiv.className = 'home-workflow-section';
-
-                var wfHeading = document.createElement('div');
-                wfHeading.className = 'home-followup-heading home-workflow-heading';
-                wfHeading.textContent = 'Create a Workflow';
-                wfDiv.appendChild(wfHeading);
-
-                var wfDesc = document.createElement('div');
-                wfDesc.className = 'home-workflow-desc';
-                wfDesc.textContent = 'Save this query as a repeatable scheduled workflow.';
-                wfDiv.appendChild(wfDesc);
-
-                // Suggestion 1: based on current prompt
-                var sug1 = document.createElement('div');
-                sug1.className = 'home-workflow-suggestion';
-                sug1.innerHTML = '<div class="home-wf-sug-title">' + escHtml(msg) + '</div>' // nosemgrep: insecure-innerhtml, insecure-document-method
-                    + '<div class="home-wf-sug-meta">Based on your current query</div>';
-                sug1.onclick = function() { showWorkflowModal(msg, _generateWorkflowTitle(msg)); };
-                wfDiv.appendChild(sug1);
-
-                // Suggestion 2: a scheduled-workflow variation
-                // Prefer actions (they tend to be monitoring/checking tasks that suit recurring schedules).
-                // Fall back to followups only if they look like repeatable monitoring queries.
-                var variation = '';
-                var variationTitle = '';
-                var _isRepeatable = function(q) {
-                    return /\b(check|monitor|verify|inspect|audit|review|report|status|health|alert|scan|validate|track|assess)\b/i.test(q);
-                };
-                // Try actions first — they're naturally workflow-oriented
-                if (actions.length > 0) {
-                    variation = actions[0];
-                    variationTitle = 'Recommended action workflow';
+                // LEFT — pick one explore-further item, preferring "Why" deep-dive questions
+                var exploreItem = '';
+                for (var qi = 0; qi < followups.length; qi++) {
+                    if (/^\s*why\b/i.test(followups[qi])) { exploreItem = followups[qi]; break; }
                 }
-                // Fall back to a followup only if it looks like a repeatable monitoring query
-                if (!variation && followups.length > 0) {
-                    for (var fi = 0; fi < followups.length; fi++) {
-                        if (_isRepeatable(followups[fi])) {
-                            variation = followups[fi];
-                            variationTitle = 'Suggested monitoring workflow';
-                            break;
+                if (!exploreItem && followups.length > 0) exploreItem = followups[0];
+                if (!exploreItem && actions.length > 0) exploreItem = actions[0];
+
+                // RIGHT — pick at most one workflow candidate. Time-windowed or
+                // trend-oriented queries make good scheduled workflows; one-time
+                // lookups of a single record/order do not.
+                var workflowItem = '', workflowTitle = '';
+                var _isWorkflowCandidate = function(q) {
+                    if (!q) return false;
+                    return /\b(over time|trend(s|ing)?|daily|weekly|monthly|hourly|year[- ]over[- ]year|last\s+(week|month|day|hour|year|quarter|\d+)|past\s+(week|month|day|hour|year|quarter|\d+)|each\s+(day|week|month|hour)|per\s+(day|week|month|hour)|recurring|ongoing|monitor|historical|forecast|rate of|growth|moving average|rolling|every\s+(day|week|month|hour))\b/i.test(q);
+                };
+                if (!guardrailTriggered) {
+                    for (var aci = 0; aci < actions.length; aci++) {
+                        if (_isWorkflowCandidate(actions[aci])) { workflowItem = actions[aci]; workflowTitle = 'Recommended action workflow'; break; }
+                    }
+                    if (!workflowItem && _isWorkflowCandidate(msg)) { workflowItem = msg; workflowTitle = 'Based on your current query'; }
+                    if (!workflowItem) {
+                        for (var fci = 0; fci < followups.length; fci++) {
+                            if (_isWorkflowCandidate(followups[fci])) { workflowItem = followups[fci]; workflowTitle = 'Suggested monitoring workflow'; break; }
                         }
                     }
                 }
-                if (variation) {
-                    var sug2 = document.createElement('div');
-                    sug2.className = 'home-workflow-suggestion';
-                    sug2.innerHTML = '<div class="home-wf-sug-title">' + escHtml(variation) + '</div>' // nosemgrep: insecure-innerhtml, insecure-document-method
-                        + '<div class="home-wf-sug-meta">' + escHtml(variationTitle) + '</div>';
-                    sug2.onclick = function() { showWorkflowModal(variation, _generateWorkflowTitle(variation)); };
-                    wfDiv.appendChild(sug2);
-                }
 
-                msgWrap.appendChild(wfDiv);
+                if (!exploreItem && !workflowItem) return;
+
+                var row = document.createElement('div');
+                row.className = 'home-suggest-row';
+                // Single-column (full width) when only one side has content
+                if (!exploreItem || !workflowItem) row.classList.add('home-suggest-row--single');
+
+                // LEFT column — Explore Further
+                var leftCol = document.createElement('div');
+                leftCol.className = 'home-suggest-col';
+                if (exploreItem) {
+                    var lHead = document.createElement('div');
+                    lHead.className = 'home-followup-heading';
+                    lHead.textContent = 'Explore Further';
+                    leftCol.appendChild(lHead);
+                    var chip = document.createElement('span');
+                    chip.className = 'home-suggestion-chip';
+                    chip.textContent = exploreItem;
+                    chip.onclick = function() { document.getElementById('home-chat-input').value = exploreItem; document.getElementById('home-chat-form').dispatchEvent(new Event('submit')); };
+                    leftCol.appendChild(chip);
+                }
+                row.appendChild(leftCol);
+
+                // RIGHT column — Create a Workflow
+                var rightCol = document.createElement('div');
+                rightCol.className = 'home-suggest-col';
+                if (workflowItem) {
+                    var rHead = document.createElement('div');
+                    rHead.className = 'home-followup-heading home-workflow-heading';
+                    rHead.textContent = 'Create a Workflow';
+                    rightCol.appendChild(rHead);
+                    var wfCard = document.createElement('div');
+                    wfCard.className = 'home-workflow-suggestion';
+                    wfCard.innerHTML = '<div class="home-wf-sug-title">' + escHtml(workflowItem) + '</div>' // nosemgrep: insecure-innerhtml, insecure-document-method
+                        + '<div class="home-wf-sug-meta">' + escHtml(workflowTitle) + '</div>';
+                    wfCard.onclick = function() { showWorkflowModal(workflowItem, _generateWorkflowTitle(workflowItem)); };
+                    rightCol.appendChild(wfCard);
+                }
+                row.appendChild(rightCol);
+
+                msgWrap.appendChild(row);
             })();
-            } // end guardrail check
 
             homeFinalizeMessage(bubbleEl, assistantId, responseText, msg, homeLastMetadata);
 
