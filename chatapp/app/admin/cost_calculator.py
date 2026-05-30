@@ -29,23 +29,11 @@ MODELS: List[Dict[str, object]] = [
         "output": 25.00,
     },
     {
-        "id": "global.anthropic.claude-opus-4-6-v1",
-        "name": "Claude Opus 4.6",
-        "input": 5.00,
-        "output": 25.00,
-    },
-    {
         "id": "global.anthropic.claude-sonnet-4-6",
         "name": "Claude Sonnet 4.6",
         "input": 3.00,
         "output": 15.00,
         "default": True,
-    },
-    {
-        "id": "global.anthropic.claude-opus-4-5-20251101-v1:0",
-        "name": "Claude Opus 4.5",
-        "input": 5.00,
-        "output": 25.00,
     },
     {
         "id": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
