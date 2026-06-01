@@ -893,6 +893,32 @@ def handler(event, context):
       })
     );
 
+    // AWS IoT SiteWise read-only access for the `sitewise` protocol backend
+    // in query_system. SiteWise list/batch-read APIs do not support
+    // resource-level scoping, so '*' is required. The SiteWise deployment may
+    // live in a different region than the platform, so this is not
+    // region-scoped. All actions are read-only (no Put/Create/Update/Delete).
+    explorerRuntimeRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SiteWiseReadAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'iotsitewise:ListAssetModels',
+          'iotsitewise:DescribeAssetModel',
+          'iotsitewise:ListAssets',
+          'iotsitewise:ListAssociatedAssets',
+          'iotsitewise:DescribeAsset',
+          'iotsitewise:GetAssetPropertyValue',
+          'iotsitewise:BatchGetAssetPropertyValue',
+          'iotsitewise:GetAssetPropertyValueHistory',
+          'iotsitewise:BatchGetAssetPropertyValueHistory',
+          'iotsitewise:GetAssetPropertyAggregates',
+          'iotsitewise:BatchGetAssetPropertyAggregates',
+        ],
+        resources: ['*'],
+      })
+    );
+
     // ========================================================================
     // DISCOVERY RUNTIME ROLE (Req 10.8, 10.9: read-write DynamoDB + S3 + KB ingestion + RDS Data API)
     // ========================================================================
@@ -1316,6 +1342,28 @@ def handler(event, context):
         resources: [
           `arn:aws:s3tables:${this.region}:${this.account}:bucket/*`,
         ],
+      })
+    );
+
+    // AWS IoT SiteWise read-only access for inspect_sitewise_assets (Phase 1
+    // discovery). SiteWise list/describe APIs do not support resource-level
+    // scoping, so '*' is required. The SiteWise deployment may live in a
+    // different region than the platform, so this is not region-scoped. All
+    // actions are read-only (no Put/Create/Update/Delete).
+    discoveryRuntimeRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SiteWiseReadAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'iotsitewise:ListAssetModels',
+          'iotsitewise:DescribeAssetModel',
+          'iotsitewise:ListAssets',
+          'iotsitewise:ListAssociatedAssets',
+          'iotsitewise:DescribeAsset',
+          'iotsitewise:GetAssetPropertyValue',
+          'iotsitewise:BatchGetAssetPropertyValue',
+        ],
+        resources: ['*'],
       })
     );
 

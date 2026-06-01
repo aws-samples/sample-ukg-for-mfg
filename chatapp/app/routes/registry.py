@@ -161,6 +161,12 @@ async def registry_detail(request: Request, system_id: str):
     if not detail:
         raise HTTPException(status_code=404, detail=f"System '{system_id}' not found")
 
+    # Per-table field counts for the Tables tab (derived from the already-loaded
+    # fields; SCHEMA# items don't store a field/column count).
+    field_counts: dict[str, int] = {}
+    for f in detail.fields:
+        field_counts[f.table_name] = field_counts.get(f.table_name, 0) + 1
+
     return templates.TemplateResponse(
         "admin/registry_detail.html",
         {
@@ -169,6 +175,7 @@ async def registry_detail(request: Request, system_id: str):
             "schemas": detail.schemas,
             "fields": detail.fields,
             "equivalences": detail.equivalences,
+            "field_counts": field_counts,
         },
     )
 

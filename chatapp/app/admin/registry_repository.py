@@ -29,6 +29,7 @@ class SystemSummary:
     status: str = ""
     table_count: int = 0
     field_count: int = 0
+    equivalence_count: int = 0
     discovered_at: str = ""
     discovered_by: str = ""
 
@@ -40,6 +41,7 @@ class SchemaEntry:
     schema_name: str = ""
     description: str = ""
     row_count: Optional[int] = None
+    primary_key: list = field(default_factory=list)
 
 
 @dataclass
@@ -121,10 +123,53 @@ class RegistryRepository:
                     ExclusiveStartKey=response["LastEvaluatedKey"],
                 )
                 items.extend(response.get("Items", []))
-            return [_parse_metadata(item) for item in items]
+            systems = [_parse_metadata(item) for item in items]
+
+            # Equivalence counts aren't stored on the METADATA item — they're
+            # individual EQUIV# items keyed under the source system's PK. Tally
+            # them in one projected scan and attach to each summary so the list
+            # page can show the count without an N+1 detail fetch per system.
+            equiv_counts = await self._count_equivalences_by_system()
+            for s in systems:
+                s.equivalence_count = equiv_counts.get(s.system_id, 0)
+
+            return systems
         except Exception as e:
             logger.error("Failed to scan registry: %s", e)
             return []
+
+    async def _count_equivalences_by_system(self) -> dict[str, int]:
+        """Count EQUIV# items grouped by source system_id.
+
+        Equivalences are stored as ``PK=SYSTEM#{source_system}, SK=EQUIV#...``.
+        A single scan projecting only the key attributes lets us tally counts
+        per system cheaply (mirrors how the detail page derives its count).
+        """
+        table = _get_table()
+        if not table:
+            return {}
+        counts: dict[str, int] = {}
+        try:
+            scan_kwargs = {
+                "FilterExpression": Attr("SK").begins_with("EQUIV#"),
+                "ProjectionExpression": "PK",
+            }
+            response = table.scan(**scan_kwargs)
+            for item in response.get("Items", []):
+                sid = item.get("PK", "").replace("SYSTEM#", "")
+                if sid:
+                    counts[sid] = counts.get(sid, 0) + 1
+            while "LastEvaluatedKey" in response:
+                response = table.scan(
+                    ExclusiveStartKey=response["LastEvaluatedKey"], **scan_kwargs
+                )
+                for item in response.get("Items", []):
+                    sid = item.get("PK", "").replace("SYSTEM#", "")
+                    if sid:
+                        counts[sid] = counts.get(sid, 0) + 1
+        except Exception as e:
+            logger.error("Failed to count equivalences: %s", e)
+        return counts
 
     async def get_system_detail(self, system_id: str) -> Optional[SystemDetail]:
         """Get full detail for a system including schemas, fields, and equivalences."""
@@ -157,6 +202,15 @@ class RegistryRepository:
                     metadata = _parse_metadata(item)
                 elif sk.startswith("SCHEMA#"):
                     _rc = item.get("row_count")
+                    _pk = item.get("primary_key")
+                    # primary_key may be a DynamoDB list, a single string, or
+                    # absent. Normalize to a list[str] for consistent display.
+                    if isinstance(_pk, (list, tuple)):
+                        _pk_list = [str(k) for k in _pk]
+                    elif _pk:
+                        _pk_list = [str(_pk)]
+                    else:
+                        _pk_list = []
                     schemas.append(SchemaEntry(
                         table_name=item.get("table_name", sk.replace("SCHEMA#", "")),
                         schema_name=item.get("schema_name", ""),
@@ -164,6 +218,7 @@ class RegistryRepository:
                         # DDB returns numbers as Decimal; cast so ``asdict``
                         # produces JSON-serializable primitives downstream.
                         row_count=int(_rc) if _rc is not None else None,
+                        primary_key=_pk_list,
                     ))
                 elif sk.startswith("FIELD#"):
                     fields.append(FieldEntry(

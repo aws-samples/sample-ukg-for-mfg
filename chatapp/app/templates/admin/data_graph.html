@@ -30,6 +30,12 @@
                 <span id="stat-systems" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 systems</span>
                 <span id="stat-tables" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 tables</span>
                 <span id="stat-edges" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted);">0 edges</span>
+                <button id="toggle-isolated" onclick="toggleIsolated()"
+                        class="hidden"
+                        style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-family: 'IBM Plex Mono', monospace;"
+                        onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+                        onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'"
+                        title="Toggle visibility of tables with no connections">+0 isolated</button>
             </div>
 
             <!-- Legend (floating overlay, left column under stats) -->
@@ -62,6 +68,49 @@ let allNodes = [];
 let allLinks = [];
 let systemMeta = {};
 let fgPinned = false;
+// Isolated (zero-connection) node handling. These are real registry tables
+// that share no concept/equivalence with anything else (e.g. SiteWise
+// hierarchy models like Enterprise/BottlingArea). With no link pulling them
+// in, the force layout flings them into empty space, which wrecks zoomToFit.
+// Hide them by default; expose a toggle + count so admins can still see them.
+let isolatedIds = new Set();
+let showIsolated = false;
+
+function toggleIsolated() {
+    showIsolated = !showIsolated;
+    const btn = document.getElementById('toggle-isolated');
+    if (btn) {
+        btn.style.color = showIsolated ? 'var(--accent)' : 'var(--muted)';
+        btn.style.borderColor = showIsolated ? 'var(--accent)' : 'var(--border)';
+        btn.textContent = (showIsolated ? '−' : '+') + `${isolatedIds.size} isolated`;
+        btn.title = showIsolated
+            ? 'Hide tables with no connections'
+            : `Show ${isolatedIds.size} table(s) with no connections`;
+    }
+    applyGraphData();
+}
+
+/**
+ * Feed the (optionally isolated-filtered) node/link set into the graph and
+ * re-fit. Links never reference isolated nodes, so filtering nodes alone is
+ * safe — no dangling link endpoints.
+ */
+function applyGraphData() {
+    if (!fgInstance) return;
+    const nodes = showIsolated ? allNodes : allNodes.filter(n => !isolatedIds.has(n.id));
+    fgInstance.graphData({ nodes: nodes, links: allLinks });
+    updateTableStat();
+    // Re-fit shortly after the layout reheats so the visible cluster fills the view.
+    setTimeout(() => fgInstance && fgInstance.zoomToFit(400, 60), 350);
+}
+
+/** Update the "N tables" stat to reflect how many are currently visible. */
+function updateTableStat() {
+    const el = document.getElementById('stat-tables');
+    if (!el) return;
+    const visible = showIsolated ? allNodes.length : allNodes.length - isolatedIds.size;
+    el.textContent = `${visible} tables`;
+}
 
 function closeDetail() {
     document.getElementById('detail-panel').classList.add('hidden');
@@ -211,10 +260,35 @@ async function loadGraph() {
             }
         }
 
+        // Compute isolated nodes — tables with zero links. Hidden by default
+        // so they don't distort the layout/zoom of the connected cluster.
+        const connectedIds = new Set();
+        for (const l of allLinks) {
+            connectedIds.add(typeof l.source === 'object' ? l.source.id : l.source);
+            connectedIds.add(typeof l.target === 'object' ? l.target.id : l.target);
+        }
+        isolatedIds = new Set(allNodes.filter(n => !connectedIds.has(n.id)).map(n => n.id));
+
         // Stats
         document.getElementById('stat-systems').textContent = `${systemCount} systems`;
-        document.getElementById('stat-tables').textContent = `${allNodes.length} tables`;
         document.getElementById('stat-edges').textContent = `${allLinks.length} edges`;
+        updateTableStat();
+
+        // Isolated toggle — only show the control when there are isolated nodes.
+        const isoBtn = document.getElementById('toggle-isolated');
+        if (isoBtn) {
+            if (isolatedIds.size > 0) {
+                isoBtn.classList.remove('hidden');
+                isoBtn.textContent = (showIsolated ? '−' : '+') + `${isolatedIds.size} isolated`;
+                isoBtn.title = showIsolated
+                    ? 'Hide tables with no connections'
+                    : `Show ${isolatedIds.size} table(s) with no connections`;
+                isoBtn.style.color = showIsolated ? 'var(--accent)' : 'var(--muted)';
+                isoBtn.style.borderColor = showIsolated ? 'var(--accent)' : 'var(--border)';
+            } else {
+                isoBtn.classList.add('hidden');
+            }
+        }
 
         // Legend
         const legend = document.getElementById('fg-legend');
@@ -255,7 +329,10 @@ async function loadGraph() {
             .width(rect.width)
             .height(rect.height)
             .backgroundColor('rgba(0,0,0,0)')
-            .graphData({ nodes: allNodes, links: allLinks })
+            .graphData({
+                nodes: showIsolated ? allNodes : allNodes.filter(n => !isolatedIds.has(n.id)),
+                links: allLinks,
+            })
             .nodeId('id')
             .nodeVal('val')
             .nodeLabel(n => {
@@ -356,6 +433,11 @@ async function loadGraph() {
         });
         fgInstance.d3Force('collision', d3.forceCollide(10));
         fgInstance.d3Force('charge').strength(-120);
+        // Gentle centering pull so disconnected nodes (when shown) drift toward
+        // the cluster instead of flying off into empty canvas. x/y at strength
+        // 0.05 is weak enough not to distort the connected layout.
+        fgInstance.d3Force('x', d3.forceX(0).strength(0.05));
+        fgInstance.d3Force('y', d3.forceY(0).strength(0.05));
 
     } catch (err) {
         console.error('Graph error:', err);

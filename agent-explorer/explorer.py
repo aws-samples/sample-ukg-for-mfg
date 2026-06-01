@@ -82,6 +82,24 @@ repeating discovery mistakes.
 
   For MCP-based systems: provide the tool input as a string.
 
+  For AWS IoT SiteWise systems (protocol "sitewise"): the query is a compact JSON
+  object. You do NOT know asset instance names up front, so BROWSE FIRST:
+    - `{"mode": "list"}` — lists every asset model with its instance names and counts.
+    - `{"mode": "list", "model": "Fermenter"}` — lists all instances of one model.
+    - `{"mode": "list", "search": "Ferm"}` — finds instances by partial name match.
+    - `{"mode": "list", "under": "Brewing"}` — lists all assets beneath a parent
+      asset (use this for "everything in plant/area X" — pass the area or site name).
+    - `{"mode": "list", "model": "Fermenter", "where": {"property": "State", "equals": "Running"}}`
+      — filters a model's instances by a current property value. Operators:
+      equals, not_equals, gt, gte, lt, lte, contains. Use this for questions like
+      "which tanks are above 70°F" or "what equipment is currently running".
+  Then read telemetry for a specific instance:
+    - `{"asset": "Fermenter100", "properties": ["Temperature_PV"], "mode": "latest"}` — current values.
+    - add `"mode": "history"` with `"start"`/`"end"` (ISO8601) for a time series.
+    - add `"mode": "aggregate"`, `"aggregate": "AVERAGE"`, `"resolution": "1h"` for rollups.
+  Always run a list query before a name-based telemetry query if you are unsure which
+  asset instances exist — never guess instance names.
+
 ### 4. SYNTHESIZE — Combine results into a unified answer
 
 When presenting results to the user:
