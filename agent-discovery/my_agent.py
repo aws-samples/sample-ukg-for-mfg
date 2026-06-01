@@ -26,7 +26,7 @@ from guardrails import NotifyOnlyGuardrailsHook
 from logger import setup_logger
 from telemetry import is_telemetry_initialized, setup_telemetry
 from tools.discovery_helpers import get_canonical_concepts
-from tools.inspect import inspect_api_spec, inspect_mcp_server, inspect_rds_schema, inspect_athena_source, list_s3tables_namespaces
+from tools.inspect import inspect_api_spec, inspect_mcp_server, inspect_rds_schema, inspect_athena_source, list_s3tables_namespaces, inspect_sitewise_assets
 from tools.register import register_system_metadata, register_fields, register_equivalences, log_discovery_session
 from tools.state import save_phase_results, load_phase_results, load_table_schema
 from tools.analyze import analyze_schema, correlate_fields, register_all, discover_s3tables_bucket
@@ -99,6 +99,13 @@ This tool handles the entire multi-namespace pipeline automatically — it lists
 namespaces, then processes each through all 6 phases (inspect → analyze → correlate → \
 register → log → remember) with isolated contexts. You do NOT need to call the individual phase \
 tools for S3 Tables. \
+- For AWS IoT SiteWise (industrial IoT / SCADA telemetry): use `inspect_sitewise_assets`. \
+Pass the `region` of the SiteWise deployment (e.g. "us-east-2") — it may differ from the \
+platform region. This tool treats each SiteWise asset model as a table and each property \
+(measurement, attribute, transform, metric) as a column, and captures the ISA-95 asset \
+hierarchy. After inspecting, run the standard Phases 2–6 (analyze → correlate → register → \
+log → remember). SiteWise properties map mostly to `iot`, `equipment`, and `physical-asset` \
+concepts. \
 \
 The tool yields incremental results as it works: \
 1. First, a "progress" yield with the namespace list and count. \
@@ -322,6 +329,7 @@ async def invoke(payload, context):
         inspect_api_spec,
         inspect_mcp_server,
         inspect_athena_source,
+        inspect_sitewise_assets,
         # S3 Tables multi-namespace orchestrator
         discover_s3tables_bucket,
         # Phase 2: UNDERSTAND (sub-agent)

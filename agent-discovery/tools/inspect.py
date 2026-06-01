@@ -10,6 +10,7 @@ Supported inspection targets:
   - OpenAPI/Swagger specs via HTTP (inspect_api_spec)
   - MCP servers via streamable HTTP (inspect_mcp_server)
   - Athena/Glue-cataloged data sources (inspect_athena_source)
+  - AWS IoT SiteWise asset models / assets (inspect_sitewise_assets)
 """
 
 import json
@@ -955,3 +956,234 @@ def _run_athena_query(athena_client, query: str, database: str, catalog: str,
         rows.append(row)
 
     return rows
+
+
+# ---------------------------------------------------------------------------
+# AWS IoT SiteWise inspection
+# ---------------------------------------------------------------------------
+#
+# SiteWise has no standalone "schema" — instead it models industrial assets as
+# a hierarchy of *asset models* (templates) and *assets* (instances). Each asset
+# model defines *properties* of four kinds:
+#   - measurement: raw telemetry from a device (e.g. Temperature_PV)
+#   - attribute:   static configuration (e.g. Name, serial number)
+#   - transform:   a formula over other properties
+#   - metric:      a time-windowed aggregate (e.g. avg temperature/hr)
+#
+# We map this onto the discovery pipeline's table/column model by treating each
+# asset model as a "table" and each property as a "column". The 6-phase pipeline
+# then maps every property to a canonical ISA-95 concept (most land in the `iot`,
+# `equipment`, and `physical-asset` domains) and registers it in the knowledge
+# graph, so the Explorer can later query SiteWise telemetry via the `sitewise`
+# protocol backend in query_system.
+
+# SiteWise asset-model property "kind" — describes where the value comes from.
+_SITEWISE_PROPERTY_KINDS = ("measurement", "attribute", "transform", "metric")
+
+
+def _sitewise_property_kind(prop_type: dict) -> str:
+    """Return the SiteWise property kind (measurement/attribute/transform/metric)."""
+    if not isinstance(prop_type, dict):
+        return ""
+    for kind in _SITEWISE_PROPERTY_KINDS:
+        if kind in prop_type:
+            return kind
+    return ""
+
+
+def _sitewise_model_columns(model_properties: list) -> list[dict]:
+    """Convert SiteWise asset-model properties into inspect 'columns'.
+
+    Each property becomes a column with its data type, unit, the SiteWise
+    property kind, and the property_id needed to query telemetry later.
+    """
+    columns = []
+    for prop in model_properties:
+        kind = _sitewise_property_kind(prop.get("type", {}))
+        columns.append({
+            "column_name": prop.get("name", ""),
+            "data_type": prop.get("dataType", ""),
+            "property_id": prop.get("id", ""),
+            "property_kind": kind,
+            "unit": prop.get("unit"),
+            # Attributes are static config; measurements/metrics/transforms are
+            # time-series telemetry. None are NOT NULL in a relational sense.
+            "nullable": True,
+        })
+    return columns
+
+
+def _sitewise_list_model_assets(client, asset_model_id: str, max_assets: int = 250) -> list[dict]:
+    """List asset instances for an asset model (name + id), bounded by max_assets."""
+    instances = []
+    next_token = None
+    while True:
+        kwargs = {"assetModelId": asset_model_id, "maxResults": 250}
+        if next_token:
+            kwargs["nextToken"] = next_token
+        resp = client.list_assets(**kwargs)
+        for a in resp.get("assetSummaries", []):
+            instances.append({"name": a.get("name", ""), "asset_id": a.get("id", "")})
+            if len(instances) >= max_assets:
+                return instances
+        next_token = resp.get("nextToken")
+        if not next_token:
+            break
+    return instances
+
+
+def _sitewise_build_hierarchy(client, max_nodes: int = 200) -> list[dict]:
+    """Traverse the SiteWise asset hierarchy from the top-level assets.
+
+    Returns a compact nested tree of {name, asset_id, model_name, children}.
+    Bounded by max_nodes and a max depth to stay safe on large deployments.
+    This is captured purely as ISA-95 context for the analysis/memory phases —
+    it does not affect field-to-concept mapping.
+    """
+    tree: list[dict] = []
+    try:
+        top = client.list_assets(filter="TOP_LEVEL", maxResults=50).get("assetSummaries", [])
+    except Exception as e:
+        logger.warning("SiteWise hierarchy: list_assets(TOP_LEVEL) failed: %s", _sanitize_error(str(e)))
+        return tree
+
+    visited = {"count": 0}
+
+    def _walk(summary: dict, depth: int):
+        if visited["count"] >= max_nodes or depth > 6:
+            return None
+        visited["count"] += 1
+        node = {
+            "name": summary.get("name", ""),
+            "asset_id": summary.get("id", ""),
+            "children": [],
+        }
+        for h in summary.get("hierarchies", []):
+            hierarchy_id = h.get("id")
+            if not hierarchy_id:
+                continue
+            try:
+                kids = client.list_associated_assets(
+                    assetId=summary.get("id"),
+                    hierarchyId=hierarchy_id,
+                    maxResults=100,
+                ).get("assetSummaries", [])
+            except Exception as e:
+                logger.warning("SiteWise hierarchy: list_associated_assets failed: %s", _sanitize_error(str(e)))
+                kids = []
+            for k in kids:
+                child = _walk(k, depth + 1)
+                if child:
+                    node["children"].append(child)
+        return node
+
+    for t in top:
+        node = _walk(t, 0)
+        if node:
+            tree.append(node)
+    return tree
+
+
+@tool
+def inspect_sitewise_assets(region: str = "", include_hierarchy: bool = True) -> str:
+    """Inspect an AWS IoT SiteWise deployment (asset models, assets, properties).
+
+    Treats each SiteWise *asset model* as a table and its *properties*
+    (measurements, attributes, transforms, metrics) as columns, so the standard
+    6-phase discovery pipeline can map them to canonical manufacturing concepts
+    and register them in the knowledge graph. Used by the Discovery Agent during
+    Phase 1 (INSPECT) to catalog an IoT/SCADA data source.
+
+    The SiteWise deployment may live in a different region than the UKG platform
+    (e.g. the platform in us-east-1 but SiteWise in us-east-2). Pass `region`
+    explicitly to point at the SiteWise account region; it is persisted in the
+    system's connection_config so the Explorer queries the correct region.
+
+    Args:
+        region: AWS region of the SiteWise deployment (e.g. "us-east-2"). If
+            empty, falls back to SITEWISE_REGION then AWS_REGION.
+        include_hierarchy: Whether to capture the ISA-95 asset hierarchy tree as
+            additional context (default True).
+
+    Returns:
+        JSON summary with one "table" per asset model (columns = properties,
+        row_count = number of asset instances). Full data is saved to DDB for
+        subsequent phases. On failure, returns structured error JSON.
+    """
+    sitewise_region = region or os.getenv("SITEWISE_REGION") or os.getenv("AWS_REGION", "us-east-1")
+
+    try:
+        client = boto3.client("iotsitewise", region_name=sitewise_region)
+
+        # 1. List all asset models (templates)
+        models = []
+        next_token = None
+        while True:
+            kwargs = {"maxResults": 250}
+            if next_token:
+                kwargs["nextToken"] = next_token
+            resp = client.list_asset_models(**kwargs)
+            models.extend(resp.get("assetModelSummaries", []))
+            next_token = resp.get("nextToken")
+            if not next_token:
+                break
+
+        if not models:
+            full_result = {
+                "success": True,
+                "source_type": "sitewise",
+                "region": sitewise_region,
+                "tables": [],
+                "table_count": 0,
+            }
+            return _save_and_summarize(full_result, "sitewise")
+
+        # 2. For each asset model, get its properties (columns) + asset instances
+        tables = []
+        for m in models:
+            model_id = m.get("id")
+            model_name = m.get("name", "")
+            try:
+                detail = client.describe_asset_model(assetModelId=model_id)
+            except Exception as e:
+                logger.warning(
+                    "describe_asset_model failed for '%s': %s",
+                    model_name, _sanitize_error(str(e)),
+                )
+                continue
+
+            columns = _sitewise_model_columns(detail.get("assetModelProperties", []))
+            instances = _sitewise_list_model_assets(client, model_id)
+
+            tables.append({
+                "table_name": model_name,
+                "asset_model_id": model_id,
+                "asset_model_description": (m.get("description") or "")[:500],
+                "columns": columns,
+                "column_count": len(columns),
+                "primary_keys": [],
+                "foreign_keys": [],
+                "row_count": len(instances),
+                # Bounded sample of instances — the Explorer resolves names to
+                # IDs dynamically at query time, so this is context, not config.
+                "asset_instances": instances[:50],
+            })
+
+        full_result = {
+            "success": True,
+            "source_type": "sitewise",
+            "region": sitewise_region,
+            "tables": tables,
+            "table_count": len(tables),
+        }
+        if include_hierarchy:
+            full_result["hierarchy"] = _sitewise_build_hierarchy(client)
+
+        return _save_and_summarize(full_result, "sitewise")
+
+    except Exception as e:
+        logger.error(
+            "inspect_sitewise_assets failed (region=%s): %s — %s",
+            sitewise_region, type(e).__name__, _sanitize_error(str(e)),
+        )
+        return _build_error("connection_error", str(e))

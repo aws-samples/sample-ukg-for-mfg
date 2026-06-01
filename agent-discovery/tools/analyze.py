@@ -55,7 +55,7 @@ Return your analysis as a JSON object with this exact structure:
   "system_name": "Human Readable Name",
   "system_type": "ERP|MES|CMMS|PLM|IoT|Other",
   "isa95_level": 3,
-  "source_type": "api|rds|s3tables|mcp",
+  "source_type": "api|rds|s3tables|mcp|sitewise",
   "schemas": [{"table_name": "...", "description": "...", "primary_key": ["..."]}],
   "fields_by_table": {
     "TableName": [
@@ -594,6 +594,7 @@ async def register_all(namespace: str = None) -> AsyncIterator:
             "rds": "rds-data-api",
             "api": "openapi",
             "mcp": "mcp",
+            "sitewise": "sitewise",
         }
         protocol = _SOURCE_TO_PROTOCOL.get(source_type, source_type)
 
@@ -626,6 +627,20 @@ async def register_all(namespace: str = None) -> AsyncIterator:
                     "workgroup": os.getenv("ATHENA_WORKGROUP", "primary"),
                     "output_location": f"s3://athena-{_account_id}-{_region}/results/",
                 }
+        elif protocol == "sitewise":
+            # SiteWise may live in a different region than the platform. Persist
+            # the region from inspect data so the Explorer queries the right one.
+            inspect_sk = f"PHASE#inspect#{namespace}" if namespace else "PHASE#inspect"
+            inspect_resp = client.get_item(
+                TableName=table_name,
+                Key={"PK": {"S": "DISCOVERY_STATE#current"}, "SK": {"S": inspect_sk}},
+            )
+            inspect_item = inspect_resp.get("Item")
+            sitewise_region = os.getenv("SITEWISE_REGION") or os.getenv("AWS_REGION", "us-east-1")
+            if inspect_item:
+                inspect_data = json.loads(inspect_item.get("data", {}).get("S", "{}"))
+                sitewise_region = inspect_data.get("region", sitewise_region)
+            connection_config = {"region": sitewise_region}
 
         from datetime import datetime, timezone
 
