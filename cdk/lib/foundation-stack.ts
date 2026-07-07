@@ -340,7 +340,7 @@ export class FoundationStack extends cdk.Stack {
                 PutRequest: {
                   Item: {
                     setting_key: { S: 'app_title' },
-                    setting_value: { S: 'Manufacturing Universal Knowledge Graph' },
+                    setting_value: { S: 'Manufacturing Unified Knowledge Graph' },
                     setting_type: { S: 'text' },
                     description: { S: 'Application title displayed in header' },
                     updated_at: { S: '2025-01-01T00:00:00.000Z' },
