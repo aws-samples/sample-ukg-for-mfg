@@ -1,4 +1,4 @@
-# Sample Universal Knowledge Graph for Manufacturing
+# Sample Unified Knowledge Graph for Manufacturing
 
 A multi-agent Agentic AI application that unifies manufacturing data across ERP, MES, CMMS, PLM, and IoT systems through autonomous data discovery, a dynamic system registry, and natural language exploration. Built with Amazon Bedrock AgentCore, Strands Agents SDK, and FastAPI.
 
@@ -402,7 +402,7 @@ mfg-ukg/
 │   │   │   ├── chat.py           # SSE streaming chat endpoint
 │   │   │   ├── discovery.py      # Discovery agent chat endpoint
 │   │   │   ├── workflows.py      # Workflow CRUD and scheduling
-│   │   │   ├── ukg.py             # Universal Knowledge Graph explorer
+│   │   │   ├── ukg.py             # Unified Knowledge Graph explorer
 │   │   │   ├── registry.py       # System registry API
 │   │   │   ├── registry_graph.py # Graph visualization data
 │   │   │   ├── admin.py          # Admin dashboard routes
