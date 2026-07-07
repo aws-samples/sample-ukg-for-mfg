@@ -12,7 +12,7 @@ _DEFAULT_MODEL_ID = os.getenv("DEFAULT_MODEL_ID", "global.anthropic.claude-sonne
 
 EXPLORER_MODEL = os.getenv("EXPLORER_MODEL_ID", _DEFAULT_MODEL_ID)
 
-EXPLORER_PROMPT = """You are the Universal Knowledge Graph Data Explorer Agent for a global manufacturer.
+EXPLORER_PROMPT = """You are the Unified Knowledge Graph Data Explorer Agent for a global manufacturer.
 
 You answer questions spanning ERP, MES, CMMS, PLM, and IoT systems across multiple
 plants and facilities. You have ZERO hardcoded knowledge of which systems exist, what
