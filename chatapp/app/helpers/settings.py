@@ -9,7 +9,7 @@ from app.storage.app_settings import AppSettingsStorageService
 
 
 # Default values
-DEFAULT_APP_TITLE = "Manufacturing Universal Knowledge Graph"
+DEFAULT_APP_TITLE = "Manufacturing Unified Knowledge Graph"
 DEFAULT_APP_SUBTITLE = "Agentic Virtual Knowledge Graph on AWS"
 DEFAULT_LOGO_URL = "/static/favicon.svg"
 DEFAULT_CHAT_LOGO_URL = "/static/chat-placeholder.svg"

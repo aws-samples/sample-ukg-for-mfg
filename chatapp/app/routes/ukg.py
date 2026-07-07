@@ -1,4 +1,4 @@
-"""Universal Knowledge Graph API routes for the sidebar and admin views.
+"""Unified Knowledge Graph API routes for the sidebar and admin views.
 
 Provides JSON endpoints for:
 - /api/registry/systems — registered systems (sidebar)
@@ -25,7 +25,7 @@ ukg_router = APIRouter(prefix="/api/registry", tags=["ukg"])
 
 @ukg_router.get("/systems")
 async def get_systems(request: Request):
-    """Get all registered systems for the Universal Knowledge Graph sidebar."""
+    """Get all registered systems for the Unified Knowledge Graph sidebar."""
     config = get_config()
     if not config.registry_table_name:
         return JSONResponse(content={"systems": [], "count": 0, "configured": False})
