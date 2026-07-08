@@ -1013,6 +1013,25 @@ def handler(event, context):
       })
     );
 
+    // Read + write access to the concepts table so the discovery agent can
+    // read the manufacturing vocabulary and administer it via concept tools.
+    discoveryRuntimeRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ConceptsTableAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Scan',
+          'dynamodb:BatchWriteItem',
+        ],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${config.conceptsTableName}`,
+        ],
+      })
+    );
+
     // Bedrock model invocation (for LLM inference during discovery)
     discoveryRuntimeRole.addToPolicy(
       new iam.PolicyStatement({
@@ -1407,6 +1426,7 @@ def handler(event, context):
         REGISTRY_GATEWAY_ID: registryGatewayId,
         REGISTRY_GATEWAY_NAME: gatewayName,
         DISCOVERY_HISTORY_TABLE_NAME: `${config.appName}-discovery-history`,
+        CONCEPTS_TABLE_NAME: config.conceptsTableName,
         AWS_REGION: this.region,
         MEMORY_ID: discoveryMemoryId,
         KB_ID: knowledgeBaseId,

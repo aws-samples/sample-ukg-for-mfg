@@ -38,6 +38,8 @@ export interface AppConfig {
   promptTemplatesTableName: string;
   /** App settings table name */
   appSettingsTableName: string;
+  /** Concepts (manufacturing vocabulary) table name */
+  conceptsTableName: string;
   /** Runtime usage table name */
   runtimeUsageTableName: string;
   /** Discovery history table name */
@@ -165,6 +167,7 @@ export const config: AppConfig = {
   guardrailTableName: getEnvOrDefault('GUARDRAIL_TABLE_NAME', `${appName}-guardrail-violations`),
   promptTemplatesTableName: getEnvOrDefault('PROMPT_TEMPLATES_TABLE_NAME', `${appName}-prompt-templates`),
   appSettingsTableName: getEnvOrDefault('APP_SETTINGS_TABLE_NAME', `${appName}-app-settings`),
+  conceptsTableName: getEnvOrDefault('CONCEPTS_TABLE_NAME', `${appName}-concepts`),
   runtimeUsageTableName: getEnvOrDefault('RUNTIME_USAGE_TABLE_NAME', `${appName}-runtime-usage`),
   discoveryHistoryTableName: getEnvOrDefault('DISCOVERY_HISTORY_TABLE_NAME', `${appName}-discovery-history`),
   workflowsTableName: getEnvOrDefault('WORKFLOWS_TABLE_NAME', `${appName}-saved-workflows`),

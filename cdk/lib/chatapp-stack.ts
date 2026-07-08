@@ -607,6 +607,10 @@ def handler(event, context):
             valueFrom: `${secretArn}:app_settings_table_name::`,
           },
           {
+            name: 'CONCEPTS_TABLE_NAME',
+            valueFrom: `${secretArn}:concepts_table_name::`,
+          },
+          {
             name: 'RUNTIME_USAGE_TABLE_NAME',
             valueFrom: `${secretArn}:runtime_usage_table_name::`,
           },
@@ -995,6 +999,7 @@ def handler(event, context):
       'GUARDRAIL_TABLE_NAME': 'guardrail_table_name',
       'PROMPT_TEMPLATES_TABLE_NAME': 'prompt_templates_table_name',
       'APP_SETTINGS_TABLE_NAME': 'app_settings_table_name',
+      'CONCEPTS_TABLE_NAME': 'concepts_table_name',
       'RUNTIME_USAGE_TABLE_NAME': 'runtime_usage_table_name',
       'GUARDRAIL_ID': 'guardrail_id',
       'GUARDRAIL_VERSION': 'guardrail_version',
