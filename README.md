@@ -46,7 +46,7 @@ This project solves that with two cooperating AI agents:
 **Data Discovery & Registration**
 - 🔍 Autonomous multi-phase data discovery (inspect → analyze → map concepts → register equivalences)
 - 🗂️ Dynamic system registry with field-to-concept mappings and cross-system equivalences
-- 🏭 ISA-95 aligned concept taxonomy (customizable per customer)
+- 🏭 ISA-95 aligned default concept taxonomy (customizable per customer)
 - 📊 Interactive graph visualization of system relationships
 
 **Chat & Exploration**
@@ -72,7 +72,7 @@ This project solves that with two cooperating AI agents:
 **Agent Capabilities**
 - 🧠 Amazon Bedrock AgentCore with Strands Agents SDK
 - 📚 Knowledge Base integration for semantic search over curated documents (S3 Vectors)
-- 🛠️ Pre-built tools — system query, concept search, knowledge base, web search, URL fetcher
+- 🛠️ Pre-built tools — system query, concept discovery, canonical concept vocabulary, knowledge base, web search, URL fetcher
 
 **Infrastructure**
 - ☁️ Flexible deployment — ECS Express Mode or CloudFront + Lambda Web Adapter
@@ -214,7 +214,7 @@ The application uses two cooperating agents backed by a shared system registry, 
 
 | Agent | Purpose |
 |-------|---------|
-| **Data Explorer** | Answers manufacturing questions by discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `query_system`, `find_by_concept`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
+| **Data Explorer** | Answers manufacturing questions by resolving the right concept from the runtime vocabulary, discovering systems from the registry, resolving entities across systems, querying data sources, and synthesizing unified answers with source citations. Tools: `get_canonical_concepts`, `find_by_concept`, `find_equivalences`, `query_system`, `search_knowledge_base`, `web_search`, `url_fetcher`. |
 | **Discovery** | Admin-only agent that inspects and registers new data sources (S3 Tables, APIs, databases). Runs a multi-phase process: inspect schema → analyze fields → map to ISA-95 concepts → register cross-system equivalences. Tools: `inspect`, `analyze`, `register`, `discovery_helpers`. |
 
 ### Key Components
@@ -222,6 +222,7 @@ The application uses two cooperating agents backed by a shared system registry, 
 | Component | Description |
 |-----------|-------------|
 | **System Registry** | DynamoDB-backed registry of all connected systems, their schemas, field-to-concept mappings, and cross-system equivalences. Served via API Gateway + Lambda. Shared by both agents via AgentCore Gateway. |
+| **Concept Vocabulary** | DynamoDB-backed concept taxonomy (customizable via the Admin UI, seeded on deploy). Both agents read it at runtime through the shared AgentCore Gateway so discovery and exploration stay aligned with the currently configured vocabulary. |
 | **Knowledge Base** | Bedrock Knowledge Base (S3 Vectors) for semantic search over manufacturing reference documents (ISA-95, glossary, standards). |
 | **S3 Tables** | Apache Iceberg tables on S3 for manufacturing data (ERP, MES, CMMS, PLM, IoT). Queried via Lambda + Athena. |
 | **AgentCore Memory** | Event and semantic memory for conversation persistence across sessions. Separate memory stores for Explorer and Discovery agents. |
@@ -237,7 +238,7 @@ The CDK deployment creates 6 CloudFormation stacks:
 | **Foundation** | Auth, Storage, IAM, Secrets | Cognito, DynamoDB tables (10), IAM roles, Secrets Manager, System Registry table |
 | **Bedrock** | AI/ML Resources | Guardrail, Knowledge Base (S3 Vectors), AgentCore Memory (×2) |
 | **Agent** | Agent Infrastructure | ECR (×2), CodeBuild (×2), Explorer + Discovery AgentCore Runtimes, Observability |
-| **Gateway** | Registry API | API Gateway + Lambda, AgentCore Gateway for shared registry tools |
+| **Gateway** | Registry & Concept API | Lambda target + AgentCore Gateway serving shared registry and concept-vocabulary tools to both agents |
 | **WorkflowScheduler** | Automation | Lambda executor, EventBridge Scheduler group |
 | **ChatApp** | Application | ECS Express Mode and/or CloudFront + Lambda Web Adapter |
 
