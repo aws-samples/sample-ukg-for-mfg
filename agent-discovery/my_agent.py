@@ -75,7 +75,7 @@ def _render_progress(payload: dict) -> str | None:
     return None
 
 DISCOVERY_PROMPT = """\
-You are the Data Discovery Agent for a manufacturing universal knowledge graph platform. Your job is to \
+You are the Data Discovery Agent for a manufacturing Unified Knowledge Graph platform. Your job is to \
 inspect new data sources, catalog their schema, infer semantic mappings, discover \
 cross-system equivalences, and register everything in the System Registry.
 

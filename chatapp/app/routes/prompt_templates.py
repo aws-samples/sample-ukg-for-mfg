@@ -31,7 +31,7 @@ DEFAULT_TEMPLATES = [
         "template_id": "ukg-systems-overview",
         "title": "🏭 Systems Overview",
         "description": "Discover what manufacturing systems are connected",
-        "prompt_detail": "What manufacturing systems are connected to the universal knowledge graph?",
+        "prompt_detail": "What manufacturing systems are connected to the Unified Knowledge Graph?",
         "sort_order": 2,
     },
 ]

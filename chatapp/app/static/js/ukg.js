@@ -1,8 +1,8 @@
 /**
- * Universal Knowledge Graph sidebar JavaScript.
+ * Unified Knowledge Graph sidebar JavaScript.
  *
  * Handles theme toggling, tab switching, data loading, and rendering
- * for the Universal Knowledge Graph sidebar (Systems + Vocabulary tabs).
+ * for the Unified Knowledge Graph sidebar (Systems + Vocabulary tabs).
  */
 
 // ============================================================================

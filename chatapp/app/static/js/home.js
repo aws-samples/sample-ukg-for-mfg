@@ -1,5 +1,5 @@
 /**
- * Home page — Universal Knowledge Graph Control Panel
+ * Home page — Unified Knowledge Graph Control Panel
  * Loads systems, graph, vocabulary, and provides inline chat.
  *
  * LocalStorage keys (shared across pages that use the chat API):

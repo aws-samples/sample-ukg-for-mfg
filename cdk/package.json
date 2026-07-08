@@ -1,7 +1,7 @@
 {
   "name": "mfg-ukg-cdk",
   "version": "1.0.0",
-  "description": "CDK deployment for Universal Knowledge Graph for Manufacturing",
+  "description": "CDK deployment for Unified Knowledge Graph for Manufacturing",
   "main": "app.ts",
   "scripts": {
     "build": "tsc",

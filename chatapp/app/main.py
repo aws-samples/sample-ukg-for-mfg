@@ -201,7 +201,7 @@ async def root():
 
 @app.get("/home", response_class=HTMLResponse)
 async def home_page(request: Request):
-    """Home page — Universal Knowledge Graph control panel."""
+    """Home page — Unified Knowledge Graph control panel."""
     user = getattr(request.state, "user", None)
     user_email = user.email if user else None
     is_admin = getattr(request.state, "is_admin", False)
