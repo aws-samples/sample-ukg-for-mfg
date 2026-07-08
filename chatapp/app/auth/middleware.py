@@ -101,6 +101,72 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return True
         return False
 
+    async def _apply_authorization(
+        self,
+        request: Request,
+        user_info: UserInfo,
+        session_data: dict,
+        is_api: bool,
+    ) -> Optional[Response]:
+        """Fetch the user's groups, set ``request.state.is_admin``, and enforce
+        admin-route authorization.
+
+        This runs on both the normal (valid access token) path and the
+        token-refresh path. Running it on both is what keeps admin status
+        consistent: if it only ran on the normal path, any request served via
+        an automatic token refresh (e.g. the first page load after an access
+        token expires overnight) would leave ``is_admin`` unset and defaulting
+        to ``False``, silently hiding admin-only UI such as the admin menu links.
+
+        Args:
+            request: Incoming request (mutated with ``state.is_admin``)
+            user_info: Validated user info for the current token
+            session_data: Session dict used as a fallback source for username
+            is_api: Whether this is an API route (affects forbidden response)
+
+        Returns:
+            A Response if the request must be short-circuited (a non-admin
+            hitting an admin route); otherwise ``None``.
+        """
+        user_groups: list = []
+        username_for_groups = (
+            user_info.username or user_info.email or session_data.get("username")
+        )
+        logger.debug(
+            f"Group lookup: username={user_info.username}, email={user_info.email}, "
+            f"session_username={session_data.get('username')}, using={username_for_groups}"
+        )
+
+        if username_for_groups:
+            try:
+                user_groups = await get_user_groups(username_for_groups)
+                logger.debug(f"Fetched groups for {username_for_groups}: {user_groups}")
+            except Exception as e:
+                # Failed to fetch groups - log the error and default to no groups
+                logger.error(
+                    f"Failed to fetch groups for {username_for_groups}: {e}",
+                    exc_info=True,
+                )
+                user_groups = []
+        else:
+            logger.warning(
+                f"No username available for group lookup (user_id={user_info.user_id})"
+            )
+
+        # Set is_admin flag for all routes (used by templates)
+        is_admin_user = is_admin(user_groups or [])
+        request.state.is_admin = is_admin_user
+        logger.info(
+            f"Auth check: user={user_info.username or user_info.email}, "
+            f"is_admin={is_admin_user}, groups={user_groups}, path={request.url.path}"
+        )
+
+        # Check admin authorization for admin routes
+        if self._is_admin_route(request.url.path) and not is_admin_user:
+            return self._handle_forbidden(request, is_api)
+
+        return None
+
     async def dispatch(
         self, request: Request, call_next: Callable
     ) -> Response:
@@ -157,33 +223,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # Attach user info to request state
             request.state.user = user_info
             request.state.session = session_data
-            
-            # Get user groups (fetch fresh each time - don't cache in cookie to avoid size issues)
-            user_groups = []
-            username_for_groups = user_info.username or user_info.email or session_data.get("username")
-            logger.debug(f"Group lookup: username={user_info.username}, email={user_info.email}, session_username={session_data.get('username')}, using={username_for_groups}")
-            
-            if username_for_groups:
-                try:
-                    user_groups = await get_user_groups(username_for_groups)
-                    logger.debug(f"Fetched groups for {username_for_groups}: {user_groups}")
-                except Exception as e:
-                    # Failed to fetch groups - log the error and default to no groups
-                    logger.error(f"Failed to fetch groups for {username_for_groups}: {e}", exc_info=True)
-                    user_groups = []
-            else:
-                logger.warning(f"No username available for group lookup (user_id={user_info.user_id})")
-            
-            # Set is_admin flag for all routes (used by templates)
-            is_admin_user = is_admin(user_groups or [])
-            request.state.is_admin = is_admin_user
-            logger.info(f"Auth check: user={user_info.username or user_info.email}, is_admin={is_admin_user}, groups={user_groups}, path={request.url.path}")
-            
-            # Check admin authorization for admin routes
-            if self._is_admin_route(request.url.path):
-                if not request.state.is_admin:
-                    return self._handle_forbidden(request, is_api)
-            
+
+            # Compute admin status + enforce admin-route authorization.
+            # Shared with the token-refresh path so is_admin is always set.
+            forbidden = await self._apply_authorization(
+                request, user_info, session_data, is_api
+            )
+            if forbidden is not None:
+                return forbidden
+
             return await call_next(request)
             
         except TokenExpiredError:
@@ -364,7 +412,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
             
             # Store new refresh token in request state
             request.state.refresh_token = token_response.refresh_token or refresh_token
-            
+
+            # Compute admin status + enforce admin-route authorization on the
+            # refreshed session, exactly as the normal path does. Without this,
+            # is_admin would default to False on the first load after the
+            # access token expires, dropping the admin menu items.
+            forbidden = await self._apply_authorization(
+                request, user_info, new_session, is_api
+            )
+            if forbidden is not None:
+                return forbidden
+
             # Continue with the request
             response = await call_next(request)
             
