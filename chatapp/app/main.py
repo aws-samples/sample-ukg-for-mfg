@@ -36,6 +36,7 @@ from app.routes.admin import router as admin_router
 from app.routes.feedback import router as feedback_router, admin_router as feedback_admin_router
 from app.routes.prompt_templates import router as templates_router, admin_router as templates_admin_router
 from app.routes.app_settings import api_router as settings_api_router, admin_router as settings_admin_router
+from app.routes.concepts_admin import admin_router as concepts_admin_router
 from app.routes.discovery import router as discovery_router
 from app.routes.registry import router as registry_router
 from app.routes.ukg import ukg_router
@@ -166,6 +167,7 @@ app.include_router(templates_router)
 app.include_router(templates_admin_router)
 app.include_router(settings_api_router)
 app.include_router(settings_admin_router)
+app.include_router(concepts_admin_router)
 app.include_router(discovery_router)
 app.include_router(registry_router)
 app.include_router(ukg_router)

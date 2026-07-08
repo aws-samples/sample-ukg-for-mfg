@@ -14,7 +14,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.admin.concepts import CONCEPT_GROUPS, get_total_concept_count
+from app.admin.concepts import build_concept_groups, get_total_concept_count
 from app.admin.registry_repository import RegistryRepository
 from app.config import get_config
 
@@ -96,7 +96,7 @@ async def get_system_detail(request: Request, system_id: str):
 async def get_vocabulary(request: Request):
     """Get the canonical manufacturing vocabulary grouped by ISA-95 domain."""
     return JSONResponse(content={
-        "groups": CONCEPT_GROUPS,
+        "groups": build_concept_groups(),
         "total_concepts": get_total_concept_count(),
     })
 

@@ -57,6 +57,7 @@ class AppConfig:
     guardrail_table_name: str = "agentcore-guardrail-violations"
     prompt_templates_table_name: str = "agentcore-prompt-templates"
     app_settings_table_name: str = "agentcore-app-settings"
+    concepts_table_name: str = "mfg-ukg-concepts"
     runtime_usage_table_name: str = "agentcore-runtime-usage"
     registry_table_name: Optional[str] = None
     discovery_history_table_name: Optional[str] = None
@@ -142,6 +143,11 @@ class AppConfig:
         # App settings configuration
         values["app_settings_table_name"] = os.environ.get(
             "APP_SETTINGS_TABLE_NAME", "agentcore-app-settings"
+        ).strip()
+
+        # Concepts (manufacturing vocabulary) configuration
+        values["concepts_table_name"] = os.environ.get(
+            "CONCEPTS_TABLE_NAME", "mfg-ukg-concepts"
         ).strip()
 
         # Runtime usage configuration
