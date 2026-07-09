@@ -125,5 +125,34 @@
       },
       "required": ["success", "concept_id", "equivalences"]
     }
+  },
+  {
+    "name": "get_canonical_concepts",
+    "description": "Return the canonical manufacturing concept vocabulary with domain-qualified IDs, descriptions, and aliases. Call this to choose the correct concept_id BEFORE calling find_by_concept or find_equivalences, instead of guessing. The vocabulary is configured at runtime, so always consult it rather than assuming which concepts exist. Optionally filter to a single data domain.",
+    "inputSchema": {
+      "type": "object",
+      "description": "Optional domain filter",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Filter to one data domain (e.g. 'production', 'maintenance', 'equipment', 'quality', 'performance'). Omit to return the full vocabulary."
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "The canonical concept vocabulary",
+      "properties": {
+        "success": { "type": "boolean" },
+        "count": { "type": "integer" },
+        "concepts": {
+          "type": "array",
+          "description": "Concept objects: id, domain, qualified_id, description, aliases",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["success", "count", "concepts"]
+    }
   }
 ]

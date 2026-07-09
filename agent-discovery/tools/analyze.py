@@ -18,7 +18,7 @@ from typing import AsyncIterator
 from strands import Agent, tool
 from strands.models import BedrockModel
 
-from concepts import CANONICAL_CONCEPTS, get_all_concepts_serializable
+from concepts import get_all_concepts_serializable
 from tools.inspect import inspect_athena_source, list_s3tables_namespaces
 from tools.register import log_discovery_session
 from tools.remember import remember_discovery

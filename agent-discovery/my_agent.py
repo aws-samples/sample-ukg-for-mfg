@@ -26,6 +26,7 @@ from guardrails import NotifyOnlyGuardrailsHook
 from logger import setup_logger
 from telemetry import is_telemetry_initialized, setup_telemetry
 from tools.discovery_helpers import get_canonical_concepts
+from tools.concepts_admin import list_concepts, add_concept, update_concept, delete_concept
 from tools.inspect import inspect_api_spec, inspect_mcp_server, inspect_rds_schema, inspect_athena_source, list_s3tables_namespaces, inspect_sitewise_assets
 from tools.register import register_system_metadata, register_fields, register_equivalences, log_discovery_session
 from tools.state import save_phase_results, load_phase_results, load_table_schema
@@ -344,6 +345,11 @@ async def invoke(payload, context):
         remember_discovery,
         # Utilities (used by sub-agents internally, also available to orchestrator)
         get_canonical_concepts,
+        # Concept hierarchy administration
+        list_concepts,
+        add_concept,
+        update_concept,
+        delete_concept,
         save_phase_results,
         load_phase_results,
         load_table_schema,

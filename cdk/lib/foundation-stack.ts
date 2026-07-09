@@ -20,17 +20,117 @@
  * - SecretArn
  */
 
+import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3assets from 'aws-cdk-lib/aws-s3-assets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { config, exportNames } from './config';
-import { applyCommonSuppressions, applyEcsSuppressions, applySecretsManagerSuppressions } from './nag-suppressions';
+import { applyBucketDeploymentSuppressions, applyCommonSuppressions, applyCustomResourceSuppressions, applyEcsSuppressions, applySecretsManagerSuppressions } from './nag-suppressions';
+
+/**
+ * Inline Python handler for the concept-seeding custom resource.
+ *
+ * Reads the default concept hierarchy JSON from S3 (a CDK asset) and writes
+ * it into the concepts DynamoDB table. On Create it seeds the full hierarchy;
+ * on Update it adds only concepts missing from the table so that admin
+ * customizations are preserved. Delete is a no-op (the table is destroyed
+ * with the stack). Item schema mirrors ConceptStore in agent-discovery/concepts.py.
+ */
+const SEED_CONCEPTS_LAMBDA_CODE = `
+import json
+import boto3
+
+ddb = boto3.client("dynamodb")
+s3 = boto3.client("s3")
+
+BATCH_MAX = 25
+
+
+def _concept_item(concept, now):
+    qualified_id = concept["domain"] + "." + concept["id"]
+    return {
+        "concept_key": {"S": qualified_id},
+        "concept_id": {"S": concept["id"]},
+        "domain": {"S": concept["domain"]},
+        "description": {"S": concept.get("description", "")},
+        "aliases": {"L": [{"S": a} for a in concept.get("aliases", [])]},
+        "source": {"S": "default"},
+        "updated_at": {"S": now},
+    }
+
+
+def _existing_keys(table):
+    keys = set()
+    paginator = ddb.get_paginator("scan")
+    for page in paginator.paginate(TableName=table, ProjectionExpression="concept_key"):
+        for item in page.get("Items", []):
+            keys.add(item["concept_key"]["S"])
+    return keys
+
+
+def _suppress_defaults(table):
+    # Respect an operator's intentional "clear all defaults" (custom-only mode):
+    # never re-seed defaults on Update when the control item sets the flag.
+    resp = ddb.get_item(TableName=table, Key={"concept_key": {"S": "__meta__"}})
+    item = resp.get("Item")
+    return bool(item and item.get("suppress_defaults", {}).get("BOOL", False))
+
+
+def _batch_write(table, items):
+    for start in range(0, len(items), BATCH_MAX):
+        batch = items[start:start + BATCH_MAX]
+        requests = [{"PutRequest": {"Item": it}} for it in batch]
+        unprocessed = {table: requests}
+        attempts = 0
+        while unprocessed and attempts < 5:
+            resp = ddb.batch_write_item(RequestItems=unprocessed)
+            unprocessed = resp.get("UnprocessedItems", {}) or {}
+            attempts += 1
+
+
+def handler(event, context):
+    request_type = event.get("RequestType", "Create")
+    props = event.get("ResourceProperties", {})
+    table = props["TableName"]
+    physical_id = "seed-concepts-" + table
+
+    if request_type == "Delete":
+        return {"PhysicalResourceId": physical_id}
+
+    # On Update, honor custom-only mode — don't resurrect cleared defaults.
+    if request_type == "Update" and _suppress_defaults(table):
+        return {"PhysicalResourceId": physical_id, "Data": {"Seeded": "0", "Skipped": "suppress_defaults"}}
+
+    obj = s3.get_object(Bucket=props["AssetBucket"], Key=props["AssetKey"])
+    data = json.loads(obj["Body"].read())
+    concepts = data.get("concepts", [])
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+
+    # On Update, preserve admin customizations by only adding missing concepts.
+    existing = _existing_keys(table) if request_type == "Update" else set()
+    to_write = [
+        _concept_item(c, now)
+        for c in concepts
+        if (c["domain"] + "." + c["id"]) not in existing
+    ]
+    _batch_write(table, to_write)
+
+    return {
+        "PhysicalResourceId": physical_id,
+        "Data": {"Seeded": str(len(to_write)), "Total": str(len(concepts))},
+    }
+`;
 
 export class FoundationStack extends cdk.Stack {
   // ========================================================================
@@ -67,6 +167,9 @@ export class FoundationStack extends cdk.Stack {
   
   /** App settings table */
   public readonly appSettingsTable: dynamodb.Table;
+
+  /** Concepts (manufacturing vocabulary) table */
+  public readonly conceptsTable: dynamodb.Table;
 
   /** Runtime usage table for AgentCore runtime metrics */
   public readonly runtimeUsageTable: dynamodb.Table;
@@ -395,6 +498,64 @@ export class FoundationStack extends cdk.Stack {
     });
     seedDefaultSettings.node.addDependency(this.appSettingsTable);
 
+    // ------------------------------------------------------------------
+    // Concepts table — DB-driven manufacturing vocabulary
+    //
+    // Single-attribute partition key `concept_key` == the domain-qualified
+    // concept id (e.g. "production.work-order"). The default hierarchy is
+    // seeded on deploy from agent-discovery/default_concepts.json via the
+    // Lambda-backed custom resource below. The Discovery Agent and the
+    // ChatApp admin UI read/write this table at runtime.
+    // ------------------------------------------------------------------
+    this.conceptsTable = new dynamodb.Table(this, 'ConceptsTable', {
+      tableName: config.conceptsTableName,
+      partitionKey: {
+        name: 'concept_key',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Bundle the canonical default hierarchy JSON as an S3 asset. Referencing
+    // the file directly keeps a single source of truth (no copy in cdk/). When
+    // the JSON changes, the asset hash changes and the seeding resource re-runs.
+    const conceptsSeedAsset = new s3assets.Asset(this, 'ConceptsSeedData', {
+      path: path.join(__dirname, '..', '..', 'agent-discovery', 'default_concepts.json'),
+    });
+
+    // Seeding Lambda: reads the JSON from S3 and batch-writes concepts. Unlike
+    // the inline AwsCustomResource used for app settings, this handles the full
+    // ~170-item hierarchy (well beyond DynamoDB's 25-item BatchWriteItem cap).
+    const seedConceptsFn = new lambda.Function(this, 'SeedConceptsFunction', {
+      functionName: `${config.appName}-seed-concepts`,
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.handler',
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      code: lambda.Code.fromInline(SEED_CONCEPTS_LAMBDA_CODE),
+    });
+
+    this.conceptsTable.grantReadWriteData(seedConceptsFn);
+    conceptsSeedAsset.grantRead(seedConceptsFn);
+
+    const seedConceptsProvider = new cr.Provider(this, 'SeedConceptsProvider', {
+      onEventHandler: seedConceptsFn,
+    });
+
+    const seedConcepts = new cdk.CustomResource(this, 'SeedConcepts', {
+      serviceToken: seedConceptsProvider.serviceToken,
+      properties: {
+        TableName: this.conceptsTable.tableName,
+        AssetBucket: conceptsSeedAsset.s3BucketName,
+        AssetKey: conceptsSeedAsset.s3ObjectKey,
+        // Re-run seeding whenever the default hierarchy JSON changes.
+        AssetHash: conceptsSeedAsset.assetHash,
+      },
+    });
+    seedConcepts.node.addDependency(this.conceptsTable);
+
     // Runtime usage table for AgentCore runtime metrics.
     // The CloudFormation logical ID must remain 'ComputeUsageTable' so the
     // table is not replaced on deploy.
@@ -648,6 +809,8 @@ export class FoundationStack extends cdk.Stack {
           `${this.promptTemplatesTable.tableArn}/index/*`,
           this.appSettingsTable.tableArn,
           `${this.appSettingsTable.tableArn}/index/*`,
+          this.conceptsTable.tableArn,
+          `${this.conceptsTable.tableArn}/index/*`,
           this.runtimeUsageTable.tableArn,
           `${this.runtimeUsageTable.tableArn}/index/*`,
           this.systemRegistryTable.tableArn,
@@ -847,6 +1010,7 @@ export class FoundationStack extends cdk.Stack {
         guardrail_table_name: cdk.SecretValue.unsafePlainText(this.guardrailTable.tableName),
         prompt_templates_table_name: cdk.SecretValue.unsafePlainText(this.promptTemplatesTable.tableName),
         app_settings_table_name: cdk.SecretValue.unsafePlainText(this.appSettingsTable.tableName),
+        concepts_table_name: cdk.SecretValue.unsafePlainText(this.conceptsTable.tableName),
         runtime_usage_table_name: cdk.SecretValue.unsafePlainText(this.runtimeUsageTable.tableName),
         registry_table_name: cdk.SecretValue.unsafePlainText(this.systemRegistryTable.tableName),
         discovery_history_table_name: cdk.SecretValue.unsafePlainText(this.discoveryHistoryTable.tableName),
@@ -962,6 +1126,18 @@ export class FoundationStack extends cdk.Stack {
       description: 'App settings DynamoDB table name',
     });
 
+    new cdk.CfnOutput(this, 'ConceptsTableName', {
+      value: this.conceptsTable.tableName,
+      description: 'Concepts (manufacturing vocabulary) DynamoDB table name',
+      exportName: `${config.appName}-ConceptsTableName`,
+    });
+
+    new cdk.CfnOutput(this, 'ConceptsTableArn', {
+      value: this.conceptsTable.tableArn,
+      description: 'Concepts (manufacturing vocabulary) DynamoDB table ARN',
+      exportName: `${config.appName}-ConceptsTableArn`,
+    });
+
     new cdk.CfnOutput(this, 'ComputeUsageTableName', {
       value: this.runtimeUsageTable.tableName,
       description: 'Runtime usage DynamoDB table name',
@@ -1014,6 +1190,10 @@ export class FoundationStack extends cdk.Stack {
     applyCommonSuppressions(this);
     applyEcsSuppressions(this);
     applySecretsManagerSuppressions(this);
+    // Concept-seeding custom resource: reuses the S3-asset-read and CDK
+    // Provider-framework suppression patterns (same shape as BucketDeployment).
+    applyBucketDeploymentSuppressions(this);
+    applyCustomResourceSuppressions(this);
 
     // Suppress Cognito findings - acceptable for starter kit
     NagSuppressions.addResourceSuppressionsByPath(
@@ -1119,6 +1299,7 @@ export class FoundationStack extends cdk.Stack {
             'Resource::<GuardrailTableE43D96F7.Arn>/index/*',
             'Resource::<PromptTemplatesTableAA30D6E4.Arn>/index/*',
             'Resource::<AppSettingsTable41A0871E.Arn>/index/*',
+            'Resource::<ConceptsTable75E07E08.Arn>/index/*',
             'Resource::<ComputeUsageTableA24180ED.Arn>/index/*',
             'Resource::<DiscoveryHistoryTable627B5379.Arn>/index/*',
             'Resource::<SavedWorkflowsTable1434D4A7.Arn>/index/*',

@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+
+{% block title %}Concept Hierarchy - Admin{% endblock %}
+
+{% block favicon %}
+<link rel="icon" type="image/svg+xml" href="{{ logo_url if logo_url is defined else '/static/favicon.svg' }}">
+{% endblock %}
+
+{% block head %}
+<style>
+    /* Use the app's theme accent (cyan dark / blue light) everywhere. */
+    .ch-shell { --ch-accent: var(--accent); }
+    /* Sticky toolbar sits just under the admin header — themed surface. */
+    .ch-toolbar { position: sticky; top: 0; z-index: 20; background: var(--surface); }
+    .ch-search:focus { outline: none; box-shadow: 0 0 0 3px var(--primary-light); border-color: var(--accent); }
+    /* Domain nav — active state uses the app's tinted-accent idiom (matches sidebar tabs) */
+    .ch-domn { transition: background .12s ease, color .12s ease; }
+    .ch-domn[aria-current="true"] { background: var(--primary-light); color: var(--accent); font-weight: 600; }
+    .ch-domn[aria-current="true"] .ch-domn-count { background: var(--accent); color: var(--surface); }
+    /* Icon buttons that highlight to the theme accent on hover */
+    .ch-hover-accent:hover { color: var(--accent) !important; }
+    /* Concept rows */
+    .ch-concept { transition: background .1s ease; }
+    .ch-alias { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    .ch-chip { transition: transform .08s ease; }
+    /* Collapse chevron */
+    .ch-sec-toggle svg { transition: transform .18s ease; }
+    .ch-sec-collapsed .ch-sec-toggle svg { transform: rotate(-90deg); }
+    .ch-sec-collapsed .ch-sec-body { display: none; }
+    /* Sidebar scroll */
+    .ch-sidebar-scroll { scrollbar-width: thin; }
+    .ch-sidebar-scroll::-webkit-scrollbar { width: 6px; }
+    .ch-sidebar-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    @keyframes ch-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .ch-sec { animation: ch-pop .18s ease both; }
+    .ch-modal-card { animation: ch-pop .15s ease both; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50 ch-shell">
+    {% set show_admin_btn = true %}
+    {% set primary_action = {'type': 'back_to_chat'} %}
+    {% set breadcrumbs = [
+        {'label': 'Admin', 'url': '/admin'},
+        {'label': 'Concept Hierarchy'}
+    ] %}
+    {% include "components/header.html" %}
+
+    <!-- Sticky search + actions toolbar -->
+    <div class="ch-toolbar border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative flex-1 min-w-[240px]">
+                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
+                    <input id="ch-search" type="text" autocomplete="off" spellcheck="false"
+                        class="ch-search w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                        placeholder="Search domains, concepts, aliases…">
+                    <button id="ch-search-clear" type="button" aria-label="Clear search"
+                        class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="text-sm text-gray-500 whitespace-nowrap">
+                    <span id="ch-showing" class="font-semibold text-gray-800">{{ total_concepts }}</span>
+                    <span> / {{ total_concepts }} shown</span>
+                </div>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button type="button" onclick="chOpenConcept('create')"
+                        class="px-3.5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+                        Add Concept
+                    </button>
+                    <details class="relative">
+                        <summary class="list-none cursor-pointer px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                            More
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg>
+                        </summary>
+                        <div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
+                            <form method="post" action="/admin/concepts/restore-defaults"
+                                  onsubmit="return confirm('Restore the {{ default_count }} built-in default concepts? Your custom concepts are kept; edits to default concepts will be overwritten and custom-only mode is turned off.');">
+                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    Restore defaults
+                                </button>
+                            </form>
+                            <button type="button" onclick="chOpenClearAll()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                Clear all &amp; start custom
+                            </button>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Discovery Agent note (dismissible for this view only; returns on refresh) -->
+        <div id="ch-agent-note" class="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3" style="background: var(--primary-light); border-color: var(--border);">
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" style="color: var(--ch-accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            <div class="text-sm text-gray-700 flex-1">
+                <span class="font-medium text-gray-900">Prefer to work conversationally?</span>
+                You can also add, rename, or remove domains and concepts in this hierarchy by chatting with the
+                <a href="/admin/discover" class="font-semibold underline underline-offset-2" style="color: var(--ch-accent);">Discovery&nbsp;Agent</a>.
+            </div>
+            <button type="button" title="Dismiss" aria-label="Dismiss"
+                class="ch-hover-accent flex-shrink-0 -mr-1 p-1 text-gray-400 rounded-md hover:bg-gray-100"
+                onclick="document.getElementById('ch-agent-note').remove()">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="lg:grid lg:grid-cols-[264px_1fr] lg:gap-6">
+
+            <!-- Domain sidebar -->
+            <aside class="mb-4 lg:mb-0">
+                <div class="lg:sticky lg:top-[68px]">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400 px-2 mb-2">Domains</div>
+                    <nav class="ch-sidebar-scroll flex lg:block gap-2 overflow-x-auto lg:overflow-visible lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto pb-1">
+                        <button type="button" title="All domains" class="ch-domn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                            data-domain="" aria-current="true" onclick="chSelectDomain('', this)">
+                            <span class="font-medium">All domains</span>
+                            <span class="ch-domn-count text-xs px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600" data-count-for="__all__">{{ total_concepts }}</span>
+                        </button>
+                        {% for g in groups %}
+                        <button type="button" title="{{ g.display_name }} ({{ g.domain }})" class="ch-domn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                            data-domain="{{ g.domain }}" aria-current="false" onclick="chSelectDomain('{{ g.domain }}', this)">
+                            <span class="flex items-center gap-2 min-w-0">
+                                <span>{{ g.icon }}</span>
+                                <span class="truncate">{{ g.display_name }}</span>
+                            </span>
+                            <span class="ch-domn-count text-xs px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600" data-count-for="{{ g.domain }}">{{ g.concepts|length }}</span>
+                        </button>
+                        {% endfor %}
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Concept groups -->
+            <div id="ch-list" class="space-y-4">
+
+                {% if not groups %}
+                <div id="ch-empty-all" class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+                    <div class="text-4xl mb-3">🧩</div>
+                    <h3 class="text-lg font-semibold text-gray-900">No concepts yet</h3>
+                    <p class="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                        You're in custom-only mode (or the table isn't seeded). Add your own concepts, or restore the
+                        {{ default_count }} built-in defaults to start from the standard manufacturing vocabulary.
+                    </p>
+                    <div class="mt-4 flex items-center justify-center gap-2">
+                        <button type="button" onclick="chOpenConcept('create')" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg">Add Concept</button>
+                        <form method="post" action="/admin/concepts/restore-defaults">
+                            <button type="submit" class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50">Restore defaults</button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% for g in groups %}
+                <section class="ch-sec bg-white rounded-xl border border-gray-200 overflow-hidden" data-domain-section="{{ g.domain }}">
+                    <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+                        <button type="button" class="ch-sec-toggle flex items-center gap-2 flex-1 min-w-0 text-left" onclick="chToggleSection(this)">
+                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg>
+                            <span class="text-base">{{ g.icon }}</span>
+                            <h3 class="font-semibold text-gray-900 truncate" title="{{ g.display_name }}">{{ g.display_name }}</h3>
+                            <code class="text-xs text-gray-400 flex-shrink-0">{{ g.domain }}</code>
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0" data-domain-badge="{{ g.domain }}">{{ g.concepts|length }}</span>
+                        </button>
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            <button type="button" title="Rename domain" class="ch-hover-accent p-1.5 text-gray-400 rounded-md hover:bg-gray-100"
+                                onclick="chOpenRenameDomain('{{ g.domain }}')">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <form method="post" action="/admin/concepts/domains/{{ g.domain }}/delete"
+                                  onsubmit="return confirm('Delete the entire &quot;{{ g.display_name }}&quot; domain and all {{ g.concepts|length }} of its concepts? This cannot be undone.');">
+                                <button type="submit" title="Delete domain" class="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-gray-100">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="ch-sec-body divide-y divide-gray-100">
+                        {% for c in g.concepts %}
+                        <div class="ch-concept px-4 py-3 flex items-start justify-between gap-4 hover:bg-gray-50/70"
+                             data-domain="{{ c.domain }}"
+                             data-search="{{ (c.id ~ ' ' ~ c.qualified_id ~ ' ' ~ c.domain ~ ' ' ~ (c.description or '') ~ ' ' ~ (c.aliases|join(' ')))|lower }}">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <code class="text-sm font-semibold text-gray-900">{{ c.id }}</code>
+                                    <span class="text-xs text-gray-400">{{ c.qualified_id }}</span>
+                                </div>
+                                {% if c.description %}
+                                <p class="text-sm text-gray-600 mt-0.5">{{ c.description }}</p>
+                                {% endif %}
+                                {% if c.aliases %}
+                                <div class="flex flex-wrap gap-1 mt-1.5">
+                                    {% for a in c.aliases %}
+                                    <span class="ch-chip ch-alias inline-block text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ a }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <button type="button" title="Edit"
+                                    class="ch-hover-accent p-2 text-gray-400 rounded-md hover:bg-gray-100"
+                                    data-key="{{ c.qualified_id }}" data-id="{{ c.id }}" data-domain="{{ c.domain }}"
+                                    data-description="{{ c.description }}" data-aliases="{{ c.aliases|join(', ') }}"
+                                    onclick="chOpenConceptFromBtn(this)">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <form method="post" action="/admin/concepts/{{ c.qualified_id }}/delete"
+                                      onsubmit="return confirm('Delete concept {{ c.qualified_id }}? Discovery will no longer map fields to it.');">
+                                    <button type="submit" title="Delete" class="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-gray-100">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+
+                <!-- No search results -->
+                <div id="ch-no-results" class="hidden bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center">
+                    <div class="text-3xl mb-2">🔍</div>
+                    <p class="text-sm text-gray-500">No concepts match <span id="ch-no-results-q" class="font-medium text-gray-700"></span>.</p>
+                    <button type="button" onclick="chClearSearch()" class="mt-3 text-sm font-medium" style="color: var(--ch-accent);">Clear search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit concept modal -->
+<div id="ch-concept-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="ch-modal-card bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <form id="ch-concept-form" method="post" action="/admin/concepts/create">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 id="ch-concept-title" class="text-lg font-semibold text-gray-900">Add Concept</h3>
+                <button type="button" onclick="chClose('ch-concept-modal')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
+                        <input type="text" name="domain" id="ch-f-domain" list="ch-domain-options" required placeholder="production"
+                            class="ch-search w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <datalist id="ch-domain-options">
+                            {% for d in domains %}<option value="{{ d }}"></option>{% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Concept ID</label>
+                        <input type="text" name="concept_id" id="ch-f-id" required placeholder="work-order"
+                            class="ch-search w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 -mt-2">Kebab-case. Qualified id: <code id="ch-f-preview">domain.concept-id</code>. A new domain name creates that domain.</p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <input type="text" name="description" id="ch-f-desc" placeholder="Production order / manufacturing order"
+                        class="ch-search w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Aliases</label>
+                    <textarea name="aliases" id="ch-f-aliases" rows="3" placeholder="work_order, wo, mfg_order, prod_order"
+                        class="ch-search ch-alias w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Comma- or newline-separated field names seen in real systems.</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button type="button" onclick="chClose('ch-concept-modal')" class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Rename domain modal -->
+<div id="ch-domain-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="ch-modal-card bg-white rounded-xl shadow-xl w-full max-w-md">
+        <form method="post" action="/admin/concepts/domains/rename">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Rename Domain</h3>
+                <button type="button" onclick="chClose('ch-domain-modal')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <input type="hidden" name="old_domain" id="ch-rd-old">
+                <p class="text-sm text-gray-600">Renaming <code id="ch-rd-old-label" class="font-semibold text-gray-900"></code> moves every concept in it to the new domain name.</p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New domain name</label>
+                    <input type="text" name="new_domain" id="ch-rd-new" required placeholder="production"
+                        class="ch-search w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Kebab-case (e.g. <code>supply-chain</code>).</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button type="button" onclick="chClose('ch-domain-modal')" class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg">Rename</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Clear-all confirm modal -->
+<div id="ch-clear-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="ch-modal-card bg-white rounded-xl shadow-xl w-full max-w-md">
+        <form method="post" action="/admin/concepts/clear-all">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                <h3 class="text-lg font-semibold text-gray-900">Clear all concepts</h3>
+            </div>
+            <div class="px-6 py-4 space-y-3">
+                <p class="text-sm text-gray-600">
+                    This deletes <span class="font-semibold text-gray-900">all {{ total_concepts }} concepts</span> and switches to
+                    <span class="font-medium">custom-only mode</span> — the built-in defaults will not come back automatically
+                    (not on read, not on the next deploy). You can always press <span class="font-medium">Restore defaults</span> later.
+                </p>
+                <label class="block text-sm font-medium text-gray-700">Type <code class="text-red-600">CLEAR</code> to confirm</label>
+                <input type="text" id="ch-clear-confirm" autocomplete="off"
+                    class="ch-search w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="CLEAR">
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button type="button" onclick="chClose('ch-clear-modal')" class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50">Cancel</button>
+                <button type="submit" id="ch-clear-submit" disabled
+                    class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg opacity-50 cursor-not-allowed">Clear everything</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var searchEl = document.getElementById('ch-search');
+    var clearBtn = document.getElementById('ch-search-clear');
+    var showingEl = document.getElementById('ch-showing');
+    var noResults = document.getElementById('ch-no-results');
+    var noResultsQ = document.getElementById('ch-no-results-q');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.ch-concept'));
+    var sections = Array.prototype.slice.call(document.querySelectorAll('[data-domain-section]'));
+    var activeDomain = '';
+
+    function applyFilter() {
+        var q = (searchEl.value || '').trim().toLowerCase();
+        clearBtn.classList.toggle('hidden', q.length === 0);
+        var perDomain = {};
+        var totalVisible = 0;
+
+        rows.forEach(function (row) {
+            var matchQ = !q || row.getAttribute('data-search').indexOf(q) !== -1;
+            var matchD = !activeDomain || row.getAttribute('data-domain') === activeDomain;
+            var show = matchQ && matchD;
+            row.classList.toggle('hidden', !show);
+            if (show) {
+                var d = row.getAttribute('data-domain');
+                perDomain[d] = (perDomain[d] || 0) + 1;
+                totalVisible++;
+            }
+        });
+
+        sections.forEach(function (sec) {
+            var d = sec.getAttribute('data-domain-section');
+            var n = perDomain[d] || 0;
+            sec.classList.toggle('hidden', n === 0);
+            var badge = sec.querySelector('[data-domain-badge="' + d + '"]');
+            if (badge) badge.textContent = n;
+            // Auto-expand sections while searching so matches are visible.
+            if (q) sec.classList.remove('ch-sec-collapsed');
+        });
+
+        // Sidebar counts
+        document.querySelectorAll('[data-count-for]').forEach(function (el) {
+            var key = el.getAttribute('data-count-for');
+            if (key === '__all__') { el.textContent = totalVisible; return; }
+            el.textContent = perDomain[key] || 0;
+        });
+
+        if (showingEl) showingEl.textContent = totalVisible;
+        if (noResults) {
+            var none = totalVisible === 0 && rows.length > 0;
+            noResults.classList.toggle('hidden', !none);
+            if (none && noResultsQ) noResultsQ.textContent = q ? '“' + q + '”' : 'the current filter';
+        }
+    }
+
+    // Search
+    searchEl && searchEl.addEventListener('input', applyFilter);
+    clearBtn && clearBtn.addEventListener('click', function () { searchEl.value = ''; applyFilter(); searchEl.focus(); });
+    window.chClearSearch = function () { searchEl.value = ''; activeDomain = ''; syncDomainButtons(); applyFilter(); };
+
+    // "/" focuses search
+    document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && document.activeElement !== searchEl && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+            e.preventDefault(); searchEl.focus();
+        }
+    });
+
+    // Domain selection
+    function syncDomainButtons() {
+        document.querySelectorAll('.ch-domn').forEach(function (b) {
+            b.setAttribute('aria-current', b.getAttribute('data-domain') === activeDomain ? 'true' : 'false');
+        });
+    }
+    window.chSelectDomain = function (domain, btn) {
+        activeDomain = domain || '';
+        syncDomainButtons();
+        applyFilter();
+        if (activeDomain) {
+            var sec = document.querySelector('[data-domain-section="' + activeDomain + '"]');
+            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    // Section collapse
+    window.chToggleSection = function (btn) {
+        var sec = btn.closest('[data-domain-section]');
+        if (sec) sec.classList.toggle('ch-sec-collapsed');
+    };
+
+    // Modals
+    window.chClose = function (id) {
+        var m = document.getElementById(id);
+        m.classList.add('hidden'); m.classList.remove('flex');
+    };
+    function open(id) {
+        var m = document.getElementById(id);
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    document.querySelectorAll('.fixed.inset-0').forEach(function (m) {
+        m.addEventListener('click', function (e) { if (e.target === m) window.chClose(m.id); });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(function (m) { window.chClose(m.id); });
+    });
+
+    // Concept add/edit modal
+    var form = document.getElementById('ch-concept-form');
+    var title = document.getElementById('ch-concept-title');
+    var fDomain = document.getElementById('ch-f-domain');
+    var fId = document.getElementById('ch-f-id');
+    var fDesc = document.getElementById('ch-f-desc');
+    var fAliases = document.getElementById('ch-f-aliases');
+    var preview = document.getElementById('ch-f-preview');
+    function updatePreview() {
+        preview.textContent = ((fDomain.value || 'domain').trim()) + '.' + ((fId.value || 'concept-id').trim());
+    }
+    fDomain && fDomain.addEventListener('input', updatePreview);
+    fId && fId.addEventListener('input', updatePreview);
+
+    window.chOpenConcept = function (mode) {
+        title.textContent = 'Add Concept';
+        form.action = '/admin/concepts/create';
+        fDomain.value = activeDomain || '';
+        fId.value = ''; fDesc.value = ''; fAliases.value = '';
+        updatePreview(); open('ch-concept-modal'); setTimeout(function () { fDomain.focus(); }, 30);
+    };
+    window.chOpenConceptFromBtn = function (btn) {
+        title.textContent = 'Edit Concept';
+        var key = btn.getAttribute('data-key');
+        form.action = '/admin/concepts/' + encodeURIComponent(key) + '/edit';
+        fDomain.value = btn.getAttribute('data-domain') || '';
+        fId.value = btn.getAttribute('data-id') || '';
+        fDesc.value = btn.getAttribute('data-description') || '';
+        fAliases.value = btn.getAttribute('data-aliases') || '';
+        updatePreview(); open('ch-concept-modal');
+    };
+
+    // Rename domain modal
+    window.chOpenRenameDomain = function (domain) {
+        document.getElementById('ch-rd-old').value = domain;
+        document.getElementById('ch-rd-old-label').textContent = domain;
+        var input = document.getElementById('ch-rd-new');
+        input.value = domain;
+        open('ch-domain-modal'); setTimeout(function () { input.focus(); input.select(); }, 30);
+    };
+
+    // Clear-all modal (type-to-confirm)
+    var clearInput = document.getElementById('ch-clear-confirm');
+    var clearSubmit = document.getElementById('ch-clear-submit');
+    window.chOpenClearAll = function () {
+        clearInput.value = ''; toggleClear();
+        open('ch-clear-modal'); setTimeout(function () { clearInput.focus(); }, 30);
+    };
+    function toggleClear() {
+        var ok = clearInput.value.trim().toUpperCase() === 'CLEAR';
+        clearSubmit.disabled = !ok;
+        clearSubmit.classList.toggle('opacity-50', !ok);
+        clearSubmit.classList.toggle('cursor-not-allowed', !ok);
+        clearSubmit.classList.toggle('hover:bg-red-700', ok);
+    }
+    clearInput && clearInput.addEventListener('input', toggleClear);
+
+    // Close the "More" dropdown after a click inside it
+    document.querySelectorAll('details').forEach(function (d) {
+        d.addEventListener('click', function (e) {
+            if (e.target.closest('button') && !e.target.closest('summary')) d.removeAttribute('open');
+        });
+    });
+
+    applyFilter();
+})();
+</script>
+{% endblock %}

@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "Sync Concepts to ChatApp",
-      "description": "When agent-discovery/concepts.py is edited, automatically copy it to chatapp/app/shared/concepts.py to keep the shared vocabulary in sync for Docker builds.",
+      "description": "When agent-discovery/concepts.py or default_concepts.json is edited, automatically copy it to chatapp/app/shared/ to keep the shared vocabulary in sync for Docker builds.",
       "trigger": "PostFileSave",
-      "matcher": "agent-discovery/concepts\\.py$",
+      "matcher": "agent-discovery/(concepts\\.py|default_concepts\\.json)$",
       "action": {
         "type": "command",
-        "command": "cp agent-discovery/concepts.py chatapp/app/shared/concepts.py"
+        "command": "cp agent-discovery/concepts.py chatapp/app/shared/concepts.py && cp agent-discovery/default_concepts.json chatapp/app/shared/default_concepts.json"
       },
       "enabled": true
     }

@@ -47,6 +47,7 @@ export class GatewayStack extends cdk.Stack {
       memorySize: 256,
       environment: {
         REGISTRY_TABLE_NAME: registryTableName,
+        CONCEPTS_TABLE_NAME: config.conceptsTableName,
         AWS_REGION_OVERRIDE: this.region,
         LOG_LEVEL: 'INFO',
       },
@@ -67,6 +68,26 @@ export class GatewayStack extends cdk.Stack {
           registryTableArn,
           `${registryTableArn}/index/*`,
         ],
+      })
+    );
+
+    // Read-only access to the concepts vocabulary table so both agents can
+    // resolve canonical concept IDs via the shared gateway. The table name is
+    // deterministic from config (Foundation stack owns + seeds it), so we build
+    // the ARN directly rather than adding a new cross-stack export. A plain
+    // Scan needs only the base table — no index/* wildcard.
+    const conceptsTableArn = `arn:${cdk.Aws.PARTITION}:dynamodb:${this.region}:${this.account}:table/${config.conceptsTableName}`;
+
+    registryLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: 'ConceptsReadOnly',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:Query',
+          'dynamodb:Scan',
+        ],
+        resources: [conceptsTableArn],
       })
     );
 

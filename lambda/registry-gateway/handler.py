@@ -319,6 +319,75 @@ def find_equivalences(event: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Concepts vocabulary (shared read-only access for both agents)
+# ---------------------------------------------------------------------------
+
+CONCEPTS_PK = "concept_key"
+CONCEPTS_META_KEY = "__meta__"  # control/metadata item, never a concept
+
+
+def _get_concepts_table():
+    """Get the DynamoDB Table resource for the concepts vocabulary."""
+    table_name = os.getenv("CONCEPTS_TABLE_NAME")
+    if not table_name:
+        raise ValueError("CONCEPTS_TABLE_NAME environment variable is required.")
+    dynamodb = boto3.resource("dynamodb", region_name=os.getenv("AWS_REGION", "us-east-1"))
+    return dynamodb.Table(table_name)
+
+
+def get_canonical_concepts(event: dict) -> dict:
+    """Return the canonical manufacturing vocabulary, optionally filtered by domain.
+
+    Reads the concepts table seeded by the Foundation stack and administered via
+    the Admin UI / Discovery agent. Returns domain-qualified IDs plus descriptions
+    and aliases so the caller can pick the right concept_id before calling
+    find_by_concept / find_equivalences.
+    """
+    domain = (event.get("domain") or "").strip().lower()
+    try:
+        table = _get_concepts_table()
+
+        items = []
+        scan_kwargs = {}
+        while True:
+            resp = table.scan(**scan_kwargs)
+            items.extend(resp.get("Items", []))
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+
+        concepts = []
+        for item in items:
+            if item.get(CONCEPTS_PK) == CONCEPTS_META_KEY:
+                continue  # skip the control/metadata item
+            cid = item.get("concept_id", "")
+            dom = item.get("domain", "")
+            if not cid or not dom:
+                key = item.get(CONCEPTS_PK, "")
+                if "." not in key:
+                    continue
+                dom, cid = key.split(".", 1)
+            if domain and dom != domain:
+                continue
+            concepts.append({
+                "id": cid,
+                "domain": dom,
+                "qualified_id": f"{dom}.{cid}",
+                "description": item.get("description", ""),
+                "aliases": list(item.get("aliases", []) or []),
+            })
+
+        concepts.sort(key=lambda c: c["qualified_id"])
+        logger.info("get_canonical_concepts(domain=%s): %d concepts", domain or "all", len(concepts))
+        return {"success": True, "count": len(concepts), "concepts": concepts}
+
+    except Exception as e:
+        logger.error("get_canonical_concepts error: %s", e)
+        return {"success": False, "error": str(e), "concepts": []}
+
+
+# ---------------------------------------------------------------------------
 # Tool router
 # ---------------------------------------------------------------------------
 
@@ -327,6 +396,7 @@ TOOL_MAP = {
     "get_system_schema": get_system_schema,
     "find_by_concept": find_by_concept,
     "find_equivalences": find_equivalences,
+    "get_canonical_concepts": get_canonical_concepts,
 }
 
 

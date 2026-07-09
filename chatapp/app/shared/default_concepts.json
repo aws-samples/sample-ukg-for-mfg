@@ -1,0 +1,2023 @@
+{
+  "version": 1,
+  "concepts": [
+    {
+      "id": "equipment-id",
+      "domain": "equipment",
+      "description": "Tag/role identifier for equipment (e.g. TT-101)",
+      "aliases": [
+        "tag",
+        "equip_id",
+        "equipment_tag",
+        "equip_tag",
+        "machine_id",
+        "functional_location",
+        "floc",
+        "tag_number",
+        "instrument_tag"
+      ]
+    },
+    {
+      "id": "equipment-class",
+      "domain": "equipment",
+      "description": "Classification of equipment (e.g. reactor, CNC, conveyor)",
+      "aliases": [
+        "equip_class",
+        "equipment_type",
+        "equip_type",
+        "machine_type",
+        "asset_category",
+        "equipment_category"
+      ]
+    },
+    {
+      "id": "equipment-property",
+      "domain": "equipment",
+      "description": "Named property of equipment (e.g. volume, speed, capacity)",
+      "aliases": [
+        "equip_property",
+        "equip_attr",
+        "equipment_attribute",
+        "machine_property",
+        "equip_param"
+      ]
+    },
+    {
+      "id": "equipment-capability",
+      "domain": "equipment",
+      "description": "What equipment can do — capacity, rate, throughput limits",
+      "aliases": [
+        "equip_capability",
+        "capacity",
+        "rated_capacity",
+        "max_throughput",
+        "equip_rating"
+      ]
+    },
+    {
+      "id": "work-center",
+      "domain": "equipment",
+      "description": "ISA-95 work center — production line, process cell, or mfg cell",
+      "aliases": [
+        "workcenter",
+        "work_center",
+        "work_ctr",
+        "process_cell",
+        "manufacturing_cell",
+        "production_area",
+        "line_id"
+      ]
+    },
+    {
+      "id": "work-unit",
+      "domain": "equipment",
+      "description": "Individual machine or station within a work center",
+      "aliases": [
+        "workunit",
+        "work_unit",
+        "station",
+        "station_id",
+        "machine",
+        "work_station"
+      ]
+    },
+    {
+      "id": "production-line",
+      "domain": "equipment",
+      "description": "Sequence of work centers for a product flow (discrete mfg)",
+      "aliases": [
+        "prod_line",
+        "production_line",
+        "line",
+        "assembly_line",
+        "mfg_line"
+      ]
+    },
+    {
+      "id": "storage-zone",
+      "domain": "equipment",
+      "description": "Warehouse zone, tank farm, silo, bin location",
+      "aliases": [
+        "storage_zone",
+        "warehouse_zone",
+        "tank_farm",
+        "silo",
+        "bin_location",
+        "storage_area"
+      ]
+    },
+    {
+      "id": "asset-id",
+      "domain": "physical-asset",
+      "description": "Unique physical asset identifier (serial number, asset tag)",
+      "aliases": [
+        "asset_id",
+        "serial_number",
+        "asset_tag",
+        "asset_num",
+        "physical_asset_id",
+        "fixed_asset_id",
+        "asset_no"
+      ]
+    },
+    {
+      "id": "asset-class",
+      "domain": "physical-asset",
+      "description": "Make/model classification of physical asset",
+      "aliases": [
+        "asset_class",
+        "asset_type",
+        "make_model",
+        "model_number",
+        "physical_asset_class",
+        "equipment_model"
+      ]
+    },
+    {
+      "id": "asset-property",
+      "domain": "physical-asset",
+      "description": "Named property of a physical asset (e.g. weight, dimensions)",
+      "aliases": [
+        "asset_property",
+        "asset_attr",
+        "asset_attribute",
+        "physical_asset_property"
+      ]
+    },
+    {
+      "id": "asset-location",
+      "domain": "physical-asset",
+      "description": "Physical location of an asset (building, floor, bay)",
+      "aliases": [
+        "asset_location",
+        "location",
+        "install_location",
+        "physical_location",
+        "asset_position"
+      ]
+    },
+    {
+      "id": "asset-status",
+      "domain": "physical-asset",
+      "description": "Current status (in-service, spare, decommissioned)",
+      "aliases": [
+        "asset_status",
+        "status",
+        "equip_status",
+        "operational_status",
+        "service_status"
+      ]
+    },
+    {
+      "id": "asset-lifecycle-state",
+      "domain": "physical-asset",
+      "description": "Lifecycle phase (commissioned, operating, retired)",
+      "aliases": [
+        "lifecycle_state",
+        "lifecycle_phase",
+        "asset_lifecycle",
+        "asset_state",
+        "commission_status"
+      ]
+    },
+    {
+      "id": "asset-hierarchy",
+      "domain": "physical-asset",
+      "description": "Parent-child relationship between physical assets",
+      "aliases": [
+        "parent_asset",
+        "child_asset",
+        "asset_parent",
+        "superior_asset",
+        "asset_hierarchy"
+      ]
+    },
+    {
+      "id": "material",
+      "domain": "material",
+      "description": "Generic material identifier",
+      "aliases": [
+        "material_id",
+        "mat_id",
+        "material_code",
+        "item_id",
+        "item_number",
+        "item_code",
+        "stock_code"
+      ]
+    },
+    {
+      "id": "material-class",
+      "domain": "material",
+      "description": "Classification of material (raw, WIP, finished goods)",
+      "aliases": [
+        "material_class",
+        "mat_class",
+        "material_type",
+        "mat_type",
+        "item_type",
+        "item_category",
+        "stock_type"
+      ]
+    },
+    {
+      "id": "material-definition",
+      "domain": "material",
+      "description": "Specific material type (e.g. Acetic Acid Grade 4)",
+      "aliases": [
+        "material_definition",
+        "mat_def",
+        "material_spec",
+        "item_definition",
+        "product_spec"
+      ]
+    },
+    {
+      "id": "material-lot",
+      "domain": "material",
+      "description": "Unique lot instance of a material definition",
+      "aliases": [
+        "material_lot",
+        "mat_lot",
+        "lot_id",
+        "lot_code",
+        "batch_lot",
+        "receiving_lot"
+      ]
+    },
+    {
+      "id": "material-sublot",
+      "domain": "material",
+      "description": "Sub-division of a material lot (e.g. barrel, pallet, drum)",
+      "aliases": [
+        "material_sublot",
+        "sublot",
+        "sublot_id",
+        "container_id",
+        "barrel_id",
+        "pallet_id"
+      ]
+    },
+    {
+      "id": "material-property",
+      "domain": "material",
+      "description": "Named property of material (pH, viscosity, grade, purity)",
+      "aliases": [
+        "material_property",
+        "mat_property",
+        "mat_attr",
+        "item_property",
+        "material_attribute"
+      ]
+    },
+    {
+      "id": "material-test-spec",
+      "domain": "material",
+      "description": "Test specification for material qualification",
+      "aliases": [
+        "material_test_spec",
+        "mat_test",
+        "incoming_test",
+        "material_qualification",
+        "mat_qual_test"
+      ]
+    },
+    {
+      "id": "operator",
+      "domain": "personnel",
+      "description": "Person performing production operations",
+      "aliases": [
+        "operator",
+        "operator_id",
+        "operator_name",
+        "op_id",
+        "worker",
+        "worker_id",
+        "technician"
+      ]
+    },
+    {
+      "id": "personnel-class",
+      "domain": "personnel",
+      "description": "Role classification (e.g. Technician, Inspector, Draftsman)",
+      "aliases": [
+        "personnel_class",
+        "role",
+        "job_role",
+        "job_title",
+        "position",
+        "craft",
+        "trade"
+      ]
+    },
+    {
+      "id": "personnel-qualification",
+      "domain": "personnel",
+      "description": "Training/certification held by a person",
+      "aliases": [
+        "qualification",
+        "certification",
+        "training",
+        "license",
+        "competency",
+        "skill"
+      ]
+    },
+    {
+      "id": "personnel-id",
+      "domain": "personnel",
+      "description": "Unique person identifier (badge, employee ID)",
+      "aliases": [
+        "personnel_id",
+        "person_id",
+        "employee_id",
+        "badge",
+        "badge_id",
+        "emp_id",
+        "emp_no",
+        "staff_id"
+      ]
+    },
+    {
+      "id": "work-order",
+      "domain": "production",
+      "description": "Production order / manufacturing order",
+      "aliases": [
+        "work_order",
+        "wo",
+        "mfg_order",
+        "prod_order",
+        "shop_order",
+        "job_number",
+        "job_id",
+        "production_order",
+        "order_number"
+      ]
+    },
+    {
+      "id": "production-run",
+      "domain": "production",
+      "description": "Discrete execution of a work order on equipment",
+      "aliases": [
+        "production_run",
+        "run_id",
+        "run_number",
+        "batch_run",
+        "mfg_run",
+        "execution_id"
+      ]
+    },
+    {
+      "id": "production-schedule",
+      "domain": "production",
+      "description": "Planned sequence of work orders",
+      "aliases": [
+        "production_schedule",
+        "schedule",
+        "prod_schedule",
+        "master_schedule",
+        "mps"
+      ]
+    },
+    {
+      "id": "production-request",
+      "domain": "production",
+      "description": "Request from ERP to produce (Level 4 → Level 3)",
+      "aliases": [
+        "production_request",
+        "prod_request",
+        "mfg_request"
+      ]
+    },
+    {
+      "id": "production-response",
+      "domain": "production",
+      "description": "Actual production results reported back (Level 3 → Level 4)",
+      "aliases": [
+        "production_response",
+        "prod_response",
+        "production_report",
+        "mfg_report"
+      ]
+    },
+    {
+      "id": "routing",
+      "domain": "production",
+      "description": "Sequence of operations for a product",
+      "aliases": [
+        "routing",
+        "route",
+        "routing_id",
+        "process_route",
+        "operation_sequence"
+      ]
+    },
+    {
+      "id": "routing-step",
+      "domain": "production",
+      "description": "Individual operation within a routing",
+      "aliases": [
+        "routing_step",
+        "operation",
+        "op_number",
+        "op_id",
+        "step",
+        "process_step",
+        "operation_number"
+      ]
+    },
+    {
+      "id": "process-segment",
+      "domain": "production",
+      "description": "ISA-95 process segment — reusable process definition",
+      "aliases": [
+        "process_segment",
+        "segment",
+        "segment_id",
+        "process_definition"
+      ]
+    },
+    {
+      "id": "batch-id",
+      "domain": "production",
+      "description": "Batch identifier for batch/process manufacturing",
+      "aliases": [
+        "batch_id",
+        "batch",
+        "batch_number",
+        "batch_no",
+        "batch_code"
+      ]
+    },
+    {
+      "id": "lot-number",
+      "domain": "production",
+      "description": "Lot number for traceability",
+      "aliases": [
+        "lot_number",
+        "lot_no",
+        "lot",
+        "lot_id",
+        "lot_code"
+      ]
+    },
+    {
+      "id": "serial-number",
+      "domain": "production",
+      "description": "Individual unit serial number (discrete manufacturing)",
+      "aliases": [
+        "serial_number",
+        "serial_no",
+        "sn",
+        "serial",
+        "unit_serial"
+      ]
+    },
+    {
+      "id": "recipe",
+      "domain": "production",
+      "description": "ISA-88 recipe (master, control, or site recipe)",
+      "aliases": [
+        "recipe",
+        "recipe_id",
+        "recipe_name",
+        "formula",
+        "formula_id",
+        "master_recipe"
+      ]
+    },
+    {
+      "id": "recipe-parameter",
+      "domain": "production",
+      "description": "Parameter within a recipe (setpoint, duration, temperature)",
+      "aliases": [
+        "recipe_parameter",
+        "recipe_param",
+        "formula_param",
+        "recipe_setpoint"
+      ]
+    },
+    {
+      "id": "bom",
+      "domain": "production",
+      "description": "Bill of Materials",
+      "aliases": [
+        "bom",
+        "bom_id",
+        "bill_of_materials",
+        "bom_number"
+      ]
+    },
+    {
+      "id": "bom-item",
+      "domain": "production",
+      "description": "Individual line item in a BOM",
+      "aliases": [
+        "bom_item",
+        "bom_line",
+        "bom_component",
+        "component",
+        "bom_detail"
+      ]
+    },
+    {
+      "id": "bom-level",
+      "domain": "production",
+      "description": "BOM hierarchy level (single-level vs multi-level)",
+      "aliases": [
+        "bom_level",
+        "bom_depth",
+        "bom_tier"
+      ]
+    },
+    {
+      "id": "cycle-time",
+      "domain": "production",
+      "description": "Time to complete one unit/cycle",
+      "aliases": [
+        "cycle_time",
+        "ct",
+        "cycle_duration",
+        "takt"
+      ]
+    },
+    {
+      "id": "takt-time",
+      "domain": "production",
+      "description": "Required pace to meet demand",
+      "aliases": [
+        "takt_time",
+        "takt",
+        "demand_rate"
+      ]
+    },
+    {
+      "id": "lead-time",
+      "domain": "production",
+      "description": "Total time from order to delivery",
+      "aliases": [
+        "lead_time",
+        "lt",
+        "delivery_lead_time",
+        "mfg_lead_time"
+      ]
+    },
+    {
+      "id": "throughput",
+      "domain": "production",
+      "description": "Production rate (units per time period)",
+      "aliases": [
+        "throughput",
+        "output_rate",
+        "production_rate",
+        "units_per_hour",
+        "uph"
+      ]
+    },
+    {
+      "id": "yield",
+      "domain": "production",
+      "description": "Percentage of good output vs total input",
+      "aliases": [
+        "yield",
+        "yield_pct",
+        "yield_rate",
+        "good_yield"
+      ]
+    },
+    {
+      "id": "first-pass-yield",
+      "domain": "production",
+      "description": "Percentage passing quality on first attempt",
+      "aliases": [
+        "first_pass_yield",
+        "fpy",
+        "fpy_rate",
+        "first_time_yield"
+      ]
+    },
+    {
+      "id": "changeover-time",
+      "domain": "production",
+      "description": "Time to switch between products on a line",
+      "aliases": [
+        "changeover_time",
+        "changeover",
+        "co_time",
+        "product_changeover"
+      ]
+    },
+    {
+      "id": "setup-time",
+      "domain": "production",
+      "description": "Time to prepare equipment for a run",
+      "aliases": [
+        "setup_time",
+        "setup",
+        "prep_time",
+        "setup_duration"
+      ]
+    },
+    {
+      "id": "shift-schedule",
+      "domain": "production",
+      "description": "Shift definition (start, end, crew assignment)",
+      "aliases": [
+        "shift_schedule",
+        "shift_def",
+        "shift_pattern"
+      ]
+    },
+    {
+      "id": "shift-id",
+      "domain": "production",
+      "description": "Identifier for a specific shift instance",
+      "aliases": [
+        "shift_id",
+        "shift",
+        "shift_number",
+        "shift_code"
+      ]
+    },
+    {
+      "id": "crew-id",
+      "domain": "production",
+      "description": "Identifier for a production crew/team",
+      "aliases": [
+        "crew_id",
+        "crew",
+        "team_id",
+        "gang_id",
+        "crew_code"
+      ]
+    },
+    {
+      "id": "maintenance-event",
+      "domain": "maintenance",
+      "description": "Any maintenance activity (PM, CM, PdM)",
+      "aliases": [
+        "maintenance_event",
+        "maint_event",
+        "maint_activity",
+        "work_activity"
+      ]
+    },
+    {
+      "id": "work-order",
+      "domain": "maintenance",
+      "description": "Formal maintenance work order",
+      "aliases": [
+        "work_order",
+        "wo",
+        "maint_order",
+        "pm_order",
+        "service_order",
+        "wo_number",
+        "work_order_num",
+        "notification"
+      ]
+    },
+    {
+      "id": "maintenance-request",
+      "domain": "maintenance",
+      "description": "Request for maintenance (from operator or system)",
+      "aliases": [
+        "maintenance_request",
+        "maint_request",
+        "service_request",
+        "work_request",
+        "notification",
+        "maint_notification"
+      ]
+    },
+    {
+      "id": "maintenance-type",
+      "domain": "maintenance",
+      "description": "PM, CM, PdM, emergency, shutdown",
+      "aliases": [
+        "maintenance_type",
+        "maint_type",
+        "wo_type",
+        "order_type",
+        "work_type"
+      ]
+    },
+    {
+      "id": "maintenance-priority",
+      "domain": "maintenance",
+      "description": "Priority/urgency of maintenance task",
+      "aliases": [
+        "maintenance_priority",
+        "priority",
+        "urgency",
+        "wo_priority",
+        "maint_priority"
+      ]
+    },
+    {
+      "id": "failure-code",
+      "domain": "maintenance",
+      "description": "Standardized failure/fault code (ISA-14224 taxonomy)",
+      "aliases": [
+        "failure_code",
+        "fault_code",
+        "fail_code",
+        "problem_code",
+        "cause_code"
+      ]
+    },
+    {
+      "id": "failure-mode",
+      "domain": "maintenance",
+      "description": "How equipment failed (FMEA failure mode)",
+      "aliases": [
+        "failure_mode",
+        "fail_mode",
+        "fmea_mode",
+        "failure_mechanism"
+      ]
+    },
+    {
+      "id": "root-cause",
+      "domain": "maintenance",
+      "description": "Root cause of a failure or defect",
+      "aliases": [
+        "root_cause",
+        "cause",
+        "rca",
+        "root_cause_code",
+        "cause_description"
+      ]
+    },
+    {
+      "id": "corrective-action",
+      "domain": "maintenance",
+      "description": "Action taken to fix a problem",
+      "aliases": [
+        "corrective_action",
+        "fix",
+        "remedy",
+        "repair_action",
+        "resolution"
+      ]
+    },
+    {
+      "id": "preventive-action",
+      "domain": "maintenance",
+      "description": "Action taken to prevent future problems",
+      "aliases": [
+        "preventive_action",
+        "prevention",
+        "preventive_measure"
+      ]
+    },
+    {
+      "id": "spare-part",
+      "domain": "maintenance",
+      "description": "Replacement part used in maintenance",
+      "aliases": [
+        "spare_part",
+        "part",
+        "part_number",
+        "spare",
+        "replacement_part",
+        "component_part"
+      ]
+    },
+    {
+      "id": "spare-part-consumption",
+      "domain": "maintenance",
+      "description": "Record of spare part usage in a maintenance event",
+      "aliases": [
+        "spare_part_consumption",
+        "part_usage",
+        "parts_used",
+        "material_usage"
+      ]
+    },
+    {
+      "id": "downtime-event",
+      "domain": "maintenance",
+      "description": "Period of equipment unavailability",
+      "aliases": [
+        "downtime_event",
+        "downtime",
+        "outage",
+        "equipment_downtime",
+        "unplanned_downtime"
+      ]
+    },
+    {
+      "id": "downtime-reason",
+      "domain": "maintenance",
+      "description": "Categorized reason for downtime",
+      "aliases": [
+        "downtime_reason",
+        "reason_code",
+        "downtime_code",
+        "outage_reason"
+      ]
+    },
+    {
+      "id": "downtime-duration",
+      "domain": "maintenance",
+      "description": "Length of a downtime event",
+      "aliases": [
+        "downtime_duration",
+        "duration",
+        "outage_duration",
+        "downtime_hours"
+      ]
+    },
+    {
+      "id": "mtbf",
+      "domain": "maintenance",
+      "description": "Mean Time Between Failures",
+      "aliases": [
+        "mtbf",
+        "mean_time_between_failures"
+      ]
+    },
+    {
+      "id": "mttr",
+      "domain": "maintenance",
+      "description": "Mean Time To Repair",
+      "aliases": [
+        "mttr",
+        "mean_time_to_repair"
+      ]
+    },
+    {
+      "id": "mttf",
+      "domain": "maintenance",
+      "description": "Mean Time To Failure",
+      "aliases": [
+        "mttf",
+        "mean_time_to_failure"
+      ]
+    },
+    {
+      "id": "quality-event",
+      "domain": "quality",
+      "description": "Any quality-related event (test, inspection, NCR)",
+      "aliases": [
+        "quality_event",
+        "qa_event",
+        "qc_event"
+      ]
+    },
+    {
+      "id": "quality-test",
+      "domain": "quality",
+      "description": "Specific quality test execution",
+      "aliases": [
+        "quality_test",
+        "qa_test",
+        "qc_test",
+        "test_id",
+        "lab_test",
+        "test_execution"
+      ]
+    },
+    {
+      "id": "quality-test-spec",
+      "domain": "quality",
+      "description": "Test specification / method definition",
+      "aliases": [
+        "quality_test_spec",
+        "test_spec",
+        "test_method",
+        "test_procedure",
+        "qa_spec"
+      ]
+    },
+    {
+      "id": "quality-result",
+      "domain": "quality",
+      "description": "Result of a quality test (pass/fail + measured values)",
+      "aliases": [
+        "quality_result",
+        "test_result",
+        "qa_result",
+        "qc_result",
+        "inspection_result"
+      ]
+    },
+    {
+      "id": "inspection-record",
+      "domain": "quality",
+      "description": "Record of an inspection activity",
+      "aliases": [
+        "inspection_record",
+        "inspection",
+        "inspection_id",
+        "insp_record",
+        "visual_inspection"
+      ]
+    },
+    {
+      "id": "nonconformance",
+      "domain": "quality",
+      "description": "Nonconformance report (NCR)",
+      "aliases": [
+        "nonconformance",
+        "ncr",
+        "nc_report",
+        "nonconformity",
+        "deviation",
+        "discrepancy"
+      ]
+    },
+    {
+      "id": "capa",
+      "domain": "quality",
+      "description": "Corrective and Preventive Action record",
+      "aliases": [
+        "capa",
+        "capa_id",
+        "corrective_preventive_action"
+      ]
+    },
+    {
+      "id": "defect-type",
+      "domain": "quality",
+      "description": "Classification of defect",
+      "aliases": [
+        "defect_type",
+        "defect_code",
+        "defect_class",
+        "reject_reason",
+        "defect_category"
+      ]
+    },
+    {
+      "id": "defect-count",
+      "domain": "quality",
+      "description": "Number of defects found",
+      "aliases": [
+        "defect_count",
+        "defects",
+        "reject_count",
+        "defect_qty",
+        "nc_count"
+      ]
+    },
+    {
+      "id": "scrap-rate",
+      "domain": "quality",
+      "description": "Percentage of scrapped output",
+      "aliases": [
+        "scrap_rate",
+        "scrap_pct",
+        "scrap_percent",
+        "waste_rate"
+      ]
+    },
+    {
+      "id": "rework-event",
+      "domain": "quality",
+      "description": "Record of rework activity",
+      "aliases": [
+        "rework_event",
+        "rework",
+        "rework_id",
+        "rework_order"
+      ]
+    },
+    {
+      "id": "spc-measurement",
+      "domain": "quality",
+      "description": "Statistical Process Control measurement",
+      "aliases": [
+        "spc_measurement",
+        "spc",
+        "spc_value",
+        "control_chart_value"
+      ]
+    },
+    {
+      "id": "control-limit",
+      "domain": "quality",
+      "description": "Upper/lower control limits for SPC",
+      "aliases": [
+        "control_limit",
+        "ucl",
+        "lcl",
+        "upper_control_limit",
+        "lower_control_limit"
+      ]
+    },
+    {
+      "id": "cpk",
+      "domain": "quality",
+      "description": "Process capability index",
+      "aliases": [
+        "cpk",
+        "cp",
+        "process_capability",
+        "capability_index"
+      ]
+    },
+    {
+      "id": "dpmo",
+      "domain": "quality",
+      "description": "Defects Per Million Opportunities",
+      "aliases": [
+        "dpmo",
+        "defects_per_million"
+      ]
+    },
+    {
+      "id": "specification-limit",
+      "domain": "quality",
+      "description": "Product specification upper/lower limits",
+      "aliases": [
+        "specification_limit",
+        "spec_limit",
+        "usl",
+        "lsl",
+        "upper_spec_limit",
+        "lower_spec_limit",
+        "tolerance"
+      ]
+    },
+    {
+      "id": "calibration-record",
+      "domain": "quality",
+      "description": "Instrument calibration record",
+      "aliases": [
+        "calibration_record",
+        "calibration",
+        "cal_record",
+        "cal_id",
+        "calibration_date"
+      ]
+    },
+    {
+      "id": "certificate-of-analysis",
+      "domain": "quality",
+      "description": "Certificate of Analysis for material or product lot",
+      "aliases": [
+        "certificate_of_analysis",
+        "coa",
+        "cert_of_analysis",
+        "analysis_certificate"
+      ]
+    },
+    {
+      "id": "inventory-location",
+      "domain": "inventory",
+      "description": "Storage location (warehouse, bin, rack, shelf)",
+      "aliases": [
+        "inventory_location",
+        "storage_location",
+        "bin",
+        "rack",
+        "shelf",
+        "warehouse_location",
+        "sloc"
+      ]
+    },
+    {
+      "id": "inventory-quantity",
+      "domain": "inventory",
+      "description": "Quantity of material at a location",
+      "aliases": [
+        "inventory_quantity",
+        "qty_on_hand",
+        "stock_qty",
+        "available_qty",
+        "on_hand"
+      ]
+    },
+    {
+      "id": "inventory-status",
+      "domain": "inventory",
+      "description": "Material status (available, quarantine, rejected, blocked)",
+      "aliases": [
+        "inventory_status",
+        "stock_status",
+        "material_status",
+        "lot_status",
+        "qa_status"
+      ]
+    },
+    {
+      "id": "inventory-movement",
+      "domain": "inventory",
+      "description": "Record of material transfer between locations",
+      "aliases": [
+        "inventory_movement",
+        "stock_movement",
+        "transfer",
+        "material_transfer",
+        "goods_movement"
+      ]
+    },
+    {
+      "id": "goods-receipt",
+      "domain": "inventory",
+      "description": "Inbound material receipt",
+      "aliases": [
+        "goods_receipt",
+        "gr",
+        "receiving",
+        "receipt",
+        "inbound_receipt",
+        "grn"
+      ]
+    },
+    {
+      "id": "goods-issue",
+      "domain": "inventory",
+      "description": "Outbound material consumption or shipment",
+      "aliases": [
+        "goods_issue",
+        "gi",
+        "issue",
+        "material_issue",
+        "consumption"
+      ]
+    },
+    {
+      "id": "stock-count",
+      "domain": "inventory",
+      "description": "Physical inventory count",
+      "aliases": [
+        "stock_count",
+        "physical_count",
+        "cycle_count",
+        "inventory_count",
+        "pi_count"
+      ]
+    },
+    {
+      "id": "wip-quantity",
+      "domain": "inventory",
+      "description": "Work-in-progress quantity",
+      "aliases": [
+        "wip_quantity",
+        "wip",
+        "wip_qty",
+        "in_process_qty"
+      ]
+    },
+    {
+      "id": "finished-goods-quantity",
+      "domain": "inventory",
+      "description": "Finished goods inventory level",
+      "aliases": [
+        "finished_goods_quantity",
+        "fg_qty",
+        "finished_goods",
+        "fg_inventory"
+      ]
+    },
+    {
+      "id": "safety-stock-level",
+      "domain": "inventory",
+      "description": "Minimum stock threshold",
+      "aliases": [
+        "safety_stock_level",
+        "safety_stock",
+        "min_stock",
+        "reorder_point",
+        "min_qty"
+      ]
+    },
+    {
+      "id": "oee",
+      "domain": "performance",
+      "description": "Overall Equipment Effectiveness (availability × performance × quality)",
+      "aliases": [
+        "oee",
+        "overall_equipment_effectiveness"
+      ]
+    },
+    {
+      "id": "availability",
+      "domain": "performance",
+      "description": "OEE availability component",
+      "aliases": [
+        "availability",
+        "avail",
+        "uptime_pct",
+        "equipment_availability"
+      ]
+    },
+    {
+      "id": "performance-rate",
+      "domain": "performance",
+      "description": "OEE performance component",
+      "aliases": [
+        "performance_rate",
+        "perf_rate",
+        "speed_rate",
+        "performance_efficiency"
+      ]
+    },
+    {
+      "id": "quality-rate",
+      "domain": "performance",
+      "description": "OEE quality component",
+      "aliases": [
+        "quality_rate",
+        "qual_rate",
+        "quality_pct",
+        "good_unit_rate"
+      ]
+    },
+    {
+      "id": "planned-production-time",
+      "domain": "performance",
+      "description": "Scheduled production time",
+      "aliases": [
+        "planned_production_time",
+        "scheduled_time",
+        "planned_time",
+        "available_time"
+      ]
+    },
+    {
+      "id": "actual-production-time",
+      "domain": "performance",
+      "description": "Actual time equipment was producing",
+      "aliases": [
+        "actual_production_time",
+        "run_time",
+        "operating_time",
+        "actual_time"
+      ]
+    },
+    {
+      "id": "ideal-cycle-time",
+      "domain": "performance",
+      "description": "Theoretical best cycle time",
+      "aliases": [
+        "ideal_cycle_time",
+        "design_cycle_time",
+        "theoretical_cycle_time",
+        "nameplate_rate"
+      ]
+    },
+    {
+      "id": "good-count",
+      "domain": "performance",
+      "description": "Count of good units produced",
+      "aliases": [
+        "good_count",
+        "good_qty",
+        "good_units",
+        "conforming_count"
+      ]
+    },
+    {
+      "id": "reject-count",
+      "domain": "performance",
+      "description": "Count of rejected units",
+      "aliases": [
+        "reject_count",
+        "reject_qty",
+        "rejects",
+        "defective_count",
+        "bad_count"
+      ]
+    },
+    {
+      "id": "total-count",
+      "domain": "performance",
+      "description": "Total units produced (good + reject)",
+      "aliases": [
+        "total_count",
+        "total_qty",
+        "total_units",
+        "total_output"
+      ]
+    },
+    {
+      "id": "sensor-reading",
+      "domain": "iot",
+      "description": "Generic sensor measurement value",
+      "aliases": [
+        "sensor_reading",
+        "reading",
+        "measurement",
+        "value",
+        "sensor_value",
+        "process_value",
+        "pv"
+      ]
+    },
+    {
+      "id": "sensor-id",
+      "domain": "iot",
+      "description": "Unique sensor identifier",
+      "aliases": [
+        "sensor_id",
+        "sensor",
+        "sensor_name",
+        "instrument_id",
+        "device_id",
+        "transmitter_id"
+      ]
+    },
+    {
+      "id": "sensor-type",
+      "domain": "iot",
+      "description": "Type of sensor (temperature, pressure, vibration, flow)",
+      "aliases": [
+        "sensor_type",
+        "measurement_type",
+        "instrument_type",
+        "device_type"
+      ]
+    },
+    {
+      "id": "tag-name",
+      "domain": "iot",
+      "description": "SCADA/PLC tag name",
+      "aliases": [
+        "tag_name",
+        "tag",
+        "plc_tag",
+        "scada_tag",
+        "point_name",
+        "point_id",
+        "pi_tag"
+      ]
+    },
+    {
+      "id": "tag-value",
+      "domain": "iot",
+      "description": "Current value of a SCADA/PLC tag",
+      "aliases": [
+        "tag_value",
+        "current_value",
+        "live_value",
+        "real_time_value"
+      ]
+    },
+    {
+      "id": "setpoint",
+      "domain": "iot",
+      "description": "Target value for a control loop",
+      "aliases": [
+        "setpoint",
+        "sp",
+        "set_point",
+        "target_value",
+        "desired_value"
+      ]
+    },
+    {
+      "id": "alarm",
+      "domain": "iot",
+      "description": "Alarm event from control system",
+      "aliases": [
+        "alarm",
+        "alarm_id",
+        "alarm_event",
+        "alert",
+        "alarm_record"
+      ]
+    },
+    {
+      "id": "alarm-priority",
+      "domain": "iot",
+      "description": "Alarm severity/priority level",
+      "aliases": [
+        "alarm_priority",
+        "alarm_severity",
+        "priority_level",
+        "alarm_level"
+      ]
+    },
+    {
+      "id": "alarm-state",
+      "domain": "iot",
+      "description": "Current alarm state (active, acknowledged, cleared)",
+      "aliases": [
+        "alarm_state",
+        "alarm_status",
+        "ack_status",
+        "alarm_condition"
+      ]
+    },
+    {
+      "id": "sample-rate",
+      "domain": "iot",
+      "description": "Data collection frequency",
+      "aliases": [
+        "sample_rate",
+        "scan_rate",
+        "polling_interval",
+        "collection_frequency",
+        "sample_interval"
+      ]
+    },
+    {
+      "id": "energy-consumption",
+      "domain": "energy",
+      "description": "Energy usage measurement (kWh, BTU, MJ)",
+      "aliases": [
+        "energy_consumption",
+        "energy_usage",
+        "kwh",
+        "power_consumption",
+        "electricity_usage"
+      ]
+    },
+    {
+      "id": "power-demand",
+      "domain": "energy",
+      "description": "Instantaneous power draw (kW, MW)",
+      "aliases": [
+        "power_demand",
+        "power_draw",
+        "kw",
+        "load",
+        "electrical_load"
+      ]
+    },
+    {
+      "id": "utility-type",
+      "domain": "energy",
+      "description": "Type of utility (electricity, gas, water, steam, compressed air)",
+      "aliases": [
+        "utility_type",
+        "utility",
+        "resource_type",
+        "energy_type"
+      ]
+    },
+    {
+      "id": "utility-meter-reading",
+      "domain": "energy",
+      "description": "Meter reading for a utility",
+      "aliases": [
+        "utility_meter_reading",
+        "meter_reading",
+        "meter_value",
+        "consumption_reading"
+      ]
+    },
+    {
+      "id": "carbon-footprint",
+      "domain": "energy",
+      "description": "CO2 equivalent emissions",
+      "aliases": [
+        "carbon_footprint",
+        "co2",
+        "co2e",
+        "emissions",
+        "ghg",
+        "carbon_emissions"
+      ]
+    },
+    {
+      "id": "energy-cost",
+      "domain": "energy",
+      "description": "Cost of energy consumed",
+      "aliases": [
+        "energy_cost",
+        "utility_cost",
+        "power_cost",
+        "electricity_cost"
+      ]
+    },
+    {
+      "id": "part-spec",
+      "domain": "plm",
+      "description": "Part specification / engineering drawing",
+      "aliases": [
+        "part_spec",
+        "drawing",
+        "engineering_drawing",
+        "spec",
+        "specification"
+      ]
+    },
+    {
+      "id": "part-number",
+      "domain": "plm",
+      "description": "Engineering part number",
+      "aliases": [
+        "part_number",
+        "pn",
+        "part_no",
+        "item_number",
+        "drawing_number"
+      ]
+    },
+    {
+      "id": "part-revision",
+      "domain": "plm",
+      "description": "Revision/version of a part design",
+      "aliases": [
+        "part_revision",
+        "revision",
+        "rev",
+        "version",
+        "design_revision"
+      ]
+    },
+    {
+      "id": "engineering-change-order",
+      "domain": "plm",
+      "description": "ECO / ECN for design changes",
+      "aliases": [
+        "engineering_change_order",
+        "eco",
+        "ecn",
+        "change_order",
+        "engineering_change"
+      ]
+    },
+    {
+      "id": "product-definition",
+      "domain": "plm",
+      "description": "ISA-95 product definition",
+      "aliases": [
+        "product_definition",
+        "product_def",
+        "product_id",
+        "product_code"
+      ]
+    },
+    {
+      "id": "product-segment",
+      "domain": "plm",
+      "description": "ISA-95 product segment",
+      "aliases": [
+        "product_segment",
+        "prod_segment"
+      ]
+    },
+    {
+      "id": "process-parameter",
+      "domain": "plm",
+      "description": "Named process parameter (temperature, pressure, speed)",
+      "aliases": [
+        "process_parameter",
+        "process_param",
+        "param",
+        "parameter_name"
+      ]
+    },
+    {
+      "id": "process-parameter-value",
+      "domain": "plm",
+      "description": "Actual value of a process parameter",
+      "aliases": [
+        "process_parameter_value",
+        "param_value",
+        "actual_value",
+        "measured_value"
+      ]
+    },
+    {
+      "id": "simulation-model",
+      "domain": "plm",
+      "description": "Digital twin simulation model reference",
+      "aliases": [
+        "simulation_model",
+        "digital_twin",
+        "sim_model",
+        "twin_model"
+      ]
+    },
+    {
+      "id": "supplier-id",
+      "domain": "supply-chain",
+      "description": "Supplier/vendor identifier",
+      "aliases": [
+        "supplier_id",
+        "vendor_id",
+        "supplier",
+        "vendor",
+        "vendor_code",
+        "supplier_code",
+        "vendor_number"
+      ]
+    },
+    {
+      "id": "customer-id",
+      "domain": "supply-chain",
+      "description": "Customer identifier",
+      "aliases": [
+        "customer_id",
+        "customer",
+        "cust_id",
+        "customer_code",
+        "customer_number",
+        "sold_to"
+      ]
+    },
+    {
+      "id": "purchase-order",
+      "domain": "supply-chain",
+      "description": "Purchase order for materials",
+      "aliases": [
+        "purchase_order",
+        "po",
+        "po_number",
+        "po_id",
+        "procurement_order"
+      ]
+    },
+    {
+      "id": "sales-order",
+      "domain": "supply-chain",
+      "description": "Customer sales order",
+      "aliases": [
+        "sales_order",
+        "so",
+        "so_number",
+        "customer_order",
+        "order_id"
+      ]
+    },
+    {
+      "id": "shipment",
+      "domain": "supply-chain",
+      "description": "Shipment/delivery record",
+      "aliases": [
+        "shipment",
+        "shipment_id",
+        "delivery",
+        "delivery_id",
+        "consignment"
+      ]
+    },
+    {
+      "id": "delivery-date",
+      "domain": "supply-chain",
+      "description": "Planned or actual delivery date",
+      "aliases": [
+        "delivery_date",
+        "ship_date",
+        "expected_delivery",
+        "promised_date",
+        "due_date"
+      ]
+    },
+    {
+      "id": "carrier",
+      "domain": "supply-chain",
+      "description": "Shipping carrier/logistics provider",
+      "aliases": [
+        "carrier",
+        "carrier_id",
+        "shipper",
+        "logistics_provider",
+        "freight_carrier"
+      ]
+    },
+    {
+      "id": "safety-incident",
+      "domain": "safety",
+      "description": "Safety event or near-miss",
+      "aliases": [
+        "safety_incident",
+        "incident",
+        "near_miss",
+        "safety_event",
+        "accident"
+      ]
+    },
+    {
+      "id": "safety-observation",
+      "domain": "safety",
+      "description": "Proactive safety observation",
+      "aliases": [
+        "safety_observation",
+        "observation",
+        "safety_audit",
+        "bbs_observation"
+      ]
+    },
+    {
+      "id": "permit-to-work",
+      "domain": "safety",
+      "description": "Work permit for hazardous activities",
+      "aliases": [
+        "permit_to_work",
+        "ptw",
+        "work_permit",
+        "hot_work_permit",
+        "confined_space_permit"
+      ]
+    },
+    {
+      "id": "lockout-tagout",
+      "domain": "safety",
+      "description": "LOTO record for equipment isolation",
+      "aliases": [
+        "lockout_tagout",
+        "loto",
+        "isolation_record",
+        "energy_isolation"
+      ]
+    },
+    {
+      "id": "environmental-reading",
+      "domain": "safety",
+      "description": "Environmental measurement (emissions, noise, dust)",
+      "aliases": [
+        "environmental_reading",
+        "env_reading",
+        "emission",
+        "noise_level",
+        "air_quality"
+      ]
+    },
+    {
+      "id": "waste-record",
+      "domain": "safety",
+      "description": "Waste generation and disposal record",
+      "aliases": [
+        "waste_record",
+        "waste",
+        "waste_disposal",
+        "hazardous_waste"
+      ]
+    },
+    {
+      "id": "weather-condition",
+      "domain": "weather",
+      "description": "Current weather state (clear, rain, snow, fog)",
+      "aliases": [
+        "weather_condition",
+        "weather",
+        "conditions",
+        "sky_condition"
+      ]
+    },
+    {
+      "id": "ambient-temperature",
+      "domain": "weather",
+      "description": "Outdoor air temperature",
+      "aliases": [
+        "ambient_temperature",
+        "ambient_temp",
+        "outside_temp",
+        "air_temperature",
+        "outdoor_temp"
+      ]
+    },
+    {
+      "id": "humidity",
+      "domain": "weather",
+      "description": "Relative humidity percentage",
+      "aliases": [
+        "humidity",
+        "relative_humidity",
+        "rh",
+        "rh_pct"
+      ]
+    },
+    {
+      "id": "wind-speed",
+      "domain": "weather",
+      "description": "Wind speed measurement",
+      "aliases": [
+        "wind_speed",
+        "wind_velocity",
+        "wind_mph",
+        "wind_kph"
+      ]
+    },
+    {
+      "id": "wind-direction",
+      "domain": "weather",
+      "description": "Wind direction (compass bearing)",
+      "aliases": [
+        "wind_direction",
+        "wind_dir",
+        "wind_bearing"
+      ]
+    },
+    {
+      "id": "precipitation",
+      "domain": "weather",
+      "description": "Rain/snow amount or rate",
+      "aliases": [
+        "precipitation",
+        "precip",
+        "rainfall",
+        "snowfall"
+      ]
+    },
+    {
+      "id": "visibility",
+      "domain": "weather",
+      "description": "Visibility distance (fog, haze conditions)",
+      "aliases": [
+        "visibility",
+        "vis",
+        "visibility_miles"
+      ]
+    },
+    {
+      "id": "heat-index",
+      "domain": "weather",
+      "description": "Feels-like temperature (heat + humidity)",
+      "aliases": [
+        "heat_index",
+        "feels_like",
+        "apparent_temperature"
+      ]
+    },
+    {
+      "id": "wind-chill",
+      "domain": "weather",
+      "description": "Feels-like temperature (cold + wind)",
+      "aliases": [
+        "wind_chill",
+        "windchill",
+        "chill_factor"
+      ]
+    },
+    {
+      "id": "uv-index",
+      "domain": "weather",
+      "description": "UV radiation index",
+      "aliases": [
+        "uv_index",
+        "uv",
+        "ultraviolet_index"
+      ]
+    },
+    {
+      "id": "weather-alert",
+      "domain": "weather",
+      "description": "Severe weather warning or advisory",
+      "aliases": [
+        "weather_alert",
+        "weather_warning",
+        "storm_warning",
+        "severe_weather"
+      ]
+    },
+    {
+      "id": "lightning-proximity",
+      "domain": "weather",
+      "description": "Lightning strike distance from site",
+      "aliases": [
+        "lightning_proximity",
+        "lightning_distance",
+        "lightning_alert"
+      ]
+    },
+    {
+      "id": "air-quality-index",
+      "domain": "weather",
+      "description": "AQI measurement for outdoor work safety",
+      "aliases": [
+        "air_quality_index",
+        "aqi",
+        "air_quality"
+      ]
+    },
+    {
+      "id": "site-id",
+      "domain": "facility",
+      "description": "Plant/factory/site identifier (ISA-95 Site level)",
+      "aliases": [
+        "site_id",
+        "plant",
+        "plant_id",
+        "plant_code",
+        "factory",
+        "site",
+        "facility_code"
+      ]
+    },
+    {
+      "id": "area-id",
+      "domain": "facility",
+      "description": "Production area identifier (ISA-95 Area level)",
+      "aliases": [
+        "area_id",
+        "area",
+        "production_area",
+        "dept",
+        "department",
+        "zone"
+      ]
+    },
+    {
+      "id": "facility-id",
+      "domain": "facility",
+      "description": "Facility identifier within a site",
+      "aliases": [
+        "facility_id",
+        "facility",
+        "building_id",
+        "campus_id"
+      ]
+    },
+    {
+      "id": "building",
+      "domain": "facility",
+      "description": "Building identifier",
+      "aliases": [
+        "building",
+        "building_id",
+        "bldg",
+        "structure"
+      ]
+    },
+    {
+      "id": "floor-level",
+      "domain": "facility",
+      "description": "Floor/level within a building",
+      "aliases": [
+        "floor_level",
+        "floor",
+        "level",
+        "storey"
+      ]
+    },
+    {
+      "id": "geo-location",
+      "domain": "facility",
+      "description": "GPS coordinates or address",
+      "aliases": [
+        "geo_location",
+        "gps",
+        "coordinates",
+        "latitude",
+        "longitude",
+        "address"
+      ]
+    },
+    {
+      "id": "traceability-record",
+      "domain": "traceability",
+      "description": "Link between input lots and output lots",
+      "aliases": [
+        "traceability_record",
+        "trace_record",
+        "genealogy_record",
+        "lot_trace"
+      ]
+    },
+    {
+      "id": "genealogy",
+      "domain": "traceability",
+      "description": "Product genealogy (parent-child lot relationships)",
+      "aliases": [
+        "genealogy",
+        "product_genealogy",
+        "lot_genealogy",
+        "as_built"
+      ]
+    },
+    {
+      "id": "audit-trail",
+      "domain": "traceability",
+      "description": "Record of system actions for compliance",
+      "aliases": [
+        "audit_trail",
+        "audit_log",
+        "change_log",
+        "activity_log",
+        "event_log"
+      ]
+    },
+    {
+      "id": "electronic-signature",
+      "domain": "traceability",
+      "description": "21 CFR Part 11 electronic signature",
+      "aliases": [
+        "electronic_signature",
+        "esig",
+        "e_signature",
+        "digital_signature"
+      ]
+    },
+    {
+      "id": "regulatory-standard",
+      "domain": "traceability",
+      "description": "Applicable regulation (GMP, ISO, FDA, OSHA)",
+      "aliases": [
+        "regulatory_standard",
+        "regulation",
+        "standard",
+        "compliance_standard"
+      ]
+    },
+    {
+      "id": "compliance-status",
+      "domain": "traceability",
+      "description": "Compliance state (compliant, non-compliant, pending)",
+      "aliases": [
+        "compliance_status",
+        "compliance",
+        "compliant",
+        "compliance_state"
+      ]
+    }
+  ]
+}
